@@ -267,7 +267,6 @@ function arenaHTML(){
     var msg = tab === 'mes' ? ['Aucun match en cours', 'Lance un défi ou accepte-en un depuis l\'onglet Défis ouverts.'] : tab === 'termines' ? ['Rien de joué pour l\'instant', 'Les matchs terminés apparaîtront ici.'] : tab === 'litiges' ? ['Aucun litige', 'Tout le monde est d\'accord, pour l\'instant.'] : ['Aucun défi ouvert', 'Lance le premier défi de l\'arène.'];
     html += '<div class="empty"><b>' + msg[0] + '</b>' + msg[1] + '</div>';
   } else html += '<div class="grid">' + list.map(function(m){ return posterHTML(m, false); }).join('') + '</div>';
-  html += communityStreamsHTML();
   return html;
 }
 function communityStreamsHTML(){
@@ -280,9 +279,11 @@ function communityStreamsHTML(){
     '<p class="help" style="margin-bottom:12px">Relie ta chaîne Twitch dans « Modifier le profil » pour apparaître ici. Clique sur une carte pour regarder en grand.</p>' +
     '<div class="cs-grid">' + list.map(function(p){
       var live = isLive(p.twitch);
-      return '<button class="cs-card' + (live ? ' live' : '') + '" data-act="watch" data-ch="' + esc(p.twitch) + '" data-pid="' + esc(p.id) + '">' +
-        '<span class="cs-thumb">' + (live ? '<img src="https://static-cdn.jtvnw.net/previews-ttv/live_user_' + encodeURIComponent(p.twitch) + '-440x248.jpg?t=' + Math.floor(Date.now() / 120000) + '" alt="" loading="lazy"><b class="live-tag">🔴 LIVE</b>' : '<span class="cs-off">' + av(p, 'lg') + '<small>Hors ligne</small></span>') + '</span>' +
-        '<span class="cs-meta"><b>' + nm(p) + '</b><small>twitch.tv/' + esc(p.twitch) + '</small></span></button>';
+      var host = location.hostname || 'nyro098.github.io';
+      return '<div class="cs-card' + (live ? ' live' : '') + '">' +
+        '<span class="cs-thumb">' + (live ? '<iframe src="https://player.twitch.tv/?channel=' + encodeURIComponent(p.twitch) + '&parent=' + encodeURIComponent(host) + '&muted=true&autoplay=true&controls=false" allow="autoplay" title="Stream de ' + esc(p.pseudo) + '" tabindex="-1"></iframe><b class="live-tag">🔴 LIVE</b>' : '<span class="cs-off">' + av(p, 'lg') + '<small>Hors ligne</small></span>') + '</span>' +
+        '<span class="cs-meta"><b>' + nm(p) + '</b><small>twitch.tv/' + esc(p.twitch) + '</small></span>' +
+        '<button class="cs-hit" data-act="watch" data-ch="' + esc(p.twitch) + '" data-pid="' + esc(p.id) + '" aria-label="Regarder ' + esc(p.pseudo) + ' en grand"></button></div>';
     }).join('') + '</div></section>';
 }
 function watchDialog(ch, pid){
@@ -568,7 +569,7 @@ function tourNewDialog(){
 }
 
 /* ---------- streams Twitch ---------- */
-var liveCache = {}, LIVE_TTL = 120000;
+var liveCache = {}, LIVE_TTL = 55000;
 function isLive(ch){ var c = ch && liveCache[ch]; return !!(c && c.live); }
 function checkLive(ch){
   if (!ch) return;
@@ -1187,15 +1188,37 @@ function render(){
   if (!configured) { app.innerHTML = betaBar() + '<div class="wrap welcome"><div class="card"><h2 class="sec">Site pas encore relié</h2><p style="margin-top:12px">Il manque l\'adresse et la clé Supabase dans <code>config.js</code>.</p></div></div>'; return; }
   if (!loaded) { app.innerHTML = betaBar() + '<div class="wrap welcome"><p class="eyebrow">Chargement de l\'arène…</p></div>'; return; }
   if (S.me && !me()) S.me = null;
+  if (!me() || me().status === 'banned' || !me().rulesAt || !me().joined) { updateStreamsHost(false); var f0 = document.getElementById('foot'); if (f0) f0.innerHTML = ''; }
   if (!me()) { app.innerHTML = welcomeHTML(); return; }
   if (me().status === 'banned') { app.innerHTML = bannedHTML(); return; }
   if (!me().rulesAt) { if (!document.getElementById('rules-btn')) { app.innerHTML = rulesGateHTML(); window.scrollTo(0, 0); } return; }
   if (!me().joined) { if (!document.getElementById('dc-ok')) app.innerHTML = discordGateHTML(); return; }
   var v = viewName();
   var body = v === 'classement' ? boardHTML() : v === 'profil' ? profileHTML() : v === 'regles' ? rulesHTML() : v === 'signaler' ? reportHTML() : v === 'amis' ? friendsHTML() : v === 'boutique' ? shopHTML() : v === 'tournois' ? tournamentsHTML() : v === 'match' ? matchPageHTML() : arenaHTML();
-  app.innerHTML = headerHTML(v) + (loadErr ? '<div class="wrap"><div class="notice" style="margin-top:16px"><p>Problème de connexion au serveur : ' + esc(loadErr) + '</p></div></div>' : '') + '<main class="wrap main" id="main">' + (me().status === 'restricted' ? '<div class="notice restricted"><p><b>Compte restreint jusqu\'à ' + untilTxt(me().restrictedUntil) + '.</b> Tu peux regarder le site mais tu ne peux plus jouer, écrire dans les chats ni envoyer de coins' + (me().statusReason ? ' (raison : « ' + esc(me().statusReason) + ' »)' : '') + '. Pour contester, ouvre un ticket sur le Discord.</p></div>' : '') + body + '</main>' + footerHTML();
+  app.innerHTML = headerHTML(v) + (loadErr ? '<div class="wrap"><div class="notice" style="margin-top:16px"><p>Problème de connexion au serveur : ' + esc(loadErr) + '</p></div></div>' : '') + '<main class="wrap main" id="main">' + (me().status === 'restricted' ? '<div class="notice restricted"><p><b>Compte restreint jusqu\'à ' + untilTxt(me().restrictedUntil) + '.</b> Tu peux regarder le site mais tu ne peux plus jouer, écrire dans les chats ni envoyer de coins' + (me().statusReason ? ' (raison : « ' + esc(me().statusReason) + ' »)' : '') + '. Pour contester, ouvre un ticket sur le Discord.</p></div>' : '') + body + '</main>';
+  updateStreamsHost(v === 'arene');
+  var ft = document.getElementById('foot'); if (ft && !ft.firstChild) ft.innerHTML = footerHTML();
   var cl = document.getElementById('chat-list'); if (cl) cl.scrollTop = cl.scrollHeight;
 }
+/* rubrique streams : en dehors de #app pour ne pas relancer les lecteurs à chaque rafraîchissement */
+var streamsSig = null;
+function updateStreamsHost(show){
+  var host = document.getElementById('streams-host');
+  if (!host) return;
+  if (!show) { if (streamsSig !== '') { host.innerHTML = ''; streamsSig = ''; } host.hidden = true; return; }
+  host.hidden = false;
+  var list = Object.keys(S.players).map(function(k){ return S.players[k]; }).filter(function(p){ return p.twitch && p.status !== 'banned'; });
+  list.forEach(function(p){ checkLive(p.twitch); });
+  var sig = list.map(function(p){ return p.id + ':' + p.twitch + ':' + (isLive(p.twitch) ? 1 : 0) + ':' + p.pseudo + ':' + p.avatar; }).sort().join('|');
+  if (sig === streamsSig) return;
+  streamsSig = sig;
+  host.innerHTML = communityStreamsHTML();
+}
+setInterval(function(){
+  if (!S.players || !me() || viewName() !== 'arene') return;
+  Object.keys(S.players).forEach(function(k){ var ch = S.players[k].twitch; if (ch) checkLive(ch); });
+  setTimeout(function(){ updateStreamsHost(true); }, 2500);
+}, 60000);
 /* rafraîchissement automatique sans casser ce que la personne tape */
 function typing(){ var a = document.activeElement; return dlg || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); }
 var passiveT = null;

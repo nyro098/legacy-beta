@@ -593,6 +593,12 @@ td.bal-c,tr.top1 td.rank{color:var(--gold)}
 .watch-off small{color:var(--fg-2)}
 .watch-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--fg);font-weight:700}
 .watch-meta .btn:first-of-type{margin-left:auto}
+.cs-card{position:relative}
+.cs-thumb iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.cs-hit{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:0;cursor:pointer;z-index:2}
+.cs-hit:focus-visible{outline:2px solid #9146ff;outline-offset:-2px;border-radius:14px}
+.cs-thumb .live-tag{z-index:1}
+#streams-host{padding-bottom:40px}
 .btn.admin{border-color:var(--gold);color:var(--gold);background:rgba(255,197,61,.08)}
 .chat-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:12px;background:rgba(7,8,26,.5);border:1px solid var(--line);border-radius:12px}
 .msg{display:flex;gap:10px;align-items:flex-start;min-width:0}
@@ -607,9 +613,11 @@ td.bal-c,tr.top1 td.rank{color:var(--gold)}
 .adminbox{border:1px dashed var(--gold);border-radius:12px;padding:14px}
 </style>
 <div id="app"></div>
+<div id="streams-host" class="wrap" hidden></div>
+<div id="foot"></div>
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=1794146765"></script>
-<script src="app.js?v=1794146765"></script>
+<script src="config.js?v=1794147211"></script>
+<script src="app.js?v=1794147211"></script>
 </body></html>
