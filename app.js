@@ -41,7 +41,7 @@ var S = {players: {}, matches: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -52,7 +52,7 @@ function mapMatch(m){
 }
 function refresh(){
   return Promise.all([
-    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,created_at'),
+    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,created_at'),
     sb.from('matches').select('*').order('created_at', {ascending: false}).limit(400),
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
@@ -205,7 +205,8 @@ function posterHTML(m, big){
   var face = '<div class="p-face' + (m.size > 1 ? ' team' : '') + ((m.size === 1 && !m.teamB.length) ? ' vacant-b' : '') + '" style="--ha:' + ha + ';--hb:' + hb + '">' +
     sideHTML(m, 'A', ws) + sideHTML(m, 'B', ws) + (m.status === 'done' && m.scoreA != null ? '<div class="vs score" aria-label="Score ' + m.scoreA + ' à ' + m.scoreB + '">' + m.scoreA + '<i>–</i>' + m.scoreB + '</div>' : '<div class="vs" aria-hidden="true">VS</div>') + '</div>';
   var pot = '<div class="p-pot"><span>Mise de chaque joueur</span><b>' + COIN + fmt(m.stake) + '</b></div>';
-  var top = '<div class="p-top"><span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(BO_LABEL[m.bo] || m.bo) + '</span>' + (m.pingpong ? '<span class="bo pp">Ping-pong</span>' : '') + (st === 'open' && m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé</span>' : '') + '<span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
+  var liveTag = matchLive(m) ? '<span class="live-tag">🔴 LIVE</span>' : '';
+  var top = '<div class="p-top">' + liveTag + '<span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(BO_LABEL[m.bo] || m.bo) + '</span>' + (m.pingpong ? '<span class="bo pp">Ping-pong</span>' : '') + (st === 'open' && m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé</span>' : '') + '<span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
   if (big) return '<div class="poster big">' + top + face + pot + '</div>';
   var f = '', needs = m.size * 2 - m.teamA.length - m.teamB.length;
   if (st === 'open') {
@@ -334,6 +335,7 @@ function matchPageHTML(){
       '<button class="btn sm danger" data-act="admin-cancel" data-id="' + id + '">Annuler et rembourser</button></div></div>';
   }
   html += r + '</section>';
+  if (st !== 'cancelled' && st !== 'done') html += streamsSectionHTML(m);
   if (st !== 'open' && st !== 'cancelled') html += proofsSectionHTML(m, !!mt || isAdmin());
   if (mt || isAdmin()) {
     if (!chatCache[m.id]) loadChat(m.id);
@@ -369,13 +371,14 @@ function profileHTML(){
     html += '<section class="card" style="max-width:560px"><h2 class="sec">Modifier mon profil</h2><form data-form="edit" novalidate>' +
       '<label for="e-pseudo">Pseudo</label><input id="e-pseudo" name="pseudo" required maxlength="24" autocomplete="off" value="' + esc(p.pseudo) + '">' +
       '<label>Discord (identifiant de connexion)</label><input value="' + esc(p.discord) + '" disabled>' +
+      '<label for="e-twitch">Ta chaîne Twitch (facultatif)</label><input id="e-twitch" name="twitch" maxlength="60" autocomplete="off" value="' + esc(p.twitch) + '" placeholder="Ton pseudo Twitch ou le lien de ta chaîne"><p class="hint">Si tu es en live pendant un match, ton stream s’affichera automatiquement sur la page du match.</p>' +
       '<label for="e-twitter">X / Twitter (facultatif)</label><input id="e-twitter" name="twitter" maxlength="33" autocomplete="off" value="' + esc(p.twitter) + '" placeholder="@pseudo">' +
       '<label for="e-bio">Bio (facultatif)</label><textarea id="e-bio" name="bio" maxlength="140" placeholder="Ton style de jeu, tes règles préférées…">' + esc(p.bio) + '</textarea>' +
       '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="edit-off">Annuler</button></div></form></section>';
   } else {
     html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
-      (p.twitter ? '<a href="https://x.com/' + encodeURIComponent(p.twitter) + '" target="_blank" rel="noopener noreferrer">X : @' + esc(p.twitter) + '</a>' : '') +
+      (p.twitch ? '<a href="https://www.twitch.tv/' + encodeURIComponent(p.twitch) + '" target="_blank" rel="noopener noreferrer">Twitch : ' + esc(p.twitch) + (isLive(p.twitch) ? ' <b class="live-dot">🔴 LIVE</b>' : '') + '</a>' : '') + (p.twitter ? '<a href="https://x.com/' + encodeURIComponent(p.twitter) + '" target="_blank" rel="noopener noreferrer">X : @' + esc(p.twitter) + '</a>' : '') +
       '<span>Inscrit ' + ago(p.createdAt) + '</span></div>' + (p.bio ? '<p style="margin-top:10px;max-width:56ch;color:var(--fg-2)">' + esc(p.bio) + '</p>' : '') + '</div>' +
       '<div class="actions">' + (own && isOwner() ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Me retirer des coins</button>' : '') + (own ? '<button class="btn anon-toggle' + (p.anon ? ' on' : '') + '" data-act="toggle-anon" title="Ton pseudo est caché quand tu rejoins un défi, jusqu’au début du match">🕶️ Mode anonyme : ' + (p.anon ? 'activé' : 'désactivé') + '</button>' : '') + (own ? '<button class="btn ghost" data-act="reset-stats"' + (avail(S.me) < 5 ? ' disabled title="Il te faut 5 coins"' : '') + '>🔄 Remettre mes stats à zéro · ' + cn(5) + '</button>' : '') + (own ? '<label class="btn primary" style="margin:0;cursor:pointer;color:#fff;letter-spacing:.08em">' + (p.avatar ? 'Changer la photo' : 'Ajouter une photo') + '<input type="file" id="avatar-file" accept="image/*" hidden></label>' + (p.avatar ? '<button class="btn ghost" data-act="avatar-remove">Retirer la photo</button>' : '') + '<button class="btn" data-act="edit-on">Modifier le profil</button>' : friendBtn(pid) + '<button class="btn" data-act="tip-dialog" data-pid="' + esc(pid) + '">Donner des coins</button>' + (isAdmin() && (isOwner() || !p.owner) ? '<button class="btn admin" data-act="admin-dialog" data-pid="' + esc(pid) + '">Admin : donner des coins</button>' : '') + (isOwner() && pid !== S.me ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Retirer des coins</button>' : '')) + '</div></section>';
   }
@@ -454,6 +457,46 @@ function uploadAvatar(file){
     toast(e && e.message === 'format' ? 'Ce format d\'image n\'est pas reconnu. Essaie une photo JPG ou PNG.' : 'Envoi impossible : ' + cleanErr(e && e.message));
   });
 }
+/* ---------- streams Twitch ---------- */
+var liveCache = {}, LIVE_TTL = 120000;
+function isLive(ch){ var c = ch && liveCache[ch]; return !!(c && c.live); }
+function checkLive(ch){
+  if (!ch) return;
+  var c = liveCache[ch];
+  if (c && (c.pending || Date.now() - c.at < LIVE_TTL)) return;
+  liveCache[ch] = {live: c ? c.live : false, at: Date.now(), pending: true};
+  fetch('https://decapi.me/twitch/uptime/' + encodeURIComponent(ch)).then(function(r){ return r.text(); }).then(function(txt){
+    var live = !!txt && !/offline|not found|error|invalid/i.test(txt);
+    var changed = (liveCache[ch].live !== live);
+    liveCache[ch] = {live: live, at: Date.now()};
+    if (changed && !typing()) render();
+  }).catch(function(){ liveCache[ch] = {live: false, at: Date.now()}; });
+}
+function matchPlayersTwitch(m){
+  return m.teamA.concat(m.teamB).filter(function(pid){ return !masked(m, pid); }).map(function(pid){ return {pid: pid, ch: P(pid).twitch}; }).filter(function(x){ return x.ch; });
+}
+function matchLive(m){
+  if (m.status !== 'live' && m.status !== 'dispute' && m.status !== 'open') return false;
+  var list = matchPlayersTwitch(m);
+  list.forEach(function(x){ checkLive(x.ch); });
+  return list.some(function(x){ return isLive(x.ch); });
+}
+function streamsSectionHTML(m){
+  var list = matchPlayersTwitch(m);
+  list.forEach(function(x){ checkLive(x.ch); });
+  var live = list.filter(function(x){ return isLive(x.ch); });
+  if (!live.length) {
+    if (!list.length) return '';
+    return '<section class="panel streams"><h2>📺 Streams</h2><p class="help">' + list.map(function(x){ return esc(P(x.pid).pseudo); }).join(', ') + (list.length > 1 ? ' ont' : ' a') + ' une chaîne Twitch. Si un live démarre, il s\'affichera ici automatiquement.</p></section>';
+  }
+  var host = location.hostname || 'nyro098.github.io';
+  return '<section class="panel streams"><h2><span class="live-tag">🔴 LIVE</span> Le match en direct</h2><div class="stream-grid' + (live.length > 1 ? ' two' : '') + '">' +
+    live.map(function(x){
+      return '<figure class="stream"><div class="stream-frame"><iframe src="https://player.twitch.tv/?channel=' + encodeURIComponent(x.ch) + '&parent=' + encodeURIComponent(host) + '&muted=true&autoplay=true" allowfullscreen allow="autoplay; fullscreen" title="Stream Twitch de ' + esc(P(x.pid).pseudo) + '"></iframe></div>' +
+        '<figcaption>' + av(P(x.pid), 'sm') + '<b>' + nm(P(x.pid)) + '</b><a href="https://www.twitch.tv/' + encodeURIComponent(x.ch) + '" target="_blank" rel="noopener noreferrer">Ouvrir sur Twitch ↗</a></figcaption></figure>';
+    }).join('') + '</div><p class="help">Le son est coupé au départ : clique sur le lecteur pour l\'activer.</p></section>';
+}
+
 /* ---------- chrono anti-AFK (10 min pour contester) ---------- */
 var CLAIM_MS = 10 * 60 * 1000, timeoutAsked = {};
 function timerHTML(m, mt, myD, od){
@@ -1258,6 +1301,9 @@ document.addEventListener('submit', function(e){
   }[kind];
   if (!map) return;
   rpc(map[0], map[1]).then(function(r){
+    if (!r.ok || kind !== 'edit') return r;
+    return rpc('set_twitch', {p_twitch: d.twitch || ''});
+  }).then(function(r){
     if (!r.ok) return fail(r.msg);
     if (kind === 'edit') editing = false;
     if (kind === 'match') { tab = 'ouverts'; if (viewName() !== 'arene') location.hash = '#arene'; }
