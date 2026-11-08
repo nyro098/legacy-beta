@@ -758,7 +758,7 @@ function podiumHTML(compact){
   if (!top.length) return compact ? '' : '<section class="podium-wrap"><h2 class="sec">🏆 Joueurs de la semaine</h2><p class="help">Aucun match gagné ces 7 derniers jours. Le podium se remplit dès les premières victoires !</p></section>';
   var medals = ['🥇', '🥈', '🥉'], order = top.length === 3 ? [1, 0, 2] : top.length === 2 ? [1, 0] : [0];
   return '<section class="podium-wrap' + (compact ? ' compact' : '') + '"><h2 class="sec">🏆 Joueurs de la semaine</h2><p class="help">Les plus gros gains en coins sur les 7 derniers jours.</p><div class="podium">' +
-    order.map(function(idx){ var x = top[idx], p = P(x.pid); return '<button class="pod pod-' + (idx + 1) + '" data-act="goto-player" data-pid="' + esc(x.pid) + '"><span class="medal">' + medals[idx] + '</span>' + av(p, idx === 0 ? 'lg' : '') + '<b>' + nm(p) + '</b>' + titleHTML(p) + '<span class="pod-net">+' + fmt(x.s.net) + ' ' + COIN + '</span><small>' + x.s.w + 'V · ' + x.s.l + 'D</small><span class="pod-step">' + (idx + 1) + '</span></button>'; }).join('') +
+    order.map(function(idx){ var x = top[idx], p = P(x.pid); return '<button class="pod pod-' + (idx + 1) + '" data-act="goto-player" data-pid="' + esc(x.pid) + '"><span class="medal">' + medals[idx] + '</span>' + av(p, idx === 0 ? 'lg' : '') + '<b>' + nm(p) + '</b>' + titleHTML(p) + '<span class="pod-net' + (x.s.net < 0 ? ' neg' : '') + '">' + (x.s.net > 0 ? '+' : x.s.net < 0 ? '−' : '') + fmt(Math.abs(x.s.net)) + ' ' + COIN + '</span><small>' + x.s.w + 'V · ' + x.s.l + 'D</small><span class="pod-step">' + (idx + 1) + '</span></button>'; }).join('') +
     '</div></section>';
 }
 function oldShopHTML2(){
