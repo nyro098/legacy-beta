@@ -267,7 +267,31 @@ function arenaHTML(){
     var msg = tab === 'mes' ? ['Aucun match en cours', 'Lance un défi ou accepte-en un depuis l\'onglet Défis ouverts.'] : tab === 'termines' ? ['Rien de joué pour l\'instant', 'Les matchs terminés apparaîtront ici.'] : tab === 'litiges' ? ['Aucun litige', 'Tout le monde est d\'accord, pour l\'instant.'] : ['Aucun défi ouvert', 'Lance le premier défi de l\'arène.'];
     html += '<div class="empty"><b>' + msg[0] + '</b>' + msg[1] + '</div>';
   } else html += '<div class="grid">' + list.map(function(m){ return posterHTML(m, false); }).join('') + '</div>';
+  html += communityStreamsHTML();
   return html;
+}
+function communityStreamsHTML(){
+  var list = Object.keys(S.players).map(function(k){ return S.players[k]; }).filter(function(p){ return p.twitch && p.status !== 'banned'; });
+  if (!list.length) return '';
+  list.forEach(function(p){ checkLive(p.twitch); });
+  list.sort(function(a, b){ return isLive(b.twitch) - isLive(a.twitch) || a.pseudo.localeCompare(b.pseudo); });
+  var nLive = list.filter(function(p){ return isLive(p.twitch); }).length;
+  return '<section class="cstreams"><div class="cs-head"><h2 class="sec">📺 Streams de la communauté</h2><span class="help">' + (nLive ? '<b class="live-tag">🔴 ' + nLive + ' en live</b>' : 'Personne en live pour le moment') + '</span></div>' +
+    '<p class="help" style="margin-bottom:12px">Relie ta chaîne Twitch dans « Modifier le profil » pour apparaître ici. Clique sur une carte pour regarder en grand.</p>' +
+    '<div class="cs-grid">' + list.map(function(p){
+      var live = isLive(p.twitch);
+      return '<button class="cs-card' + (live ? ' live' : '') + '" data-act="watch" data-ch="' + esc(p.twitch) + '" data-pid="' + esc(p.id) + '">' +
+        '<span class="cs-thumb">' + (live ? '<img src="https://static-cdn.jtvnw.net/previews-ttv/live_user_' + encodeURIComponent(p.twitch) + '-440x248.jpg?t=' + Math.floor(Date.now() / 120000) + '" alt="" loading="lazy"><b class="live-tag">🔴 LIVE</b>' : '<span class="cs-off">' + av(p, 'lg') + '<small>Hors ligne</small></span>') + '</span>' +
+        '<span class="cs-meta"><b>' + nm(p) + '</b><small>twitch.tv/' + esc(p.twitch) + '</small></span></button>';
+    }).join('') + '</div></section>';
+}
+function watchDialog(ch, pid){
+  var p = P(pid), live = isLive(ch), host = location.hostname || 'nyro098.github.io';
+  return '<div class="overlay lightbox watch"><button class="x" data-act="close" aria-label="Fermer">×</button><div class="watch-box">' +
+    '<div class="stream-frame">' + (live
+      ? '<iframe src="https://player.twitch.tv/?channel=' + encodeURIComponent(ch) + '&parent=' + encodeURIComponent(host) + '&autoplay=true&muted=false" allowfullscreen allow="autoplay; fullscreen" title="Stream de ' + esc(p.pseudo) + '"></iframe>'
+      : '<div class="watch-off">' + av(p, 'xl') + '<b>' + esc(p.pseudo) + ' est hors ligne</b><small>Reviens plus tard, ou suis sa chaîne pour être prévenu du prochain live.</small></div>') + '</div>' +
+    '<div class="watch-meta">' + av(p, 'sm') + '<b>' + nm(p) + badge(p) + '</b>' + (live ? '<span class="live-tag">🔴 LIVE</span>' : '') + '<a class="btn sm" href="https://www.twitch.tv/' + encodeURIComponent(ch) + '" target="_blank" rel="noopener noreferrer">Ouvrir sur Twitch ↗</a><button class="btn sm ghost" data-act="goto-player" data-pid="' + esc(pid) + '">Voir son profil</button></div></div></div>';
 }
 
 function teamCard(m, team){
@@ -1151,7 +1175,7 @@ function bannedHTML(){
 function renderDialog(){
   var L = $('#layer');
   if (!dlg) { L.innerHTML = ''; return; }
-  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
+  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
   var f = L.querySelector('input,select,button.btn.primary,.x'); if (f) f.focus();
 }
 function openDialog(d){ lastFocus = document.activeElement; dlg = d; renderDialog(); }
@@ -1222,6 +1246,7 @@ function act(name, el){
       if (!confirm('Remettre toutes tes stats à zéro (victoires, défaites, taux, bilan, série) pour ' + cn(5) + ' ? Tes coins et tes articles sont conservés.')) break;
       doRpc('reset_stats', {}, 'Stats remises à zéro. Nouveau départ !');
       break;
+    case 'watch': openDialog({kind: 'watch', ch: d.ch, pid: d.pid}); break;
     case 'goto-tours': tourId = null; if (dlg) closeDialog(); if (viewName() === 'tournois') render(); else location.hash = '#tournois'; break;
     case 'open-tour': tourId = d.id; if (viewName() === 'tournois') render(); else location.hash = '#tournois'; window.scrollTo(0, 0); break;
     case 'tour-back': tourId = null; render(); window.scrollTo(0, 0); break;

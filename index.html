@@ -572,6 +572,27 @@ td.bal-c,tr.top1 td.rank{color:var(--gold)}
 .bp.me{box-shadow:inset 3px 0 0 #00d4ff}
 .bw{color:#1ee8a0}
 .tour-champ{text-align:center;font-size:34px}
+.cstreams{display:grid;gap:4px;margin-top:10px}
+.cs-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:12px}
+.cs-card{display:flex;flex-direction:column;padding:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface);text-align:left;color:var(--fg);transition:transform .15s,border-color .15s}
+.cs-card:hover{transform:translateY(-2px);border-color:#9146ff}
+.cs-card.live{border-color:rgba(233,25,22,.7);box-shadow:0 0 22px rgba(233,25,22,.25)}
+.cs-thumb{position:relative;display:block;aspect-ratio:16/9;background:#000}
+.cs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.cs-thumb .live-tag{position:absolute;top:8px;left:8px}
+.cs-off{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:radial-gradient(circle,#15152a,#000);filter:grayscale(.6)}
+.cs-off small{font:700 11px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-2)}
+.cs-meta{display:flex;flex-direction:column;gap:2px;padding:10px 12px}
+.cs-meta b{font-size:15px;overflow-wrap:anywhere}
+.cs-meta small{color:#bf94ff;font-size:12px}
+.watch-box{width:min(1100px,100%);display:grid;gap:10px;cursor:default}
+.watch .stream-frame{border-radius:12px;overflow:hidden;background:#000;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.watch-off{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;color:var(--fg)}
+.watch-off b{font:800 26px var(--f-display);text-transform:uppercase}
+.watch-off small{color:var(--fg-2)}
+.watch-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--fg);font-weight:700}
+.watch-meta .btn:first-of-type{margin-left:auto}
 .btn.admin{border-color:var(--gold);color:var(--gold);background:rgba(255,197,61,.08)}
 .chat-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:12px;background:rgba(7,8,26,.5);border:1px solid var(--line);border-radius:12px}
 .msg{display:flex;gap:10px;align-items:flex-start;min-width:0}
@@ -589,6 +610,6 @@ td.bal-c,tr.top1 td.rank{color:var(--gold)}
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=1794146210"></script>
-<script src="app.js?v=1794146210"></script>
+<script src="config.js?v=1794146765"></script>
+<script src="app.js?v=1794146765"></script>
 </body></html>
