@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Legacy · Overlay OBS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Figtree:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Overlay OBS 1920x1080, fond transparent.
+     Options d'URL : ?cam=0 (sans cadre webcam), ?bar=top (bandeau en haut), ?demo=1 (fond sombre pour prévisualiser) */
+  :root{--grad:linear-gradient(90deg,#8b5cff 0%,#4f7bff 50%,#00d4ff 100%);--gold:#ffd76a;--fg:#f5f6ff;--fg2:#b7bce6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1920px;height:1080px;overflow:hidden;background:transparent;font-family:Figtree,system-ui,sans-serif;color:var(--fg)}
+  body.demo{background:radial-gradient(1200px 600px at 30% 20%,#2a1f5c,#07081a)}
+
+  /* logo en haut à gauche */
+  .brand{position:absolute;top:28px;left:32px;display:flex;align-items:center;gap:14px;padding:12px 20px 12px 14px;border-radius:18px;background:rgba(7,8,26,.72);border:1px solid rgba(139,92,255,.5);box-shadow:0 0 30px rgba(139,92,255,.35);backdrop-filter:blur(6px)}
+  .brand img{width:56px;height:56px;filter:drop-shadow(0 0 10px rgba(139,92,255,.8))}
+  .brand .name{font:900 40px/1 'Big Shoulders Display';letter-spacing:.06em;text-transform:uppercase}
+  .brand .beta{font:800 13px/1 Figtree;letter-spacing:.14em;color:#07081a;background:var(--gold);padding:4px 7px;border-radius:6px;margin-left:4px;vertical-align:middle}
+  .brand .tag{display:block;font:700 14px/1.2 Figtree;color:var(--fg2);letter-spacing:.04em;margin-top:4px}
+
+  /* bandeau */
+  .bar{position:absolute;left:0;right:0;bottom:0;height:86px;display:flex;align-items:stretch;background:rgba(7,8,26,.86);border-top:2px solid transparent;border-image:var(--grad) 1;backdrop-filter:blur(8px)}
+  body.top .bar{top:0;bottom:auto;border-top:0;border-bottom:2px solid transparent}
+  body.top .brand{top:auto;bottom:28px}
+  .cta{flex:none;display:flex;align-items:center;gap:16px;padding:0 30px;background:var(--grad);clip-path:polygon(0 0,100% 0,calc(100% - 34px) 100%,0 100%);padding-right:64px}
+  .cta b{font:900 34px/1 'Big Shoulders Display';text-transform:uppercase;letter-spacing:.04em}
+  .cta span{font:800 22px/1 Figtree}
+  .ticker{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;padding:0 30px}
+  .msg{position:absolute;left:30px;right:30px;display:flex;align-items:center;gap:14px;font:700 28px/1.1 Figtree;white-space:nowrap;opacity:0;transform:translateY(30px);transition:opacity .6s,transform .6s}
+  .msg.on{opacity:1;transform:none}
+  .msg .ic{font-size:32px}
+  .msg em{font-style:normal;color:var(--gold)}
+  .msg .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .live{flex:none;display:flex;align-items:center;gap:10px;padding:0 28px;font:800 20px Figtree;letter-spacing:.08em;color:#fff}
+  .live i{width:14px;height:14px;border-radius:50%;background:#e91916;box-shadow:0 0 12px #e91916;animation:pulse 1.4s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+
+  /* cadre webcam */
+  .cam{position:absolute;right:36px;bottom:122px;width:480px;height:270px;border-radius:18px;padding:4px;background:var(--grad);background-size:300% 300%;animation:flow 6s linear infinite;box-shadow:0 0 34px rgba(0,212,255,.35)}
+  body.top .cam{bottom:36px}
+  .cam::before{content:"";display:block;width:100%;height:100%;border-radius:14px;background:transparent;box-shadow:inset 0 0 0 9999px transparent}
+  .cam .lbl{position:absolute;left:16px;bottom:-16px;font:800 15px Figtree;letter-spacing:.12em;text-transform:uppercase;background:#07081a;border:1px solid rgba(139,92,255,.6);padding:6px 12px;border-radius:999px}
+  @keyframes flow{to{background-position:300% 0}}
+  .cam-hole{position:absolute;inset:4px;border-radius:14px;background:transparent}
+  /* le cadre est creux : seule la bordure est opaque */
+  .cam{-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+  .cam-label{position:absolute;right:52px;bottom:104px;font:800 15px Figtree;letter-spacing:.12em;text-transform:uppercase;background:#07081a;border:1px solid rgba(139,92,255,.6);padding:6px 12px;border-radius:999px}
+  body.top .cam-label{bottom:18px}
+  body.nocam .cam,body.nocam .cam-label{display:none}
+</style>
+</head>
+<body>
+  <div class="brand"><img src="logo.svg" alt=""><div><span class="name">Legacy</span><span class="beta">BÊTA</span><span class="tag">Défis Fortnite · 100 % gratuit</span></div></div>
+
+  <div class="cam"></div>
+  <div class="cam-label">🎮 Joue contre moi sur Legacy</div>
+
+  <div class="bar">
+    <div class="cta"><b>Joue sur Legacy</b><span>nyro098.github.io/legacy-beta</span></div>
+    <div class="ticker" id="ticker"></div>
+    <div class="live"><i></i>EN DIRECT</div>
+  </div>
+
+<script>
+(function(){
+  var q = new URLSearchParams(location.search);
+  if (q.get('cam') === '0') document.body.classList.add('nocam');
+  if (q.get('bar') === 'top') document.body.classList.add('top');
+  if (q.get('demo') === '1') document.body.classList.add('demo');
+
+  var URL_ = 'https://ypwgultwbngvurdxbfnt.supabase.co/rest/v1/', KEY = 'sb_publishable_2FpofK1E8T4bzFcaPvqzJg_qxSjbii2';
+  var H = {apikey: KEY, Authorization: 'Bearer ' + KEY};
+  function get(path){ return fetch(URL_ + path, {headers: H}).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function fmt(n){ n = Math.round(Number(n || 0) * 10) / 10; return String(n).replace('.', ','); }
+
+  var base = [
+    ['⚔️', 'Lance un défi <span class="grad">1v1, 2v2 ou 3v3</span> et mise des coins'],
+    ['🎁', '<em>10 coins offerts</em> à l\'inscription · aucun argent réel'],
+    ['🏆', 'Tournois, classement et <em>joueurs de la semaine</em>'],
+    ['💬', 'Rejoins le Discord <em>GRIND</em> : discord.gg/EpNWaAscD']
+  ];
+  var msgs = base.slice();
+
+  function load(){
+    Promise.all([
+      get('profiles?select=id,pseudo,is_owner,status'),
+      get('matches?select=team_a,team_b,winner,stake,status,finished_at,score_a,score_b&status=eq.done&order=finished_at.desc&limit=200')
+    ]).then(function(r){
+      var P = {}; (r[0] || []).forEach(function(p){ P[p.id] = p; });
+      var players = (r[0] || []).filter(function(p){ return !p.is_owner && p.status !== 'banned'; }).length;
+      var since = Date.now() - 7 * 864e5, sc = {};
+      (r[1] || []).forEach(function(m){
+        if (!m.finished_at || Date.parse(m.finished_at) < since) return;
+        (m.winner === 'A' ? m.team_a : m.team_b).forEach(function(id){ sc[id] = (sc[id] || 0) + Number(m.stake); });
+        (m.winner === 'A' ? m.team_b : m.team_a).forEach(function(id){ sc[id] = (sc[id] || 0) - Number(m.stake); });
+      });
+      var top = Object.keys(sc).filter(function(id){ return P[id] && !P[id].is_owner && P[id].status !== 'banned'; }).sort(function(a, b){ return sc[b] - sc[a]; })[0];
+      var last = (r[1] || [])[0];
+      var live = [];
+      if (players) live.push(['👥', '<em>' + players + ' joueurs</em> déjà inscrits sur Legacy']);
+      if (top && sc[top] > 0) live.push(['🥇', 'Joueur de la semaine : <span class="grad">' + esc(P[top].pseudo) + '</span> <em>+' + fmt(sc[top]) + ' coins</em>']);
+      if (last && P[last.team_a[0]] && P[last.team_b[0]]) {
+        var w = last.winner === 'A' ? last.team_a[0] : last.team_b[0], l = last.winner === 'A' ? last.team_b[0] : last.team_a[0];
+        var score = last.score_a != null ? ' <em>' + (last.winner === 'A' ? last.score_a + '–' + last.score_b : last.score_b + '–' + last.score_a) + '</em>' : '';
+        live.push(['🔥', 'Dernier match : <span class="grad">' + esc(P[w].pseudo) + '</span> bat ' + esc(P[l].pseudo) + score]);
+      }
+      msgs = base.slice(0, 1).concat(live, base.slice(1));
+    });
+  }
+
+  var box = document.getElementById('ticker'), i = 0;
+  function show(){
+    var m = msgs[i % msgs.length]; i++;
+    var el = document.createElement('div'); el.className = 'msg'; el.innerHTML = '<span class="ic">' + m[0] + '</span><span>' + m[1] + '</span>';
+    var old = box.querySelector('.msg.on');
+    box.appendChild(el);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.add('on'); }); });
+    if (old) { old.classList.remove('on'); setTimeout(function(){ old.remove(); }, 700); }
+  }
+  load(); setInterval(load, 120000);
+  show(); setInterval(show, 7000);
+})();
+</script>
+</body>
+</html>
