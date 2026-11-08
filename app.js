@@ -4,7 +4,9 @@
 /* ---------- constantes ---------- */
 var START = 10;
 var MODES = ['Box fight','Build fight','Zone wars','Realistic 1v1','Pickaxe fight'];
-var BOS = ['BO1','BO3','BO5'];
+var BOS = ['FT3','FT5','FT7'];
+var BO_LABEL = {FT3: 'Premier à 3', FT5: 'Premier à 5', FT7: 'Premier à 7'};
+function boLabel(m){ return esc(BO_LABEL[m.bo] || m.bo) + (m.pingpong ? ' · ping-pong' : ''); }
 var COIN = '<svg class="coin" viewBox="0 0 20 20" aria-hidden="true"><circle class="c1" cx="10" cy="10" r="9"/><circle class="c2" cx="10" cy="10" r="6.5"/><path class="c3" d="M8.2 6.2v7.4h4"/></svg>';
 var EMAIL_DOMAIN = 'legacy-beta.app';
 var DISCORD_URL = 'https://discord.gg/EpNWaAscD';
@@ -42,7 +44,7 @@ var loaded = false, loadErr = '';
 function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
-    stake: Number(m.stake), rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
+    stake: Number(m.stake), pingpong: !!m.pingpong, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
     teamATeam: m.team_a_team || null,
     aSA: m.a_decl_sa, aSB: m.a_decl_sb, bSA: m.b_decl_sa, bSB: m.b_decl_sb,
     scoreA: m.score_a, scoreB: m.score_b, scoreOk: !!m.score_confirmed,
@@ -194,7 +196,7 @@ function posterHTML(m, big){
   var face = '<div class="p-face' + (m.size > 1 ? ' team' : '') + ((m.size === 1 && !m.teamB.length) ? ' vacant-b' : '') + '" style="--ha:' + ha + ';--hb:' + hb + '">' +
     sideHTML(m, 'A', ws) + sideHTML(m, 'B', ws) + (m.status === 'done' && m.scoreA != null ? '<div class="vs score" aria-label="Score ' + m.scoreA + ' à ' + m.scoreB + '">' + m.scoreA + '<i>–</i>' + m.scoreB + '</div>' : '<div class="vs" aria-hidden="true">VS</div>') + '</div>';
   var pot = '<div class="p-pot"><span>Mise de chaque joueur</span><b>' + COIN + fmt(m.stake) + '</b></div>';
-  var top = '<div class="p-top"><span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(m.bo) + '</span><span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
+  var top = '<div class="p-top"><span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(BO_LABEL[m.bo] || m.bo) + '</span>' + (m.pingpong ? '<span class="bo pp">Ping-pong</span>' : '') + '<span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
   if (big) return '<div class="poster big">' + top + face + pot + '</div>';
   var f = '', needs = m.size * 2 - m.teamA.length - m.teamB.length;
   if (st === 'open') {
@@ -329,7 +331,7 @@ function matchPageHTML(){
       '<form data-form="chat" data-id="' + id + '" class="chat-form" novalidate><input name="body" maxlength="300" autocomplete="off" placeholder="Écris un message… (ex. ajoute-moi : MonPseudo)" aria-label="Message"><button class="btn primary" type="submit">Envoyer</button></form></section>';
   }
   html += '<section><h2 class="sec" style="margin-bottom:14px">Détails</h2><dl class="facts"><dt>Lancé par</dt><dd>' + esc(P(m.creator).pseudo) + '</dd>' +
-    '<dt>Format</dt><dd>' + esc(m.mode) + ' · ' + esc(m.format) + ' · ' + esc(m.bo) + '</dd>' +
+    '<dt>Format</dt><dd>' + esc(m.mode) + ' · ' + esc(m.format) + ' · ' + boLabel(m) + '</dd>' + (m.pingpong ? '<dt>Ping-pong</dt><dd>Oui : il faut gagner avec 2 points d\'écart (ex. 7-5, pas 7-6).</dd>' : '') +
     '<dt>Mise</dt><dd>' + cn(m.stake) + ' par joueur</dd><dt>Pot total</dt><dd>' + cn(m.stake * m.size * 2) + '</dd>' +
     (m.target ? '<dt>Réservé à</dt><dd>' + esc(P(m.target).pseudo) + '</dd>' : '') +
     (m.rules ? '<dt>Règles</dt><dd>' + esc(m.rules) + '</dd>' : '') + '</dl></section>';
@@ -709,7 +711,7 @@ function rulesGateHTML(){
 function oldRulesHTML(){
   return '<section><p class="eyebrow">Règles</p><h2 class="sec" style="margin-top:8px">Comment ça marche</h2></section><ol class="steps">' +
     '<li><div><b>Tu démarres avec ' + cn(START) + '</b><p>Chaque nouveau joueur reçoit ' + cn(START) + ' à l\'inscription. Un seul compte par Discord. Les coins n\'ont aucune valeur réelle : pas d\'achat, pas de retrait. Personne ne peut dépasser ' + MAXC + ' coins : au-delà, le surplus d\'une victoire est perdu.</p></div></li>' +
-    '<li><div><b>Lance ou rejoins un défi</b><p>Choisis le mode, le format (1v1, 2v2 ou 3v3), la série (BO1, BO3 ou BO5) et ta mise, par tranches de 0,5 coin. Ta mise sort de ton solde dès que tu rejoins et part dans le pot.</p></div></li>' +
+    '<li><div><b>Lance ou rejoins un défi</b><p>Choisis le mode, le format (1v1, 2v2 ou 3v3), le format (premier à 3, 5 ou 7, avec ou sans ping-pong) et ta mise, par tranches de 0,5 coin. Ta mise sort de ton solde dès que tu rejoins et part dans le pot.</p></div></li>' +
     '<li><div><b>Jouez sur Fortnite</b><p>Le match démarre quand les deux équipes sont complètes. Mettez-vous d\'accord sur l\'île et les règles dans le chat du match.</p></div></li>' +
     '<li><div><b>Les deux capitaines déclarent le résultat</b><p>Le premier joueur de chaque équipe est son capitaine. Si les deux déclarations concordent, chaque gagnant récupère sa mise plus celle d\'un perdant. Les perdants ne revoient jamais leur mise. Si l\'autre capitaine ne conteste pas dans les 10 minutes après la première déclaration (par exemple s\'il est AFK), le résultat déclaré est validé automatiquement. En cas de désaccord ou de triche, ouvre un ticket sur le Discord (onglet Signaler) : un modérateur tranchera à partir des preuves.</p></div></li>' +
     '<li><div><b>À zéro coin ?</b><p>Tu gardes ton profil et n\'importe quel joueur peut t\'envoyer des coins avec un pourboire.</p></div></li></ol>';
@@ -742,7 +744,8 @@ function newMatchDialog(){
   return dialogShell('<h2 id="dt">Lancer un défi</h2><form data-form="match" novalidate>' +
     '<label for="c-mode">Mode</label><select id="c-mode" name="mode">' + MODES.map(function(x){ return '<option>' + x + '</option>'; }).join('') + '</select>' +
     '<div class="row"><div><label for="c-format">Équipes</label><select id="c-format" name="format"><option value="1v1">1v1</option><option value="2v2">2v2</option><option value="3v3">3v3</option></select></div>' +
-    '<div><label for="c-bo">Série</label><select id="c-bo" name="bo">' + BOS.map(function(x, i){ return '<option' + (i === 1 ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div></div>' +
+    '<div><label for="c-bo">Format</label><select id="c-bo" name="bo">' + BOS.map(function(x, i){ return '<option value="' + x + '"' + (i === 1 ? ' selected' : '') + '>' + BO_LABEL[x] + '</option>'; }).join('') + '</select></div></div>' +
+    '<label class="rules-check pp-check"><input type="checkbox" name="pingpong" value="1"> Ping-pong <small>(il faut gagner avec 2 points d\'écart)</small></label>' +
     '<label for="c-stake">Mise par joueur (coins)</label><input id="c-stake" name="stake" type="number" inputmode="decimal" min="0.5" max="' + a + '" step="0.5" value="1" required><p class="hint">Disponible : ' + cn(a) + '. Mise par tranches de 0,5 (ex. 0,5 · 1 · 1,5). Ta mise sort de ton solde tout de suite.</p>' +
     '<label for="c-target">Adversaire (1v1 uniquement)</label><select id="c-target" name="target"><option value="">Ouvert à tous</option>' + others.map(function(k){ return '<option value="' + esc(k) + '">' + esc(P(k).pseudo) + '</option>'; }).join('') + '</select>' +
     '<label for="c-team">Ton équipe (2v2 / 3v3)</label><select id="c-team" name="team" disabled><option value="">Aucune : places libres pour n\'importe qui</option>' + myTeams().filter(function(x){ return teamComplete(x); }).map(function(x){ return '<option value="' + esc(x.id) + '" data-size="' + x.size + '" hidden>' + esc(x.name) + ' (' + x.size + 'v' + x.size + ')</option>'; }).join('') + '</select><p class="hint" id="c-team-hint">Pas d\'équipe en 1v1.</p>' +
@@ -1017,7 +1020,7 @@ document.addEventListener('submit', function(e){
   }
   var map = {
     edit: ['update_profile', {p_pseudo: d.pseudo, p_twitter: String(d.twitter || '').trim().replace(/^@/, ''), p_bio: d.bio}, 'Profil mis à jour.'],
-    match: ['create_match', {p_mode: d.mode, p_format: d.format, p_bo: d.bo, p_stake: num(d.stake), p_rules: d.rules, p_target: d.target || null, p_team: d.team || null}, 'Défi publié. ' + cn(num(d.stake) || 0) + ' mis en jeu.'],
+    match: ['create_match', {p_mode: d.mode, p_format: d.format, p_bo: d.bo, p_stake: num(d.stake), p_rules: d.rules, p_target: d.target || null, p_team: d.team || null, p_pingpong: !!d.pingpong}, 'Défi publié. ' + cn(num(d.stake) || 0) + ' mis en jeu.'],
     tip: ['send_tip', {p_to: d.to, p_amount: num(d.amount), p_note: d.note}, cn(num(d.amount) || 0) + ' envoyé(s).'],
     sanction: ['set_player_status', {p_player: f.dataset.pid, p_status: f.dataset.mode, p_reason: d.reason, p_hours: f.dataset.mode === 'restricted' ? parseInt(d.hours, 10) : null}, f.dataset.mode === 'ok' ? 'Sanction levée.' : f.dataset.mode === 'banned' ? 'Joueur banni.' : 'Joueur restreint.'],
     'admin-give': ['admin_give', {p_player: d.to, p_amount: (f.dataset.mode === 'remove' ? -1 : 1) * Math.abs(num(d.amount)), p_note: d.note}, f.dataset.mode === 'remove' ? cn(Math.abs(num(d.amount)) || 0) + ' retiré(s).' : cn(Math.abs(num(d.amount)) || 0) + ' donné(s).']
