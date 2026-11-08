@@ -57,14 +57,17 @@ function refresh(){
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('team_members').select('team_id,player,status,invited_by') : Promise.resolve({data: []}),
-    S.me ? sb.from('notifications').select('*').order('created_at', {ascending: false}).limit(40) : Promise.resolve({data: []})
+    S.me ? sb.from('notifications').select('*').order('created_at', {ascending: false}).limit(40) : Promise.resolve({data: []}),
+    sb.from('tournaments').select('*').order('created_at', {ascending: false}).limit(50),
+    sb.from('tournament_players').select('*'),
+    sb.from('tournament_matches').select('*')
   ]).then(function(r){
     if (r[0].error) throw r[0].error;
     if (r[1].error) throw r[1].error;
     var P = {}, M = {};
     r[0].data.forEach(function(p){ P[p.id] = mapPlayer(p); P[p.id].lastSeen = p.last_seen ? Date.parse(p.last_seen) : 0; });
     r[1].data.forEach(function(m){ M[m.id] = mapMatch(m); });
-    S.players = P; S.matches = M; S.friends = r[2].data || []; var T = {}; (r[3].data || []).forEach(function(x){ x.members = []; T[x.id] = x; }); (r[4].data || []).forEach(function(x){ if (T[x.team_id]) T[x.team_id].members.push(x); }); S.teams = T; S.notifs = r[5].data || []; loaded = true; loadErr = '';
+    S.players = P; S.matches = M; S.friends = r[2].data || []; var T = {}; (r[3].data || []).forEach(function(x){ x.members = []; T[x.id] = x; }); (r[4].data || []).forEach(function(x){ if (T[x.team_id]) T[x.team_id].members.push(x); }); S.teams = T; S.notifs = r[5].data || []; var TT = {}; (r[6].data || []).forEach(function(x){ x.players = []; x.matches = []; TT[x.id] = x; }); (r[7].data || []).forEach(function(x){ if (TT[x.tournament_id]) TT[x.tournament_id].players.push(x); }); (r[8].data || []).forEach(function(x){ if (TT[x.tournament_id]) TT[x.tournament_id].matches.push(x); }); S.tours = TT; loaded = true; loadErr = '';
     txCache = {};
   }).catch(function(e){ loadErr = (e && e.message) || 'Erreur réseau'; loaded = true; });
 }
@@ -160,7 +163,7 @@ function myDecl(m){ return S.me === capA(m) ? m.declA : S.me === capB(m) ? m.dec
 
 /* ---------- état de l'interface ---------- */
 var authTab = 'login', tab = 'ouverts', viewPid = null, editing = false, dlg = null, lastFocus = null, toastT = null, busy = false;
-var VIEWS = ['arene', 'classement', 'amis', 'boutique', 'profil', 'regles', 'signaler', 'match'];
+var VIEWS = ['arene', 'tournois', 'classement', 'amis', 'boutique', 'profil', 'regles', 'signaler', 'match'];
 function viewName(){
   var h = (location.hash || '').slice(1);
   if (h.indexOf('match-') === 0) { S.lastMatch = h.slice(6); return S.matches[S.lastMatch] ? 'match' : 'arene'; }
@@ -232,7 +235,7 @@ function headerHTML(v){
   function link(h, label){ return '<a href="#' + h + '"' + (v === h || (h === 'arene' && v === 'match') ? ' aria-current="page"' : '') + (h === 'profil' ? ' data-act="myprofile"' : '') + '>' + label + '</a>'; }
   return betaBar() + '<header class="top"><div class="wrap bar">' +
     '<a class="logo" href="#arene" aria-label="Legacy, accueil">' + LOGO + '<span>Legacy</span><em class="beta">BÊTA</em></a>' +
-    '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() ? ' <i class="count">' + pendingIn() + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
+    '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('tournois', 'Tournois') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() ? ' <i class="count">' + pendingIn() + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
     '<div class="bar-right">' +
     '<a class="bal" href="#profil" data-act="myprofile" title="Ton solde disponible">' + COIN + '<span>' + fmt(bal) + '</span>' + (lk ? '<small>' + fmt(lk) + ' en jeu</small>' : '') + '</a>' +
     dcBtn('Discord') +
@@ -457,6 +460,89 @@ function uploadAvatar(file){
     toast(e && e.message === 'format' ? 'Ce format d\'image n\'est pas reconnu. Essaie une photo JPG ou PNG.' : 'Envoi impossible : ' + cleanErr(e && e.message));
   });
 }
+/* ---------- tournois ---------- */
+var tourId = null;
+var TOUR_STATUS = {registration: ['Inscriptions ouvertes', 'open'], running: ['En cours', 'live'], done: ['Terminé', 'done'], cancelled: ['Annulé', 'cancelled']};
+function tourPot(x){ return Number(x.entry_fee) * x.players.length + Number(x.prize_bonus); }
+function tournamentsHTML(){
+  if (tourId && S.tours && S.tours[tourId]) return tourDetailHTML(S.tours[tourId]);
+  var list = Object.keys(S.tours || {}).map(function(k){ return S.tours[k]; }).filter(function(x){ return x.status !== 'cancelled' || isOwner(); });
+  var html = '<section class="hero"><div><p class="eyebrow">Tournois</p><h1>Les tournois Legacy.</h1><p class="lead">Inscris-toi, affronte les meilleurs en élimination directe et repars avec toute la cagnotte.</p></div>' +
+    (isOwner() ? '<button class="btn primary" data-act="tour-new">+ Créer un tournoi</button>' : '') + '</section>';
+  if (!list.length) return html + '<div class="empty tour-empty"><b>🏆 Aucun tournoi pour l\'instant</b>Les prochains tournois seront annoncés ici et sur le Discord. Reste connecté !' + (S.players && me() ? '<div style="margin-top:14px">' + dcBtn('Suivre les annonces sur le Discord') + '</div>' : '') + '</div>';
+  var order = {registration: 0, running: 1, done: 2, cancelled: 3};
+  list.sort(function(a, b){ return order[a.status] - order[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
+  return html + '<div class="tour-grid">' + list.map(tourCardHTML).join('') + '</div>';
+}
+function tourCardHTML(x){
+  var st = TOUR_STATUS[x.status], inT = x.players.some(function(p){ return p.player === S.me; });
+  return '<article class="tour-card" data-act="open-tour" data-id="' + esc(x.id) + '" tabindex="0" role="button"><div class="tc-top"><span class="chip ' + st[1] + '">' + st[0] + '</span>' + (inT ? '<span class="fr-tag ok">✓ Inscrit</span>' : '') + '</div>' +
+    '<h3>' + esc(x.name) + '</h3><p class="help">' + esc(x.mode) + ' · 1v1 · ' + esc(BO_LABEL[x.bo] || x.bo) + (x.pingpong ? ' · ping-pong' : '') + '</p>' +
+    '<div class="tc-facts"><div><b>' + x.players.length + '/' + x.max_players + '</b><span>Joueurs</span></div><div><b>' + (Number(x.entry_fee) > 0 ? fmt(x.entry_fee) : 'Gratuit') + '</b><span>Inscription</span></div><div><b class="gold">' + fmt(tourPot(x)) + '</b><span>Cagnotte</span></div></div>' +
+    (x.starts_at ? '<p class="help">📅 ' + new Date(x.starts_at).toLocaleString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'}) + '</p>' : '') +
+    (x.status === 'done' && x.winner ? '<p class="tc-winner">🏆 ' + nm(P(x.winner)) + '</p>' : '') + '</article>';
+}
+function tourDetailHTML(x){
+  var st = TOUR_STATUS[x.status], inT = x.players.some(function(p){ return p.player === S.me; }), full = x.players.length >= x.max_players, id = esc(x.id);
+  var html = '<button class="btn sm ghost back" data-act="tour-back">← Tous les tournois</button>';
+  html += '<section class="mhead"><div><p class="eyebrow">Tournoi · <span class="chip ' + st[1] + '" style="margin:0">' + st[0] + '</span></p><h1>' + esc(x.name) + '</h1></div></section>';
+  html += '<section class="tour-info"><div><b>' + esc(x.mode) + '</b><span>1v1 · ' + esc(BO_LABEL[x.bo] || x.bo) + (x.pingpong ? ' · ping-pong' : '') + '</span></div><div><b>' + x.players.length + '/' + x.max_players + '</b><span>Joueurs inscrits</span></div><div><b>' + (Number(x.entry_fee) > 0 ? cn(x.entry_fee) : 'Gratuit') + '</b><span>Inscription</span></div><div><b class="gold">' + cn(tourPot(x)) + '</b><span>Cagnotte du gagnant</span></div>' +
+    (x.starts_at ? '<div><b>' + new Date(x.starts_at).toLocaleString('fr-FR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) + '</b><span>Début</span></div>' : '') + '</section>';
+  if (x.rules) html += '<section class="panel"><h2>Règles</h2><p style="white-space:pre-wrap">' + esc(x.rules) + '</p></section>';
+  // actions joueur
+  if (x.status === 'registration') {
+    html += '<section class="panel"><h2>Inscription</h2>' + (inT
+      ? '<p>✓ Tu es inscrit. Le fondateur lancera le tournoi et tirera l\'arbre au sort.</p><div class="actions"><button class="btn danger" data-act="tour-leave" data-id="' + id + '">Me désinscrire' + (Number(x.entry_fee) > 0 ? ' (remboursé)' : '') + '</button></div>'
+      : full ? '<p>Le tournoi est complet.</p>'
+      : '<p>Les gagnants avancent jusqu\'à la finale. Le vainqueur remporte <b>' + cn(tourPot(x) + Number(x.entry_fee)) + '</b> si tu t\'inscris.</p><div class="actions"><button class="btn primary lg" data-act="tour-join" data-id="' + id + '"' + (avail(S.me) < Number(x.entry_fee) ? ' disabled' : '') + '>S\'inscrire' + (Number(x.entry_fee) > 0 ? ' · ' + cn(x.entry_fee) : ' gratuitement') + '</button></div>') + '</section>';
+  }
+  if (x.status === 'done' && x.winner) html += '<div class="banner pos tour-champ">🏆 ' + nm(P(x.winner)) + ' remporte le tournoi<small>Cagnotte : ' + cn(tourPot(x)) + '</small></div>';
+  // arbre
+  if (x.matches.length) html += bracketHTML(x);
+  // inscrits
+  html += '<section class="panel"><h2>Joueurs inscrits (' + x.players.length + '/' + x.max_players + ')</h2>' + (x.players.length ? '<div class="tour-players">' + x.players.map(function(p){ return '<button class="tp" data-act="goto-player" data-pid="' + esc(p.player) + '">' + av(P(p.player), 'sm') + '<span>' + nm(P(p.player)) + '</span></button>'; }).join('') + '</div>' : '<p class="help">Personne pour l\'instant. Sois le premier !</p>') + '</section>';
+  // fondateur
+  if (isOwner() && (x.status === 'registration' || x.status === 'running')) {
+    html += '<section class="adminbox"><p class="help"><b>Fondateur</b> : gestion du tournoi.' + (x.status === 'running' ? ' Clique sur le gagnant de chaque match dans l\'arbre pour le faire avancer.' : '') + '</p><div class="actions">' +
+      (x.status === 'registration' ? '<button class="btn primary" data-act="tour-start" data-id="' + id + '"' + (x.players.length < 2 ? ' disabled' : '') + '>Lancer le tournoi (tirage au sort)</button>' : '') +
+      '<button class="btn danger" data-act="tour-cancel" data-id="' + id + '">Annuler et rembourser</button></div></section>';
+  }
+  return html;
+}
+function bracketHTML(x){
+  var rounds = {}, maxR = 0;
+  x.matches.forEach(function(m){ (rounds[m.round] = rounds[m.round] || []).push(m); if (m.round > maxR) maxR = m.round; });
+  function rname(r){ var left = maxR - r; return left === 0 ? 'Finale' : left === 1 ? 'Demi-finales' : left === 2 ? 'Quarts de finale' : 'Huitièmes'; }
+  function slotHTML(m, pid){
+    if (!pid) return '<div class="bp empty">' + (m.round === 1 ? 'Qualifié d\'office' : 'À déterminer') + '</div>';
+    var win = m.winner === pid, lose = m.winner && m.winner !== pid;
+    var pick = isOwner() && x.status === 'running' && !m.winner && m.p1 && m.p2;
+    return '<div class="bp' + (win ? ' win' : '') + (lose ? ' lose' : '') + (pid === S.me ? ' me' : '') + '">' + av(P(pid), 'sm') + '<span>' + nm(P(pid)) + '</span>' +
+      (pick ? '<button class="btn sm win" data-act="tour-win" data-id="' + esc(x.id) + '" data-round="' + m.round + '" data-slot="' + m.slot + '" data-pid="' + esc(pid) + '">Gagnant</button>' : win ? '<b class="bw">✓</b>' : '') + '</div>';
+  }
+  var html = '<section class="panel"><h2>Arbre du tournoi</h2><div class="bracket">';
+  for (var r = 1; r <= maxR; r++) {
+    html += '<div class="bround"><p class="eyebrow">' + rname(r) + '</p>' + rounds[r].sort(function(a, b){ return a.slot - b.slot; }).map(function(m){ return '<div class="bmatch">' + slotHTML(m, m.p1) + slotHTML(m, m.p2) + '</div>'; }).join('') + '</div>';
+  }
+  return html + '</div></section>';
+}
+function tourNewDialog(){
+  var d = new Date(Date.now() + 864e5); d.setMinutes(0, 0, 0);
+  var local = new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+  return dialogShell('<h2 id="dt">Créer un tournoi</h2><form data-form="tour-create" novalidate>' +
+    '<label for="t-name">Nom du tournoi</label><input id="t-name" name="name" maxlength="40" required placeholder="Ex. Legacy Cup #1">' +
+    '<div class="row"><div><label for="t-mode">Mode</label><select id="t-mode" name="mode">' + MODES.map(function(x){ return '<option>' + x + '</option>'; }).join('') + '</select></div>' +
+    '<div><label for="t-bo">Format</label><select id="t-bo" name="bo">' + BOS.map(function(x, i){ return '<option value="' + x + '"' + (i === 1 ? ' selected' : '') + '>' + BO_LABEL[x] + '</option>'; }).join('') + '</select></div></div>' +
+    '<label class="rules-check pp-check"><input type="checkbox" name="pingpong" value="1"> Ping-pong</label>' +
+    '<div class="row"><div><label for="t-max">Places</label><select id="t-max" name="max"><option value="4">4 joueurs</option><option value="8" selected>8 joueurs</option><option value="16">16 joueurs</option></select></div>' +
+    '<div><label for="t-start">Début</label><input id="t-start" name="starts" type="datetime-local" value="' + local + '"></div></div>' +
+    '<div class="row"><div><label for="t-fee">Inscription (coins)</label><input id="t-fee" name="fee" type="number" inputmode="decimal" min="0" step="0.5" value="0"></div>' +
+    '<div><label for="t-bonus">Bonus au gagnant (coins)</label><input id="t-bonus" name="bonus" type="number" inputmode="decimal" min="0" step="0.5" value="0"></div></div>' +
+    '<p class="hint">Le gagnant remporte toutes les inscriptions + le bonus. 0 = gratuit.</p>' +
+    '<label for="t-rules">Règles (facultatif)</label><textarea id="t-rules" name="rules" maxlength="300" placeholder="Île, code, règles particulières…"></textarea>' +
+    '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Créer le tournoi</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
+}
+
 /* ---------- streams Twitch ---------- */
 var liveCache = {}, LIVE_TTL = 120000;
 function isLive(ch){ var c = ch && liveCache[ch]; return !!(c && c.live); }
@@ -647,6 +733,7 @@ function notifRow(n){
   else if (n.kind === 'team_match') { txt = '<b>' + a + '</b> a lancé un match avec ton équipe ' + tn + ' : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">' + (m.status === 'open' && !teamOf(m, S.me) ? 'Rejoindre' : 'Voir') + '</button>'; }
   else if (n.kind === 'match_invite') { txt = '<b>' + a + '</b> t\'invite dans son match : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le match</button>'; }
   else if (n.kind === 'result_claim') { txt = '<b>' + a + '</b> a déclaré le résultat de votre match (' + mDesc + '). Tu as <b>10 minutes</b> pour contester.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le match</button>'; }
+  else if (n.kind === 'tournament_win') { txt = '🏆 Tu as <b>gagné un tournoi</b> ! Tes gains ont été ajoutés à ton solde.'; act = '<button class="btn sm primary" data-act="goto-tours">Voir les tournois</button>'; }
   else if (n.kind === 'challenge') { txt = '<b>' + a + '</b> te défie en 1v1 : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le défi</button>'; }
   else txt = 'Notification.';
   return '<li class="notif' + (n.read ? '' : ' new') + '">' + av(P(n.actor), 'sm') + '<div class="nt"><p>' + txt + '</p><small>' + ago(Date.parse(n.created_at)) + '</small>' + (act ? '<div class="actions">' + act + '</div>' : '') + '</div></li>';
@@ -1064,7 +1151,7 @@ function bannedHTML(){
 function renderDialog(){
   var L = $('#layer');
   if (!dlg) { L.innerHTML = ''; return; }
-  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
+  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
   var f = L.querySelector('input,select,button.btn.primary,.x'); if (f) f.focus();
 }
 function openDialog(d){ lastFocus = document.activeElement; dlg = d; renderDialog(); }
@@ -1081,7 +1168,7 @@ function render(){
   if (!me().rulesAt) { if (!document.getElementById('rules-btn')) { app.innerHTML = rulesGateHTML(); window.scrollTo(0, 0); } return; }
   if (!me().joined) { if (!document.getElementById('dc-ok')) app.innerHTML = discordGateHTML(); return; }
   var v = viewName();
-  var body = v === 'classement' ? boardHTML() : v === 'profil' ? profileHTML() : v === 'regles' ? rulesHTML() : v === 'signaler' ? reportHTML() : v === 'amis' ? friendsHTML() : v === 'boutique' ? shopHTML() : v === 'match' ? matchPageHTML() : arenaHTML();
+  var body = v === 'classement' ? boardHTML() : v === 'profil' ? profileHTML() : v === 'regles' ? rulesHTML() : v === 'signaler' ? reportHTML() : v === 'amis' ? friendsHTML() : v === 'boutique' ? shopHTML() : v === 'tournois' ? tournamentsHTML() : v === 'match' ? matchPageHTML() : arenaHTML();
   app.innerHTML = headerHTML(v) + (loadErr ? '<div class="wrap"><div class="notice" style="margin-top:16px"><p>Problème de connexion au serveur : ' + esc(loadErr) + '</p></div></div>' : '') + '<main class="wrap main" id="main">' + (me().status === 'restricted' ? '<div class="notice restricted"><p><b>Compte restreint jusqu\'à ' + untilTxt(me().restrictedUntil) + '.</b> Tu peux regarder le site mais tu ne peux plus jouer, écrire dans les chats ni envoyer de coins' + (me().statusReason ? ' (raison : « ' + esc(me().statusReason) + ' »)' : '') + '. Pour contester, ouvre un ticket sur le Discord.</p></div>' : '') + body + '</main>' + footerHTML();
   var cl = document.getElementById('chat-list'); if (cl) cl.scrollTop = cl.scrollHeight;
 }
@@ -1135,6 +1222,15 @@ function act(name, el){
       if (!confirm('Remettre toutes tes stats à zéro (victoires, défaites, taux, bilan, série) pour ' + cn(5) + ' ? Tes coins et tes articles sont conservés.')) break;
       doRpc('reset_stats', {}, 'Stats remises à zéro. Nouveau départ !');
       break;
+    case 'goto-tours': tourId = null; if (dlg) closeDialog(); if (viewName() === 'tournois') render(); else location.hash = '#tournois'; break;
+    case 'open-tour': tourId = d.id; if (viewName() === 'tournois') render(); else location.hash = '#tournois'; window.scrollTo(0, 0); break;
+    case 'tour-back': tourId = null; render(); window.scrollTo(0, 0); break;
+    case 'tour-new': openDialog({kind: 'tour-new'}); break;
+    case 'tour-join': { var tj = S.tours[d.id]; if (Number(tj.entry_fee) > 0 && !confirm('T\'inscrire pour ' + cn(tj.entry_fee) + ' ?')) break; doRpc('join_tournament', {tid: d.id}, 'Inscrit au tournoi ! Bonne chance.'); break; }
+    case 'tour-leave': if (!confirm('Te désinscrire du tournoi ?')) break; doRpc('leave_tournament', {tid: d.id}, 'Tu t\'es désinscrit.'); break;
+    case 'tour-start': if (!confirm('Lancer le tournoi ? Les inscriptions seront fermées et l\'arbre tiré au sort.')) break; doRpc('start_tournament', {tid: d.id}, 'Tournoi lancé ! L\'arbre est prêt.'); break;
+    case 'tour-cancel': if (!confirm('Annuler le tournoi et rembourser tous les inscrits ?')) break; doRpc('cancel_tournament', {tid: d.id}, 'Tournoi annulé, inscrits remboursés.'); break;
+    case 'tour-win': if (!confirm(P(d.pid).pseudo + ' a gagné ce match ?')) break; doRpc('set_tournament_winner', {tid: d.id, p_round: parseInt(d.round, 10), p_slot: parseInt(d.slot, 10), p_winner: d.pid}, P(d.pid).pseudo + ' passe au tour suivant !'); break;
     case 'shop-tab': shopTab = d.tab; render(); break;
     case 'equip': doRpc('set_equip', {p_slot: d.slot, p_item: d.item || null}, d.item ? itemName(d.item) + ' équipé !' : 'Retiré.'); break;
     case 'pin': if (!confirm('Épingler ce défi en haut de l\'arène pendant 1 heure pour ' + cn(3) + ' ?')) break; doRpc('pin_match', {mid: d.id}, 'Défi épinglé pour 1 heure !'); break;
@@ -1284,6 +1380,13 @@ document.addEventListener('submit', function(e){
     rpc('admin_set_score', {mid: f.dataset.id, p_a: parseInt(d.a, 10), p_b: parseInt(d.b, 10)}).then(function(r){ if (!r.ok) return fail(r.msg); toast('Score mis à jour.'); render(); });
     return;
   }
+  if (kind === 'tour-create') {
+    rpc('create_tournament', {p_name: d.name, p_mode: d.mode, p_bo: d.bo, p_pingpong: !!d.pingpong, p_max: parseInt(d.max, 10), p_fee: num(d.fee) || 0, p_bonus: num(d.bonus) || 0, p_rules: d.rules || '', p_starts: d.starts ? new Date(d.starts).toISOString() : null}).then(function(r){
+      if (!r.ok) return fail(r.msg);
+      closeDialog(); tourId = r.data; toast('Tournoi créé ! Les inscriptions sont ouvertes.'); if (viewName() !== 'tournois') location.hash = '#tournois'; else render();
+    });
+    return;
+  }
   if (kind === 'cosmetics') {
     rpc('set_cosmetics', {p_style: d.style || '', p_title: d.title || ''}).then(function(r){ if (!r.ok) return fail(r.msg); toast('Style VIP enregistré !'); render(); });
     return;
@@ -1327,6 +1430,9 @@ if (sb) {
       .on('postgres_changes', {event: '*', schema: 'public', table: 'friendships'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'notifications'}, function(){ passiveRefresh(); setTimeout(function(){ if (dlg && dlg.kind === 'notifs') renderDialog(); }, 1200); })
       .on('postgres_changes', {event: '*', schema: 'public', table: 'team_members'}, passiveRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'tournaments'}, passiveRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'tournament_players'}, passiveRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'tournament_matches'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'match_proofs'}, function(p){ var mid = (p.new && p.new.match_id) || (p.old && p.old.match_id); if (mid && proofsCache[mid]) { delete proofsCache[mid]; loadProofs(mid); } })
       .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'match_messages'}, function(p){
         var mid = p && p.new && p.new.match_id;

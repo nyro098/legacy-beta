@@ -544,6 +544,34 @@ td.bal-c,tr.top1 td.rank{color:var(--gold)}
 .stream figcaption{display:flex;align-items:center;gap:10px;padding:10px 12px;font-weight:700}
 .stream figcaption a{margin-left:auto;color:#bf94ff;font-size:13px}
 .streams h2{display:flex;align-items:center;gap:10px}
+.tour-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px}
+.tour-card{display:grid;gap:10px;padding:18px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(160deg,rgba(255,215,106,.08),var(--surface) 40%);cursor:pointer;transition:transform .15s,border-color .15s}
+.tour-card:hover{transform:translateY(-2px);border-color:#ffd76a}
+.tour-card h3{font:900 26px/1 var(--f-display);text-transform:uppercase}
+.tc-top{display:flex;gap:8px;align-items:center}
+.tc-top .chip{margin-left:0}
+.tc-facts,.tour-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px}
+.tc-facts div,.tour-info div{padding:10px;border-radius:12px;background:rgba(7,8,26,.45);border:1px solid var(--line)}
+.tc-facts b,.tour-info b{display:block;font:700 18px var(--f-mono)}
+.tc-facts span,.tour-info span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-2)}
+.gold{color:#ffd76a}
+.tc-winner{font-weight:800;color:#ffd76a}
+.tour-empty{padding:50px 20px;font-size:15px}
+.tour-empty b{font-size:30px}
+.tour-players{display:flex;flex-wrap:wrap;gap:8px}
+.tp{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(7,8,26,.45);font-weight:700}
+.bracket{display:flex;gap:18px;overflow-x:auto;padding-bottom:8px}
+.bround{display:flex;flex-direction:column;justify-content:space-around;gap:14px;min-width:220px}
+.bround .eyebrow{text-align:center}
+.bmatch{display:grid;gap:2px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(7,8,26,.5)}
+.bp{display:flex;align-items:center;gap:8px;padding:8px 10px;min-height:44px;font-weight:700}
+.bp span{flex:1;min-width:0;overflow-wrap:anywhere}
+.bp.empty{color:var(--fg-2);font-weight:500;font-style:italic}
+.bp.win{background:rgba(30,232,160,.14)}
+.bp.lose{opacity:.45}
+.bp.me{box-shadow:inset 3px 0 0 #00d4ff}
+.bw{color:#1ee8a0}
+.tour-champ{text-align:center;font-size:34px}
 .btn.admin{border-color:var(--gold);color:var(--gold);background:rgba(255,197,61,.08)}
 .chat-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:12px;background:rgba(7,8,26,.5);border:1px solid var(--line);border-radius:12px}
 .msg{display:flex;gap:10px;align-items:flex-start;min-width:0}
@@ -561,6 +589,6 @@ td.bal-c,tr.top1 td.rank{color:var(--gold)}
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=1794144229"></script>
-<script src="app.js?v=1794144229"></script>
+<script src="config.js?v=1794144882"></script>
+<script src="app.js?v=1794144882"></script>
 </body></html>
