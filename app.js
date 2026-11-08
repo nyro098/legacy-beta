@@ -41,7 +41,7 @@ var S = {players: {}, matches: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, vip: !!p.vip, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -52,7 +52,7 @@ function mapMatch(m){
 }
 function refresh(){
   return Promise.all([
-    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,created_at'),
+    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,created_at'),
     sb.from('matches').select('*').order('created_at', {ascending: false}).limit(400),
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
@@ -147,7 +147,7 @@ function stats(pid){
   var w = 0, l = 0, net = 0, list = [];
   for (var k in S.matches) {
     var m = S.matches[k], t = teamOf(m, pid);
-    if (m.status !== 'done' || !t) continue;
+    if (m.status !== 'done' || !t || m.finishedAt < (P(pid).statsResetAt || 0)) continue;
     var win = t === m.winner; list.push({at: m.finishedAt, win: win});
     if (win) { w++; net += m.stake; } else { l++; net -= m.stake; }
   }
@@ -372,7 +372,7 @@ function profileHTML(){
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
       (p.twitter ? '<a href="https://x.com/' + encodeURIComponent(p.twitter) + '" target="_blank" rel="noopener noreferrer">X : @' + esc(p.twitter) + '</a>' : '') +
       '<span>Inscrit ' + ago(p.createdAt) + '</span></div>' + (p.bio ? '<p style="margin-top:10px;max-width:56ch;color:var(--fg-2)">' + esc(p.bio) + '</p>' : '') + '</div>' +
-      '<div class="actions">' + (own && isOwner() ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Me retirer des coins</button>' : '') + (own ? '<label class="btn primary" style="margin:0;cursor:pointer;color:#fff;letter-spacing:.08em">' + (p.avatar ? 'Changer la photo' : 'Ajouter une photo') + '<input type="file" id="avatar-file" accept="image/*" hidden></label>' + (p.avatar ? '<button class="btn ghost" data-act="avatar-remove">Retirer la photo</button>' : '') + '<button class="btn" data-act="edit-on">Modifier le profil</button>' : friendBtn(pid) + '<button class="btn" data-act="tip-dialog" data-pid="' + esc(pid) + '">Donner des coins</button>' + (isAdmin() && (isOwner() || !p.owner) ? '<button class="btn admin" data-act="admin-dialog" data-pid="' + esc(pid) + '">Admin : donner des coins</button>' : '') + (isOwner() && pid !== S.me ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Retirer des coins</button>' : '')) + '</div></section>';
+      '<div class="actions">' + (own && isOwner() ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Me retirer des coins</button>' : '') + (own ? '<button class="btn ghost" data-act="reset-stats"' + (avail(S.me) < 5 ? ' disabled title="Il te faut 5 coins"' : '') + '>🔄 Remettre mes stats à zéro · ' + cn(5) + '</button>' : '') + (own ? '<label class="btn primary" style="margin:0;cursor:pointer;color:#fff;letter-spacing:.08em">' + (p.avatar ? 'Changer la photo' : 'Ajouter une photo') + '<input type="file" id="avatar-file" accept="image/*" hidden></label>' + (p.avatar ? '<button class="btn ghost" data-act="avatar-remove">Retirer la photo</button>' : '') + '<button class="btn" data-act="edit-on">Modifier le profil</button>' : friendBtn(pid) + '<button class="btn" data-act="tip-dialog" data-pid="' + esc(pid) + '">Donner des coins</button>' + (isAdmin() && (isOwner() || !p.owner) ? '<button class="btn admin" data-act="admin-dialog" data-pid="' + esc(pid) + '">Admin : donner des coins</button>' : '') + (isOwner() && pid !== S.me ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Retirer des coins</button>' : '')) + '</div></section>';
   }
   html += '<section class="pstats" aria-label="Statistiques"><div><b style="color:var(--gold)">' + fmt(bal) + '</b><span>Solde dispo</span></div><div><b>' + fmt(lk) + '</b><span>En jeu</span></div><div><b>' + s.w + '</b><span>Victoires</span></div><div><b>' + s.l + '</b><span>Défaites</span></div><div><b>' + (s.ratio == null ? '–' : s.ratio + '%') + '</b><span>Taux de victoire</span></div><div><b class="' + (s.net > 0 ? 'pos' : s.net < 0 ? 'neg' : '') + '">' + (s.net > 0 ? '+' : '') + fmt(s.net) + '</b><span>Bilan net</span></div><div><b>' + s.streak + '</b><span>Série en cours</span></div></section>';
   var cur = Object.keys(S.matches).map(function(k){ return S.matches[k]; }).filter(function(m){ return teamOf(m, pid) && active(m); });
@@ -714,14 +714,14 @@ function neonPickerHTML(){
 }
 function vipShopHTML(){
   var p = me();
-  return '<section class="vip-card' + (p.vip ? ' owned' : '') + '"><div class="vip-head"><em class="beta vip big">VIP</em><div><h2>Pass VIP</h2><p class="help">À vie · l\'offre tout compris</p></div><div class="vip-price">' + COIN + '<b>20</b></div></div>' +
+  return '<section class="vip-card' + (p.vip ? ' owned' : '') + '"><div class="vip-head"><em class="beta vip big">VIP</em><div><h2>Pass VIP</h2><p class="help">1 mois · l\'offre tout compris</p></div><div class="vip-price">' + COIN + '<b>20</b></div></div>' +
     '<ul class="vip-perks">' +
     '<li><span>👑</span><div><b>Badge VIP</b><small>Exclusif, à côté de ton pseudo partout.</small></div></li>' +
     '<li><span>✨</span><div><b>Pseudo néon</b><small>Toutes les couleurs, dont l\'arc-en-ciel animé.</small></div></li>' +
     '<li><span>🎞️</span><div><b>Photo animée</b><small>Un GIF comme photo de profil.</small></div></li>' +
     '<li><span>🏷️</span><div><b>12 titres</b><small>Tous les titres classiques débloqués.</small></div></li>' +
     '</ul>' +
-    (p.vip ? '<p class="vip-owned">✓ Tu es VIP depuis ' + ago(p.vipSince || Date.now()) + '.</p>'
+    (p.vip ? '<p class="vip-owned">✓ Tu es VIP jusqu’au ' + dateTxt(p.vipUntil) + ' (encore ' + daysLeft(p.vipUntil) + ').</p><div class="actions"><button class="btn lg" data-act="buy-vip"' + (avail(S.me) < 20 ? ' disabled' : '') + '>Prolonger d’un mois · ' + cn(20) + '</button></div>'
            : '<div class="actions"><button class="btn primary lg" data-act="buy-vip"' + (avail(S.me) < 20 ? ' disabled' : '') + '>Devenir VIP · ' + cn(20) + '</button></div>' + (avail(S.me) < 20 ? '<p class="help">Il te faut 20 coins disponibles.</p>' : '')) +
     '<p class="help">Les cadres, bannières, effets, thèmes, titres rares et éditions limitées s\'achètent à part.</p></section>' + (hasItem('neon') ? neonPickerHTML() : '');
 }
@@ -742,13 +742,15 @@ function winFxHTML(kind, mid){
 }
 
 /* ---------- joueurs de la semaine ---------- */
+function dateTxt(ts){ var d = new Date(ts); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
+function daysLeft(ts){ var d = Math.max(0, Math.ceil((ts - Date.now()) / 864e5)); return d + ' jour' + (d > 1 ? 's' : ''); }
 function weeklyTop(){
   var since = Date.now() - 7 * 864e5, sc = {};
   Object.keys(S.matches).forEach(function(k){
     var m = S.matches[k];
     if (m.status !== 'done' || m.finishedAt < since) return;
-    (m.winner === 'A' ? m.teamA : m.teamB).forEach(function(pid){ sc[pid] = sc[pid] || {net: 0, w: 0, l: 0}; sc[pid].net += m.stake; sc[pid].w++; });
-    (m.winner === 'A' ? m.teamB : m.teamA).forEach(function(pid){ sc[pid] = sc[pid] || {net: 0, w: 0, l: 0}; sc[pid].net -= m.stake; sc[pid].l++; });
+    (m.winner === 'A' ? m.teamA : m.teamB).filter(function(pid){ return m.finishedAt >= (P(pid).statsResetAt || 0); }).forEach(function(pid){ sc[pid] = sc[pid] || {net: 0, w: 0, l: 0}; sc[pid].net += m.stake; sc[pid].w++; });
+    (m.winner === 'A' ? m.teamB : m.teamA).filter(function(pid){ return m.finishedAt >= (P(pid).statsResetAt || 0); }).forEach(function(pid){ sc[pid] = sc[pid] || {net: 0, w: 0, l: 0}; sc[pid].net -= m.stake; sc[pid].l++; });
   });
   return Object.keys(sc).filter(function(pid){ return S.players[pid] && S.players[pid].status !== 'banned' && sc[pid].w > 0; })
     .sort(function(a, b){ return sc[b].net - sc[a].net || sc[b].w - sc[a].w; }).slice(0, 3).map(function(pid){ return {pid: pid, s: sc[pid]}; });
@@ -1080,6 +1082,10 @@ function act(name, el){
       if (!confirm('Déclarer que ton adversaire ne joue pas ? Tu seras déclaré gagnant s\'il ne conteste pas dans les 10 minutes.')) break;
       doRpc('declare_result', {mid: d.id, val: 'won', p_my: null, p_opp: null}, 'Victoire par AFK déclarée. Ton adversaire a 10 minutes pour contester.');
       break;
+    case 'reset-stats':
+      if (!confirm('Remettre toutes tes stats à zéro (victoires, défaites, taux, bilan, série) pour ' + cn(5) + ' ? Tes coins et tes articles sont conservés.')) break;
+      doRpc('reset_stats', {}, 'Stats remises à zéro. Nouveau départ !');
+      break;
     case 'shop-tab': shopTab = d.tab; render(); break;
     case 'equip': doRpc('set_equip', {p_slot: d.slot, p_item: d.item || null}, d.item ? itemName(d.item) + ' équipé !' : 'Retiré.'); break;
     case 'pin': if (!confirm('Épingler ce défi en haut de l\'arène pendant 1 heure pour ' + cn(3) + ' ?')) break; doRpc('pin_match', {mid: d.id}, 'Défi épinglé pour 1 heure !'); break;
@@ -1089,8 +1095,8 @@ function act(name, el){
       break;
     case 'equip-title': doRpc('set_cosmetics', {p_style: me().nameStyle, p_title: d.key}, d.key ? 'Titre équipé !' : 'Titre retiré.'); break;
     case 'buy-vip':
-      if (!confirm('Acheter le Pass VIP à vie pour ' + cn(VIP_PRICE) + ' ?')) break;
-      doRpc('buy_vip', {}, 'Bienvenue chez les VIP ! Choisis ton style néon.');
+      if (!confirm('Acheter 1 mois de Pass VIP pour ' + cn(VIP_PRICE) + ' ?')) break;
+      doRpc('buy_vip', {}, 'VIP activé pour 1 mois !');
       break;
     case 'clear-title': if (!confirm('Effacer le titre de ' + P(d.pid).pseudo + ' ?')) break; doRpc('admin_clear_title', {p_player: d.pid}, 'Titre effacé.'); break;
     case 'rule-tab': ruleTab = parseInt(d.i, 10) || 0; render(); break;
