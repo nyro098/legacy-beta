@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://legacy-beta.netlify.app/sitemap.xml
