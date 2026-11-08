@@ -41,7 +41,7 @@ var S = {players: {}, matches: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -52,7 +52,7 @@ function mapMatch(m){
 }
 function refresh(){
   return Promise.all([
-    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,created_at'),
+    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,created_at'),
     sb.from('matches').select('*').order('created_at', {ascending: false}).limit(400),
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
@@ -174,6 +174,10 @@ var STATE_LABEL = {open: 'Ouvert', live: 'En cours', dispute: 'Litige', done: 'T
 function av(p, cls){ var fr = p.eq && p.eq.frame ? p.eq.frame.split(':')[1] : ''; var inner = av0(p, cls); return fr ? '<span class="avf avf-' + fr + ' ' + (cls || '') + '">' + inner + '</span>' : inner; }
 function av0(p, cls){ return p.avatar ? '<span class="av has-img ' + (cls || '') + '"><img src="' + esc(p.avatar) + '" alt="" loading="lazy"></span>' : '<span class="av ' + (cls || '') + '" style="--h:' + hue(p.pseudo) + '">' + ini(p.pseudo) + '</span>'; }
 
+var ANON = {id: '', pseudo: 'Joueur anonyme', anonMask: true, avatar: '', eq: {}, owned: [], nameStyle: '', title: ''};
+function masked(m, pid){ return m.status === 'open' && pid && pid !== S.me && pid !== m.creator && !isAdmin() && P(pid).anon; }
+function PM(m, pid){ return masked(m, pid) ? ANON : P(pid); }
+function anonAv(cls){ return '<span class="av anon-av ' + (cls || '') + '">🕶️</span>'; }
 function sideHTML(m, team, ws){
   var ids = team === 'A' ? m.teamA : m.teamB, cls = team === 'A' ? 'a' : 'b', st = stateOf(m);
   var c = cls + (st === 'done' && ws ? (ws === team ? ' win' : ' lose') : '');
@@ -182,13 +186,14 @@ function sideHTML(m, team, ws){
   if (m.size === 1) {
     var pid = ids[0];
     if (!pid) return '<div class="side ' + c + '"><span class="av lg empty-av">?</span><strong>En attente</strong><small>' + (m.target ? 'Défi pour ' + esc(P(m.target).pseudo) : 'Ouvert à tous') + '</small></div>';
+    if (masked(m, pid)) return '<div class="side ' + cls + '">' + anonAv('lg') + '<strong>Joueur anonyme</strong><small>Révélé au début du match</small></div>';
     var p = P(pid), s = stats(pid);
     return '<div class="side ' + c + '">' + av(p, 'lg') + '<strong>' + nm(p) + '</strong>' + titleHTML(p) + '<small>' + s.w + 'V · ' + s.l + 'D</small>' + tag + '</div>';
   }
   var rows = '';
   for (var i = 0; i < m.size; i++) {
     var q = ids[i];
-    rows += q ? '<li class="slot">' + av(P(q), 'sm') + '<span class="nm">' + nm(P(q)) + '</span>' + (i === 0 ? '<i>cap.</i>' : '') + '</li>'
+    rows += q ? '<li class="slot">' + (masked(m, q) ? anonAv('sm') + '<span class="nm">Joueur anonyme</span>' : av(P(q), 'sm') + '<span class="nm">' + nm(P(q)) + '</span>') + (i === 0 ? '<i>cap.</i>' : '') + '</li>'
               : '<li class="slot free"><span class="av sm empty-av">+</span><span class="nm">Place libre</span></li>';
   }
   return '<div class="side ' + c + '"><span class="tname">Équipe ' + team + '</span><ul class="roster">' + rows + '</ul>' + tag + '</div>';
@@ -196,7 +201,7 @@ function sideHTML(m, team, ws){
 
 function posterHTML(m, big){
   var st = stateOf(m), ws = winnerSide(m), tm = teamOf(m, S.me), id = esc(m.id);
-  var ha = hue(P(m.teamA[0]).pseudo), hb = m.teamB.length ? hue(P(m.teamB[0]).pseudo) : 0;
+  var ha = hue(P(m.teamA[0]).pseudo), hb = m.teamB.length ? hue(PM(m, m.teamB[0]).pseudo) : 0;
   var face = '<div class="p-face' + (m.size > 1 ? ' team' : '') + ((m.size === 1 && !m.teamB.length) ? ' vacant-b' : '') + '" style="--ha:' + ha + ';--hb:' + hb + '">' +
     sideHTML(m, 'A', ws) + sideHTML(m, 'B', ws) + (m.status === 'done' && m.scoreA != null ? '<div class="vs score" aria-label="Score ' + m.scoreA + ' à ' + m.scoreB + '">' + m.scoreA + '<i>–</i>' + m.scoreB + '</div>' : '<div class="vs" aria-hidden="true">VS</div>') + '</div>';
   var pot = '<div class="p-pot"><span>Mise de chaque joueur</span><b>' + COIN + fmt(m.stake) + '</b></div>';
@@ -215,7 +220,7 @@ function posterHTML(m, big){
   else if (st === 'done') { var wl = ws === 'A' ? m.teamA : m.teamB; f = '<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '</small>'; }
   else if (st === 'live') f = '<small>Match en cours</small>';
   else f = '<small>Défi annulé</small>';
-  var a = P(m.teamA[0]);
+  var a = PM(m, m.teamA[0]);
   return '<article class="poster" data-open="' + id + '" tabindex="0" role="button" aria-label="' + esc(m.mode + ' ' + m.format + ' : équipe de ' + a.pseudo + ', mise ' + cn(m.stake)) + '">' + top + face + pot + '<div class="p-foot">' + f + '</div></article>';
 }
 
@@ -266,7 +271,7 @@ function teamCard(m, team){
   var title = mt ? (mt === team ? 'Ton équipe' : 'Équipe adverse') : 'Équipe ' + team, lis = '';
   for (var i = 0; i < m.size; i++) {
     var q = ids[i];
-    lis += q ? '<li><button data-act="goto-player" data-pid="' + esc(q) + '">' + av(P(q)) + '<span class="nm">' + nm(P(q)) + (q === S.me ? ' (toi)' : '') + '</span></button>' + (i === 0 ? '<i>Capitaine</i>' : '') + '</li>'
+    lis += q ? (masked(m, q) ? '<li><span class="anon-row">' + anonAv() + '<span class="nm">Joueur anonyme <small>· révélé au début du match</small></span></span>' : '<li><button data-act="goto-player" data-pid="' + esc(q) + '">' + av(P(q)) + '<span class="nm">' + nm(P(q)) + (q === S.me ? ' (toi)' : '') + '</span></button>') + (i === 0 ? '<i>Capitaine</i>' : '') + '</li>'
              : '<li class="free"><span class="av empty-av">+</span>Place libre</li>';
   }
   return '<div class="tcard' + (mt === team ? ' mine' : '') + '"><h3>' + title + '<small>ÉQUIPE ' + team + '</small></h3><ul>' + lis + '</ul></div>';
@@ -295,7 +300,7 @@ function matchPageHTML(){
       }
       if (m.target === S.me) r += '<button class="btn danger" data-act="cancel" data-id="' + id + '">Refuser</button>';
       r += '</div>' + (blocked ? '<p class="help">Ce défi est réservé à ' + esc(P(m.target).pseudo) + '.</p>' : short ? '<p class="help">Il te faut ' + cn(m.stake) + ' disponible(s). Tu en as ' + cn(Math.max(avail(S.me), 0)) + '.</p>' : '<p class="help">' + cn(m.stake) + ' sortent de ton solde et vont dans le pot. Si tu gagnes, tu récupères ta mise + celle d\'en face. Si tu perds, ils sont perdus.</p>');
-    } else if (m.creator === S.me) r += '<div class="actions">' + (m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé jusqu\'à ' + untilTxt(m.pinnedUntil) + '</span>' : '<button class="btn" data-act="pin" data-id="' + id + '">📌 Épingler 1 h · ' + cn(3) + '</button>') + '<button class="btn danger" data-act="cancel" data-id="' + id + '">Annuler le défi</button></div><p class="help">Toutes les mises sont rendues si tu annules avant le début du match.</p>';
+    } else if (m.creator === S.me) r += '<div class="actions">' + (m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé jusqu\'à ' + untilTxt(m.pinnedUntil) + '</span>' : '<button class="btn" data-act="pin" data-id="' + id + '">📌 Épingler 1 h · ' + cn(3) + '</button>') + (m.teamA.length === 1 && m.teamB.length === 0 ? '<button class="btn danger" data-act="cancel" data-id="' + id + '">Annuler le défi</button></div><p class="help">Tu peux annuler tant que personne n\'a rejoint ton défi. Ta mise t\'est alors rendue.</p>' : '</div><p class="help">🔒 Un joueur a rejoint ton défi : il ne peut plus être annulé.</p>');
     else r += '<div class="actions"><button class="btn danger" data-act="leave" data-id="' + id + '">Quitter le match</button></div><p class="help">Ta mise t\'est rendue si tu quittes avant le début du match.</p>';
   } else if (st === 'live' || st === 'dispute') {
     if (mt) {
@@ -372,7 +377,7 @@ function profileHTML(){
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
       (p.twitter ? '<a href="https://x.com/' + encodeURIComponent(p.twitter) + '" target="_blank" rel="noopener noreferrer">X : @' + esc(p.twitter) + '</a>' : '') +
       '<span>Inscrit ' + ago(p.createdAt) + '</span></div>' + (p.bio ? '<p style="margin-top:10px;max-width:56ch;color:var(--fg-2)">' + esc(p.bio) + '</p>' : '') + '</div>' +
-      '<div class="actions">' + (own && isOwner() ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Me retirer des coins</button>' : '') + (own ? '<button class="btn ghost" data-act="reset-stats"' + (avail(S.me) < 5 ? ' disabled title="Il te faut 5 coins"' : '') + '>🔄 Remettre mes stats à zéro · ' + cn(5) + '</button>' : '') + (own ? '<label class="btn primary" style="margin:0;cursor:pointer;color:#fff;letter-spacing:.08em">' + (p.avatar ? 'Changer la photo' : 'Ajouter une photo') + '<input type="file" id="avatar-file" accept="image/*" hidden></label>' + (p.avatar ? '<button class="btn ghost" data-act="avatar-remove">Retirer la photo</button>' : '') + '<button class="btn" data-act="edit-on">Modifier le profil</button>' : friendBtn(pid) + '<button class="btn" data-act="tip-dialog" data-pid="' + esc(pid) + '">Donner des coins</button>' + (isAdmin() && (isOwner() || !p.owner) ? '<button class="btn admin" data-act="admin-dialog" data-pid="' + esc(pid) + '">Admin : donner des coins</button>' : '') + (isOwner() && pid !== S.me ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Retirer des coins</button>' : '')) + '</div></section>';
+      '<div class="actions">' + (own && isOwner() ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Me retirer des coins</button>' : '') + (own ? '<button class="btn anon-toggle' + (p.anon ? ' on' : '') + '" data-act="toggle-anon" title="Ton pseudo est caché quand tu rejoins un défi, jusqu’au début du match">🕶️ Mode anonyme : ' + (p.anon ? 'activé' : 'désactivé') + '</button>' : '') + (own ? '<button class="btn ghost" data-act="reset-stats"' + (avail(S.me) < 5 ? ' disabled title="Il te faut 5 coins"' : '') + '>🔄 Remettre mes stats à zéro · ' + cn(5) + '</button>' : '') + (own ? '<label class="btn primary" style="margin:0;cursor:pointer;color:#fff;letter-spacing:.08em">' + (p.avatar ? 'Changer la photo' : 'Ajouter une photo') + '<input type="file" id="avatar-file" accept="image/*" hidden></label>' + (p.avatar ? '<button class="btn ghost" data-act="avatar-remove">Retirer la photo</button>' : '') + '<button class="btn" data-act="edit-on">Modifier le profil</button>' : friendBtn(pid) + '<button class="btn" data-act="tip-dialog" data-pid="' + esc(pid) + '">Donner des coins</button>' + (isAdmin() && (isOwner() || !p.owner) ? '<button class="btn admin" data-act="admin-dialog" data-pid="' + esc(pid) + '">Admin : donner des coins</button>' : '') + (isOwner() && pid !== S.me ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Retirer des coins</button>' : '')) + '</div></section>';
   }
   html += '<section class="pstats" aria-label="Statistiques"><div><b style="color:var(--gold)">' + fmt(bal) + '</b><span>Solde dispo</span></div><div><b>' + fmt(lk) + '</b><span>En jeu</span></div><div><b>' + s.w + '</b><span>Victoires</span></div><div><b>' + s.l + '</b><span>Défaites</span></div><div><b>' + (s.ratio == null ? '–' : s.ratio + '%') + '</b><span>Taux de victoire</span></div><div><b class="' + (s.net > 0 ? 'pos' : s.net < 0 ? 'neg' : '') + '">' + (s.net > 0 ? '+' : '') + fmt(s.net) + '</b><span>Bilan net</span></div><div><b>' + s.streak + '</b><span>Série en cours</span></div></section>';
   var cur = Object.keys(S.matches).map(function(k){ return S.matches[k]; }).filter(function(m){ return teamOf(m, pid) && active(m); });
@@ -1082,6 +1087,7 @@ function act(name, el){
       if (!confirm('Déclarer que ton adversaire ne joue pas ? Tu seras déclaré gagnant s\'il ne conteste pas dans les 10 minutes.')) break;
       doRpc('declare_result', {mid: d.id, val: 'won', p_my: null, p_opp: null}, 'Victoire par AFK déclarée. Ton adversaire a 10 minutes pour contester.');
       break;
+    case 'toggle-anon': doRpc('set_anon', {p_on: !me().anon}, me().anon ? 'Mode anonyme désactivé.' : 'Mode anonyme activé : ton pseudo sera caché quand tu rejoins un défi.'); break;
     case 'reset-stats':
       if (!confirm('Remettre toutes tes stats à zéro (victoires, défaites, taux, bilan, série) pour ' + cn(5) + ' ? Tes coins et tes articles sont conservés.')) break;
       doRpc('reset_stats', {}, 'Stats remises à zéro. Nouveau départ !');
