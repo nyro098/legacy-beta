@@ -43,7 +43,9 @@ function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, discord: p.discord, t
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
-    teamATeam: m.team_a_team || null, createdAt: Date.parse(m.created_at), finishedAt: m.finished_at ? Date.parse(m.finished_at) : 0};
+    teamATeam: m.team_a_team || null,
+    aSA: m.a_decl_sa, aSB: m.a_decl_sb, bSA: m.b_decl_sa, bSB: m.b_decl_sb,
+    scoreA: m.score_a, scoreB: m.score_b, scoreOk: !!m.score_confirmed, createdAt: Date.parse(m.created_at), finishedAt: m.finished_at ? Date.parse(m.finished_at) : 0};
 }
 function refresh(){
   return Promise.all([
@@ -189,7 +191,7 @@ function posterHTML(m, big){
   var st = stateOf(m), ws = winnerSide(m), tm = teamOf(m, S.me), id = esc(m.id);
   var ha = hue(P(m.teamA[0]).pseudo), hb = m.teamB.length ? hue(P(m.teamB[0]).pseudo) : 0;
   var face = '<div class="p-face' + (m.size > 1 ? ' team' : '') + ((m.size === 1 && !m.teamB.length) ? ' vacant-b' : '') + '" style="--ha:' + ha + ';--hb:' + hb + '">' +
-    sideHTML(m, 'A', ws) + sideHTML(m, 'B', ws) + '<div class="vs" aria-hidden="true">VS</div></div>';
+    sideHTML(m, 'A', ws) + sideHTML(m, 'B', ws) + (m.status === 'done' && m.scoreA != null ? '<div class="vs score" aria-label="Score ' + m.scoreA + ' à ' + m.scoreB + '">' + m.scoreA + '<i>–</i>' + m.scoreB + '</div>' : '<div class="vs" aria-hidden="true">VS</div>') + '</div>';
   var pot = '<div class="p-pot"><span>Mise de chaque joueur</span><b>' + COIN + fmt(m.stake) + '</b></div>';
   var top = '<div class="p-top"><span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(m.bo) + '</span><span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
   if (big) return '<div class="poster big">' + top + face + pot + '</div>';
@@ -291,17 +293,25 @@ function matchPageHTML(){
     if (mt) {
       var mine = myDecl(m), myCap = mt === 'A' ? ca : cb, oppCap = mt === 'A' ? cb : ca;
       var myD = mt === 'A' ? m.declA : m.declB, od = mt === 'A' ? m.declB : m.declA;
+      var myS = declScore(m, mt), oppS = declScore(m, mt === 'A' ? 'B' : 'A');
       if (isCap) {
-        r += '<p>' + (st === 'dispute' ? 'Les déclarations ne concordent pas. Corrige la tienne si tu t\'es trompé, sinon un admin tranchera.' : 'Une fois le match joué, déclare honnêtement si ton équipe a gagné ou perdu. Les coins bougent quand les deux capitaines sont d\'accord.') + '</p>' +
-          '<div class="actions"><button class="btn win lg" data-act="declare" data-id="' + id + '" data-val="won" aria-pressed="' + (mine === 'won') + '">J\'ai gagné' + (mine === 'won' ? ' ✓' : '') + '</button><button class="btn danger lg" data-act="declare" data-id="' + id + '" data-val="lost" aria-pressed="' + (mine === 'lost') + '">J\'ai perdu' + (mine === 'lost' ? ' ✓' : '') + '</button></div>';
-      } else r += '<p>Le capitaine de ton équipe, <b>' + esc(P(myCap).pseudo) + '</b>, déclare le résultat pour toute l\'équipe.</p>';
-      function dl(x){ return x === 'won' ? 'déclare avoir gagné' : x === 'lost' ? 'déclare avoir perdu' : 'n\'a pas encore déclaré'; }
-      r += '<div class="decl"><div><span>' + esc(P(myCap).pseudo) + ' (ton capitaine)</span><span>' + dl(myD) + '</span></div><div><span>' + esc(P(oppCap).pseudo) + ' (capitaine adverse)</span><span>' + dl(od) + '</span></div></div>';
+        r += '<p>' + (st === 'dispute' ? 'Les déclarations ne concordent pas. Vérifie le score : corrige-le si tu t\'es trompé, sinon un admin tranchera à partir des captures.' : 'Une fois le match joué, entre le score final et ajoute la capture d\'écran du résultat. Les coins bougent quand les deux capitaines sont d\'accord.') + '</p>' +
+          '<form data-form="result" data-id="' + id + '" class="result-form" novalidate>' +
+          '<div class="score-entry"><label><span>' + (m.size > 1 ? 'Ton équipe' : 'Toi') + '</span><input name="my" type="number" inputmode="numeric" min="0" max="99" step="1" required value="' + (myS ? myS[0] : '') + '" placeholder="0"></label><b>–</b><label><span>' + (m.size > 1 ? 'Adversaires' : esc(P(oppCap).pseudo)) + '</span><input name="opp" type="number" inputmode="numeric" min="0" max="99" step="1" required value="' + (myS ? myS[1] : '') + '" placeholder="0"></label></div>' +
+          '<label class="shot-pick"><input type="file" name="shot" accept="image/*"><span class="shot-ico">📷</span><span class="shot-txt">Ajouter la capture du résultat <small>(conseillé, obligatoire en cas de litige)</small></span></label>' +
+          '<p class="err" role="alert"></p><div class="actions"><button class="btn primary lg" type="submit">' + (mine ? 'Modifier mon résultat' : 'Envoyer le résultat') + '</button></div></form>';
+      } else r += '<p>Le capitaine de ton équipe, <b>' + esc(P(myCap).pseudo) + '</b>, déclare le score pour toute l\'équipe. Tu peux quand même ajouter des captures plus bas.</p>';
+      function dl(x, s){ return x ? (x === 'won' ? 'victoire' : 'défaite') + (s ? ' <b class="mono">' + s[0] + '–' + s[1] + '</b>' : '') : 'n\'a pas encore déclaré'; }
+      r += '<div class="decl"><div><span>' + esc(P(myCap).pseudo) + ' (ton capitaine)</span><span>' + dl(myD, myS) + '</span></div><div><span>' + esc(P(oppCap).pseudo) + ' (capitaine adverse)</span><span>' + dl(od, oppS) + '</span></div></div>';
     } else r += '<p>Ce match est en cours. Les capitaines déclareront le résultat.</p>';
   } else if (st === 'done') {
     var wl = ws === 'A' ? m.teamA : m.teamB;
     if (mt) r += '<div class="banner ' + (mt === ws ? 'pos' : 'neg') + '">' + (mt === ws ? 'Victoire · +' + cn(m.stake * 2) + ' récupérés' : 'Défaite · −' + cn(m.stake)) + '<small>' + (mt === ws ? 'Ta mise te revient, plus celle de ' + esc(names(mt === 'A' ? m.teamB : m.teamA)) + '.' : esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + 'ta mise.') + (m.adminWinner ? ' Résultat tranché par un admin.' : '') + '</small></div>';
     else r += '<div class="banner">Équipe ' + ws + ' gagnante<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '.</small></div>';
+    r += m.scoreA != null
+      ? '<div class="final-score"><span>' + esc(m.size > 1 ? 'Équipe A' : P(ca).pseudo) + '</span><b class="' + (ws === 'A' ? 'w' : '') + '">' + m.scoreA + '</b><i>–</i><b class="' + (ws === 'B' ? 'w' : '') + '">' + m.scoreB + '</b><span>' + esc(m.size > 1 ? 'Équipe B' : P(cb).pseudo) + '</span><em class="fr-tag ' + (m.scoreOk ? 'ok' : '') + '">' + (m.scoreOk ? '✓ Score confirmé' : 'Score non confirmé') + '</em></div>'
+      : '<p class="help">Aucun score n\'a été déclaré pour ce match.</p>';
+    if (isAdmin()) r += '<form data-form="admin-score" data-id="' + id + '" class="adminbox admin-score" novalidate><p class="help"><b>Admin</b> : corriger le score final.</p><div class="score-entry"><label><span>Équipe A</span><input name="a" type="number" min="0" max="99" value="' + (m.scoreA != null ? m.scoreA : '') + '"></label><b>–</b><label><span>Équipe B</span><input name="b" type="number" min="0" max="99" value="' + (m.scoreB != null ? m.scoreB : '') + '"></label><button class="btn sm" type="submit">Enregistrer</button></div><p class="err" role="alert"></p></form>';
   } else r += '<p>Ce défi a été annulé. Les mises ont été rendues.</p>';
   if (isAdmin() && active(m)) {
     r += '<div class="adminbox"><p class="help" style="margin-bottom:10px"><b>Admin</b> : trancher ou annuler ce match.' + (st === 'dispute' ? ' A dit « ' + (m.declA === 'won' ? 'gagné' : 'perdu') + ' », B dit « ' + (m.declB === 'won' ? 'gagné' : 'perdu') + ' ».' : '') + '</p><div class="actions">' +
@@ -309,6 +319,7 @@ function matchPageHTML(){
       '<button class="btn sm danger" data-act="admin-cancel" data-id="' + id + '">Annuler et rembourser</button></div></div>';
   }
   html += r + '</section>';
+  if (st !== 'open' && st !== 'cancelled') html += proofsSectionHTML(m, !!mt || isAdmin());
   if (mt || isAdmin()) {
     if (!chatCache[m.id]) loadChat(m.id);
     html += '<section class="panel chat"><h2>Chat du match</h2><p class="help">Visible seulement par les joueurs du match' + (isAdmin() && !mt ? ' (et toi, en admin)' : '') + '. Donne ton pseudo Fortnite, le code de l\'île…</p>' +
@@ -375,7 +386,7 @@ function profileHTML(){
     tx.forEach(function(e){
       var d = Number(e.delta), cls = d > 0 ? 'pos' : 'neg', m = e.match_id ? S.matches[e.match_id] : null;
       var title = esc(TX_LABEL[e.kind] || e.kind) + (e.kind === 'tip_in' || e.kind === 'tip_out' ? esc(P(e.other).pseudo) : '');
-      var sub = (m ? esc(m.mode) + ' · ' + esc(m.format) + ' · ' : '') + (e.note ? '« ' + esc(e.note) + ' » · ' : '') + ago(Date.parse(e.at));
+      var sub = (m ? esc(m.mode) + ' · ' + esc(m.format) + (m.status === 'done' && m.scoreA != null && (e.kind === 'win' || e.kind === 'stake') ? ' · ' + (teamOf(m, pid) === 'B' ? m.scoreB + '–' + m.scoreA : m.scoreA + '–' + m.scoreB) : '') + ' · ' : '') + (e.note ? '« ' + esc(e.note) + ' » · ' : '') + ago(Date.parse(e.at));
       var inner = '<b>' + title + '</b><small>' + sub + '</small>';
       html += '<li>' + (m ? '<button class="t" data-act="open-match" data-id="' + esc(m.id) + '">' + inner + '</button>' : '<div class="t">' + inner + '</div>') + '<span class="amt ' + cls + '">' + (d > 0 ? '+' : '−') + fmt(Math.abs(d)) + ' ' + COIN + '</span></li>';
     });
@@ -424,6 +435,64 @@ function uploadAvatar(file){
     toast(e && e.message === 'format' ? 'Ce format d\'image n\'est pas reconnu. Essaie une photo JPG ou PNG.' : 'Envoi impossible : ' + cleanErr(e && e.message));
   });
 }
+/* ---------- scores et captures ---------- */
+function declScore(m, side){
+  if (side === 'A') return m.aSA != null ? [m.aSA, m.aSB] : null;
+  return m.bSA != null ? [m.bSB, m.bSA] : null;
+}
+var proofsCache = {};
+function loadProofs(mid){
+  if (proofsCache[mid] === 'loading') return;
+  proofsCache[mid] = 'loading';
+  sb.from('match_proofs').select('id,author,url,created_at').eq('match_id', mid).order('created_at', {ascending: true}).then(function(r){
+    proofsCache[mid] = r.data || [];
+    var el = document.getElementById('proofs-' + mid);
+    if (el) el.innerHTML = proofsGridHTML(S.matches[mid], el.dataset.canadd === '1');
+  });
+}
+function proofsGridHTML(m, canAdd){
+  var list = proofsCache[m.id];
+  if (!list || list === 'loading') return '<p class="help">Chargement des captures…</p>';
+  var html = '<div class="proof-grid">' + list.map(function(x){
+    return '<figure class="proof"><button class="proof-img" data-act="proof-view" data-url="' + esc(x.url) + '" aria-label="Agrandir la capture"><img src="' + esc(x.url) + '" alt="Capture du résultat" loading="lazy"></button><figcaption>' + av(P(x.author), 'sm') + '<span>' + esc(P(x.author).pseudo) + '<small>' + ago(Date.parse(x.created_at)) + '</small></span>' +
+      (x.author === S.me || isAdmin() ? '<button class="btn sm ghost" data-act="proof-del" data-pid="' + x.id + '" data-id="' + esc(m.id) + '" title="Supprimer">✕</button>' : '') + '</figcaption></figure>';
+  }).join('');
+  if (canAdd && list.length < 8) html += '<label class="proof add"><input type="file" accept="image/*" class="proof-file" data-id="' + esc(m.id) + '"><span>📷</span><b>Ajouter une capture</b><small>' + list.length + '/8</small></label>';
+  html += '</div>';
+  if (!list.length && !canAdd) html = '<p class="help">Aucune capture pour ce match.</p>';
+  return html;
+}
+function proofsSectionHTML(m, canAdd){
+  if (!proofsCache[m.id]) loadProofs(m.id);
+  return '<section class="panel"><h2>Captures du match</h2><p class="help">Les captures d\'écran du score servent de preuve en cas de litige. Clique sur une image pour l\'agrandir.</p><div id="proofs-' + esc(m.id) + '" data-canadd="' + (canAdd ? '1' : '0') + '">' + proofsGridHTML(m, canAdd) + '</div></section>';
+}
+function fitJpeg(file, max){
+  return new Promise(function(resolve, reject){
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function(){
+      var w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas');
+      c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(function(b){ b ? resolve(b) : reject(new Error('conversion')); }, 'image/jpeg', 0.85);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('format')); };
+    img.src = url;
+  });
+}
+function uploadProof(mid, file){
+  if (!/^image\//.test(file.type || 'image/')) return Promise.reject(new Error('Choisis une image.'));
+  if (file.size > 25 * 1024 * 1024) return Promise.reject(new Error('Image trop lourde (25 Mo max).'));
+  return fitJpeg(file, 1600).then(function(blob){
+    var path = mid + '/' + S.me + '/' + Date.now() + '.jpg';
+    return sb.storage.from('proofs').upload(path, blob, {contentType: 'image/jpeg', upsert: false}).then(function(r){
+      if (r.error) throw r.error;
+      return sb.rpc('add_proof', {mid: mid, p_url: sb.storage.from('proofs').getPublicUrl(path).data.publicUrl});
+    }).then(function(r){ if (r.error) throw r.error; delete proofsCache[mid]; loadProofs(mid); });
+  }).catch(function(e){ throw new Error(e && e.message === 'format' ? 'Format d\'image non reconnu. Essaie une capture JPG ou PNG.' : cleanErr(e && e.message)); });
+}
+function imgDialog(url){ return '<div class="overlay lightbox"><button class="x" data-act="close" aria-label="Fermer">×</button><img src="' + esc(url) + '" alt="Capture du résultat"></div>'; }
+
 /* ---------- chat de match ---------- */
 var chatCache = {};
 function loadChat(mid){
@@ -708,7 +777,7 @@ function bannedHTML(){
 function renderDialog(){
   var L = $('#layer');
   if (!dlg) { L.innerHTML = ''; return; }
-  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
+  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
   var f = L.querySelector('input,select,button.btn.primary,.x'); if (f) f.focus();
 }
 function openDialog(d){ lastFocus = document.activeElement; dlg = d; renderDialog(); }
@@ -768,6 +837,8 @@ function act(name, el){
     case 'team-decline': doRpc('respond_team_invite', {p_team: d.id, p_accept: false}, 'Invitation refusée.', function(){ if (dlg && dlg.kind === 'notifs') renderDialog(); }); break;
     case 'team-leave': var tl = S.teams[d.id]; if (tl && !confirm(tl.owner === S.me ? 'Supprimer l\'équipe « ' + tl.name + ' » ?' : 'Quitter l\'équipe « ' + tl.name + ' » ?')) break; doRpc('leave_team', {p_team: d.id}, tl && tl.owner === S.me ? 'Équipe supprimée.' : 'Tu as quitté l\'équipe.'); break;
     case 'team-kick': doRpc('kick_from_team', {p_team: d.id, p_player: d.pid}, P(d.pid).pseudo + ' a été retiré de l\'équipe.'); break;
+    case 'proof-view': openDialog({kind: 'img', url: d.url}); break;
+    case 'proof-del': if (!confirm('Supprimer cette capture ?')) break; sb.rpc('remove_proof', {p_id: parseInt(d.pid, 10)}).then(function(r){ if (r.error) { toast(cleanErr(r.error.message)); return; } toast('Capture supprimée.'); delete proofsCache[d.id]; loadProofs(d.id); }); break;
     case 'rule-tab': ruleTab = parseInt(d.i, 10) || 0; render(); break;
     case 'rules-accept':
       if (busy) break; busy = true;
@@ -829,6 +900,8 @@ document.addEventListener('click', function(e){
 document.addEventListener('change', function(e){
   var el = e.target;
   if (el.id === 'avatar-file' && el.files && el.files[0]) { uploadAvatar(el.files[0]); el.value = ''; return; }
+  if (el.classList && el.classList.contains('proof-file') && el.files && el.files[0]) { var pmid = el.dataset.id, pf = el.files[0]; el.value = ''; toast('Envoi de la capture…'); uploadProof(pmid, pf).then(function(){ toast('Capture ajoutée !'); }, function(e){ toast(e.message); }); return; }
+  if (el.name === 'shot' && el.files && el.files[0]) { var st2 = el.parentNode.querySelector('.shot-txt'); if (st2) st2.innerHTML = '✓ ' + esc(el.files[0].name) + ' <small>(cliquer pour changer)</small>'; el.parentNode.classList.add('ok'); return; }
   if (el.id === 'rules-ok') { var rb = document.getElementById('rules-btn'); if (rb) rb.disabled = !el.checked; return; }
   if (el.id === 'c-format') {
     var t = $('#c-target'); if (t) { t.disabled = el.value !== '1v1'; if (t.disabled) t.value = ''; }
@@ -882,6 +955,26 @@ document.addEventListener('submit', function(e){
     });
     return;
   }
+  if (kind === 'result') {
+    var rmid = f.dataset.id, my = parseInt(d.my, 10), opp = parseInt(d.opp, 10), shot = f.querySelector('input[name=shot]').files[0];
+    if (isNaN(my) || isNaN(opp) || my < 0 || opp < 0 || my > 99 || opp > 99) return fail('Entre les deux scores (de 0 à 99).');
+    if (my === opp) return fail('Il ne peut pas y avoir d\'égalité : il faut un gagnant.');
+    var rm = S.matches[rmid];
+    if (!confirm('Confirmer le score ' + my + ' – ' + opp + ' ? Ça veut dire que tu as ' + (my > opp ? 'GAGNÉ' : 'PERDU') + '.')) return fail('');
+    (shot ? uploadProof(rmid, shot) : Promise.resolve()).then(function(){
+      return rpc('declare_result', {mid: rmid, val: my > opp ? 'won' : 'lost', p_my: my, p_opp: opp});
+    }).then(function(r){
+      if (!r.ok) return fail(r.msg);
+      var x = S.matches[rmid];
+      toast(r.data === 'done' ? (x && teamOf(x, S.me) === x.winner ? 'Victoire ' + my + '–' + opp + ' ! Tu récupères ' + cn(rm.stake * 2) + '.' : 'Défaite ' + my + '–' + opp + ' : ta mise de ' + cn(rm.stake) + ' est perdue.') : r.data === 'dispute' ? 'Les deux déclarations ne concordent pas : litige, un admin va trancher.' : 'Score envoyé. En attente de l\'autre capitaine.');
+      render();
+    }, function(e){ fail(e.message); });
+    return;
+  }
+  if (kind === 'admin-score') {
+    rpc('admin_set_score', {mid: f.dataset.id, p_a: parseInt(d.a, 10), p_b: parseInt(d.b, 10)}).then(function(r){ if (!r.ok) return fail(r.msg); toast('Score mis à jour.'); render(); });
+    return;
+  }
   if (kind === 'team-create') {
     rpc('create_team', {p_name: d.name, p_size: parseInt(d.size, 10)}).then(function(r){ if (btn) btn.disabled = false; if (!r.ok) { var er = f.parentNode.querySelector('.err'); if (er) er.textContent = r.msg; return; } toast('Équipe créée ! Invite tes coéquipiers.'); render(); });
     return;
@@ -918,6 +1011,7 @@ if (sb) {
       .on('postgres_changes', {event: '*', schema: 'public', table: 'friendships'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'notifications'}, function(){ passiveRefresh(); setTimeout(function(){ if (dlg && dlg.kind === 'notifs') renderDialog(); }, 1200); })
       .on('postgres_changes', {event: '*', schema: 'public', table: 'team_members'}, passiveRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'match_proofs'}, function(p){ var mid = (p.new && p.new.match_id) || (p.old && p.old.match_id); if (mid && proofsCache[mid]) { delete proofsCache[mid]; loadProofs(mid); } })
       .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'match_messages'}, function(p){
         var mid = p && p.new && p.new.match_id;
         if (mid && chatCache[mid]) { delete chatCache[mid]; loadChat(mid); }
