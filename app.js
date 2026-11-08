@@ -255,7 +255,7 @@ function arenaHTML(){
   var html = '<section class="hero"><div><p class="eyebrow">Fortnite · défis à mise</p><h1>Mets tes coins en jeu.</h1><p class="lead">Du 1v1 au 3v3 : lance un défi, mise des coins, et empoche la mise des perdants. Tout le monde démarre avec ' + cn(START) + '.</p></div>' +
     '<button class="btn primary" data-act="new-match">Lancer un défi</button></section>';
   html += podiumHTML(true);
-  html += '<section class="strip" aria-label="Chiffres de Legacy"><div><b>' + Object.keys(S.players).length + '</b><span>Joueurs</span></div><div><b>' + played + '</b><span>Matchs joués</span></div><div><b>' + fmt(coinsInPlay()) + '</b><span>Coins en jeu</span></div></section>';
+  html += '<section class="strip" aria-label="Chiffres de Legacy"><div><b>' + Object.keys(S.players).filter(function(k){ return !S.players[k].owner; }).length + '</b><span>Joueurs</span></div><div><b>' + played + '</b><span>Matchs joués</span></div><div><b>' + fmt(coinsInPlay()) + '</b><span>Coins en jeu</span></div></section>';
   if (avail(S.me) <= 0) html += '<div class="notice"><p><b>Plus aucun coin disponible.</b> Tu peux regarder les défis et en recevoir. Donne ton pseudo à un autre joueur pour qu\'il t\'envoie un pourboire.</p><button class="btn sm" data-act="copy-pseudo">Copier mon pseudo</button></div>';
   function t(id, label, n){ return '<button role="tab" aria-selected="' + (tab === id) + '" data-act="tab" data-tab="' + id + '">' + label + '<i>' + n + '</i></button>'; }
   html += '<div><div class="tabs" role="tablist">' + t('ouverts', 'Défis ouverts', open.length) + t('mes', 'Mes matchs', mineM.length) + t('termines', 'Terminés', doneM.length) + '</div></div>';
@@ -350,7 +350,7 @@ function matchPageHTML(){
 }
 
 function boardHTML(){
-  var rows = Object.keys(S.players).filter(function(k){ return S.players[k].status !== 'banned'; }).map(function(k){ return {p: S.players[k], bal: balance(k), s: stats(k)}; });
+  var rows = Object.keys(S.players).filter(function(k){ return S.players[k].status !== 'banned' && !S.players[k].owner; }).map(function(k){ return {p: S.players[k], bal: balance(k), s: stats(k)}; });
   rows.sort(function(a, b){ return b.bal - a.bal || b.s.w - a.s.w || a.p.pseudo.localeCompare(b.p.pseudo); });
   var html = podiumHTML(false) + '<section><p class="eyebrow">Classement</p><h2 class="sec" style="margin-top:8px">Les plus riches de l\'arène</h2></section>';
   html += '<div class="tablewrap"><table><thead><tr><th scope="col">#</th><th scope="col">Joueur</th><th scope="col">Matchs</th><th scope="col">V–D</th><th scope="col">Victoires</th><th scope="col">Coins</th></tr></thead><tbody>';
@@ -757,7 +757,7 @@ function weeklyTop(){
     (m.winner === 'A' ? m.teamA : m.teamB).filter(function(pid){ return m.finishedAt >= (P(pid).statsResetAt || 0); }).forEach(function(pid){ sc[pid] = sc[pid] || {net: 0, w: 0, l: 0}; sc[pid].net += m.stake; sc[pid].w++; });
     (m.winner === 'A' ? m.teamB : m.teamA).filter(function(pid){ return m.finishedAt >= (P(pid).statsResetAt || 0); }).forEach(function(pid){ sc[pid] = sc[pid] || {net: 0, w: 0, l: 0}; sc[pid].net -= m.stake; sc[pid].l++; });
   });
-  return Object.keys(sc).filter(function(pid){ return S.players[pid] && S.players[pid].status !== 'banned' && sc[pid].w > 0; })
+  return Object.keys(sc).filter(function(pid){ return S.players[pid] && S.players[pid].status !== 'banned' && !S.players[pid].owner && sc[pid].w > 0; })
     .sort(function(a, b){ return sc[b].net - sc[a].net || sc[b].w - sc[a].w; }).slice(0, 3).map(function(pid){ return {pid: pid, s: sc[pid]}; });
 }
 function podiumHTML(compact){
