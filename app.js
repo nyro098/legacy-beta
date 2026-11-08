@@ -1399,7 +1399,7 @@ document.addEventListener('submit', function(e){
     edit: ['update_profile', {p_pseudo: d.pseudo, p_twitter: String(d.twitter || '').trim().replace(/^@/, ''), p_bio: d.bio}, 'Profil mis à jour.'],
     match: ['create_match', {p_mode: d.mode, p_format: d.format, p_bo: d.bo, p_stake: num(d.stake), p_rules: d.rules, p_target: d.target || null, p_team: d.team || null, p_pingpong: !!d.pingpong}, 'Défi publié. ' + cn(num(d.stake) || 0) + ' mis en jeu.'],
     tip: ['send_tip', {p_to: d.to, p_amount: num(d.amount), p_note: d.note}, cn(num(d.amount) || 0) + ' envoyé(s).'],
-    sanction: ['set_player_status', {p_player: f.dataset.pid, p_status: f.dataset.mode, p_reason: d.reason, p_hours: f.dataset.mode === 'restricted' ? parseInt(d.hours, 10) : null}, f.dataset.mode === 'ok' ? 'Sanction levée.' : f.dataset.mode === 'banned' ? 'Joueur banni.' : 'Joueur restreint.'],
+    sanction: ['set_player_status', {p_player: f.dataset.pid, p_status: f.dataset.mode, p_reason: d.reason || '', p_hours: f.dataset.mode === 'restricted' ? parseInt(d.hours, 10) : null}, f.dataset.mode === 'ok' ? 'Sanction levée.' : f.dataset.mode === 'banned' ? 'Joueur banni.' : 'Joueur restreint.'],
     'admin-give': ['admin_give', {p_player: d.to, p_amount: (f.dataset.mode === 'remove' ? -1 : 1) * Math.abs(num(d.amount)), p_note: d.note}, f.dataset.mode === 'remove' ? cn(Math.abs(num(d.amount)) || 0) + ' retiré(s).' : cn(Math.abs(num(d.amount)) || 0) + ' donné(s).']
   }[kind];
   if (!map) return;
