@@ -45,7 +45,8 @@ function mapMatch(m){
     stake: Number(m.stake), rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
     teamATeam: m.team_a_team || null,
     aSA: m.a_decl_sa, aSB: m.a_decl_sb, bSA: m.b_decl_sa, bSB: m.b_decl_sb,
-    scoreA: m.score_a, scoreB: m.score_b, scoreOk: !!m.score_confirmed, createdAt: Date.parse(m.created_at), finishedAt: m.finished_at ? Date.parse(m.finished_at) : 0};
+    scoreA: m.score_a, scoreB: m.score_b, scoreOk: !!m.score_confirmed,
+    firstDeclAt: m.first_decl_at ? Date.parse(m.first_decl_at) : 0, afkClaim: !!m.afk_claim, autoValidated: !!m.auto_validated, createdAt: Date.parse(m.created_at), finishedAt: m.finished_at ? Date.parse(m.finished_at) : 0};
 }
 function refresh(){
   return Promise.all([
@@ -299,14 +300,15 @@ function matchPageHTML(){
           '<form data-form="result" data-id="' + id + '" class="result-form" novalidate>' +
           '<div class="score-entry"><label><span>' + (m.size > 1 ? 'Ton équipe' : 'Toi') + '</span><input name="my" type="number" inputmode="numeric" min="0" max="99" step="1" required value="' + (myS ? myS[0] : '') + '" placeholder="0"></label><b>–</b><label><span>' + (m.size > 1 ? 'Adversaires' : esc(P(oppCap).pseudo)) + '</span><input name="opp" type="number" inputmode="numeric" min="0" max="99" step="1" required value="' + (myS ? myS[1] : '') + '" placeholder="0"></label></div>' +
           '<label class="shot-pick"><input type="file" name="shot" accept="image/*"><span class="shot-ico">📷</span><span class="shot-txt">Ajouter la capture du résultat <small>(conseillé, obligatoire en cas de litige)</small></span></label>' +
-          '<p class="err" role="alert"></p><div class="actions"><button class="btn primary lg" type="submit">' + (mine ? 'Modifier mon résultat' : 'Envoyer le résultat') + '</button></div></form>';
+          '<p class="err" role="alert"></p><div class="actions"><button class="btn primary lg" type="submit">' + (mine ? 'Modifier mon résultat' : 'Envoyer le résultat') + '</button>' + (!mine && !(mt === 'A' ? m.declB : m.declA) ? '<button class="btn ghost" type="button" data-act="afk-claim" data-id="' + id + '">Mon adversaire ne joue pas (AFK)</button>' : '') + '</div></form>';
       } else r += '<p>Le capitaine de ton équipe, <b>' + esc(P(myCap).pseudo) + '</b>, déclare le score pour toute l\'équipe. Tu peux quand même ajouter des captures plus bas.</p>';
       function dl(x, s){ return x ? (x === 'won' ? 'victoire' : 'défaite') + (s ? ' <b class="mono">' + s[0] + '–' + s[1] + '</b>' : '') : 'n\'a pas encore déclaré'; }
+      r += timerHTML(m, mt, myD, od);
       r += '<div class="decl"><div><span>' + esc(P(myCap).pseudo) + ' (ton capitaine)</span><span>' + dl(myD, myS) + '</span></div><div><span>' + esc(P(oppCap).pseudo) + ' (capitaine adverse)</span><span>' + dl(od, oppS) + '</span></div></div>';
-    } else r += '<p>Ce match est en cours. Les capitaines déclareront le résultat.</p>';
+    } else r += '<p>Ce match est en cours. Les capitaines déclareront le résultat.</p>' + timerHTML(m, null, null, null);
   } else if (st === 'done') {
     var wl = ws === 'A' ? m.teamA : m.teamB;
-    if (mt) r += '<div class="banner ' + (mt === ws ? 'pos' : 'neg') + '">' + (mt === ws ? 'Victoire · +' + cn(m.stake * 2) + ' récupérés' : 'Défaite · −' + cn(m.stake)) + '<small>' + (mt === ws ? 'Ta mise te revient, plus celle de ' + esc(names(mt === 'A' ? m.teamB : m.teamA)) + '.' : esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + 'ta mise.') + (m.adminWinner ? ' Résultat tranché par un admin.' : '') + '</small></div>';
+    if (mt) r += '<div class="banner ' + (mt === ws ? 'pos' : 'neg') + '">' + (mt === ws ? 'Victoire · +' + cn(m.stake * 2) + ' récupérés' : 'Défaite · −' + cn(m.stake)) + '<small>' + (mt === ws ? 'Ta mise te revient, plus celle de ' + esc(names(mt === 'A' ? m.teamB : m.teamA)) + '.' : esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + 'ta mise.') + (m.adminWinner ? ' Résultat tranché par un admin.' : '') + (m.autoValidated ? ' Validé automatiquement : pas de contestation en 10 minutes.' : '') + '</small></div>';
     else r += '<div class="banner">Équipe ' + ws + ' gagnante<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '.</small></div>';
     r += m.scoreA != null
       ? '<div class="final-score"><span>' + esc(m.size > 1 ? 'Équipe A' : P(ca).pseudo) + '</span><b class="' + (ws === 'A' ? 'w' : '') + '">' + m.scoreA + '</b><i>–</i><b class="' + (ws === 'B' ? 'w' : '') + '">' + m.scoreB + '</b><span>' + esc(m.size > 1 ? 'Équipe B' : P(cb).pseudo) + '</span><em class="fr-tag ' + (m.scoreOk ? 'ok' : '') + '">' + (m.scoreOk ? '✓ Score confirmé' : 'Score non confirmé') + '</em></div>'
@@ -435,6 +437,35 @@ function uploadAvatar(file){
     toast(e && e.message === 'format' ? 'Ce format d\'image n\'est pas reconnu. Essaie une photo JPG ou PNG.' : 'Envoi impossible : ' + cleanErr(e && e.message));
   });
 }
+/* ---------- chrono anti-AFK (10 min pour contester) ---------- */
+var CLAIM_MS = 10 * 60 * 1000, timeoutAsked = {};
+function timerHTML(m, mt, myD, od){
+  if (m.status !== 'live' || !m.firstDeclAt || (!!m.declA === !!m.declB)) return '';
+  var until = m.firstDeclAt + CLAIM_MS, declSide = m.declA ? 'A' : 'B', declCap = declSide === 'A' ? capA(m) : capB(m);
+  var claim = m.afkClaim ? 'une victoire par <b>AFK</b>' : ((declSide === 'A' ? m.declA : m.declB) === 'won' ? 'une victoire' : 'une défaite');
+  var sc = declScore(m, declSide); if (sc && !m.afkClaim) claim += ' <b class="mono">' + sc[0] + '–' + sc[1] + '</b>';
+  var cd = '<b class="countdown" data-until="' + until + '" data-id="' + esc(m.id) + '">' + mmss(until - Date.now()) + '</b>';
+  var txt;
+  if (mt && S.me === declCap) txt = 'Résultat envoyé. Si ton adversaire ne conteste pas dans ' + cd + ', ton résultat sera <b>validé automatiquement</b>.';
+  else if (mt && (S.me === capA(m) || S.me === capB(m))) txt = '<b>' + esc(P(declCap).pseudo) + '</b> a déclaré ' + claim + '. Tu as ' + cd + ' pour contester en envoyant ton score ci-dessus, sinon son résultat sera validé.';
+  else txt = '<b>' + esc(P(declCap).pseudo) + '</b> a déclaré ' + claim + '. Validation automatique dans ' + cd + ' sans contestation.';
+  return '<div class="claim-timer"><span class="ct-ico">⏱️</span><p>' + txt + '</p></div>';
+}
+function mmss(ms){ if (ms <= 0) return '0:00'; var s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+setInterval(function(){
+  var els = document.querySelectorAll('.countdown');
+  Array.prototype.forEach.call(els, function(el){
+    var left = parseInt(el.dataset.until, 10) - Date.now();
+    el.textContent = mmss(left);
+    el.classList.toggle('urgent', left < 60000);
+    if (left <= 0 && !timeoutAsked[el.dataset.id] && sb) {
+      timeoutAsked[el.dataset.id] = true;
+      el.textContent = 'validation…';
+      sb.rpc('resolve_timeout', {mid: el.dataset.id}).then(function(){ setTimeout(function(){ refresh().then(render); }, 800); });
+    }
+  });
+}, 1000);
+
 /* ---------- scores et captures ---------- */
 function declScore(m, side){
   if (side === 'A') return m.aSA != null ? [m.aSA, m.aSB] : null;
@@ -555,6 +586,7 @@ function notifRow(n){
   else if (n.kind === 'team_join') txt = '<b>' + a + '</b> a rejoint ton équipe ' + tn + '.';
   else if (n.kind === 'team_match') { txt = '<b>' + a + '</b> a lancé un match avec ton équipe ' + tn + ' : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">' + (m.status === 'open' && !teamOf(m, S.me) ? 'Rejoindre' : 'Voir') + '</button>'; }
   else if (n.kind === 'match_invite') { txt = '<b>' + a + '</b> t\'invite dans son match : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le match</button>'; }
+  else if (n.kind === 'result_claim') { txt = '<b>' + a + '</b> a déclaré le résultat de votre match (' + mDesc + '). Tu as <b>10 minutes</b> pour contester.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le match</button>'; }
   else if (n.kind === 'challenge') { txt = '<b>' + a + '</b> te défie en 1v1 : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le défi</button>'; }
   else txt = 'Notification.';
   return '<li class="notif' + (n.read ? '' : ' new') + '">' + av(P(n.actor), 'sm') + '<div class="nt"><p>' + txt + '</p><small>' + ago(Date.parse(n.created_at)) + '</small>' + (act ? '<div class="actions">' + act + '</div>' : '') + '</div></li>';
@@ -679,7 +711,7 @@ function oldRulesHTML(){
     '<li><div><b>Tu démarres avec ' + cn(START) + '</b><p>Chaque nouveau joueur reçoit ' + cn(START) + ' à l\'inscription. Un seul compte par Discord. Les coins n\'ont aucune valeur réelle : pas d\'achat, pas de retrait. Personne ne peut dépasser ' + MAXC + ' coins : au-delà, le surplus d\'une victoire est perdu.</p></div></li>' +
     '<li><div><b>Lance ou rejoins un défi</b><p>Choisis le mode, le format (1v1, 2v2 ou 3v3), la série (BO1, BO3 ou BO5) et ta mise, par tranches de 0,5 coin. Ta mise sort de ton solde dès que tu rejoins et part dans le pot.</p></div></li>' +
     '<li><div><b>Jouez sur Fortnite</b><p>Le match démarre quand les deux équipes sont complètes. Mettez-vous d\'accord sur l\'île et les règles dans le chat du match.</p></div></li>' +
-    '<li><div><b>Les deux capitaines déclarent le résultat</b><p>Le premier joueur de chaque équipe est son capitaine. Si les deux déclarations concordent, chaque gagnant récupère sa mise plus celle d\'un perdant. Les perdants ne revoient jamais leur mise. En cas de désaccord ou de triche, ouvre un ticket sur le Discord (onglet Signaler) : un modérateur tranchera à partir des preuves.</p></div></li>' +
+    '<li><div><b>Les deux capitaines déclarent le résultat</b><p>Le premier joueur de chaque équipe est son capitaine. Si les deux déclarations concordent, chaque gagnant récupère sa mise plus celle d\'un perdant. Les perdants ne revoient jamais leur mise. Si l\'autre capitaine ne conteste pas dans les 10 minutes après la première déclaration (par exemple s\'il est AFK), le résultat déclaré est validé automatiquement. En cas de désaccord ou de triche, ouvre un ticket sur le Discord (onglet Signaler) : un modérateur tranchera à partir des preuves.</p></div></li>' +
     '<li><div><b>À zéro coin ?</b><p>Tu gardes ton profil et n\'importe quel joueur peut t\'envoyer des coins avec un pourboire.</p></div></li></ol>';
 }
 
@@ -839,6 +871,10 @@ function act(name, el){
     case 'team-kick': doRpc('kick_from_team', {p_team: d.id, p_player: d.pid}, P(d.pid).pseudo + ' a été retiré de l\'équipe.'); break;
     case 'proof-view': openDialog({kind: 'img', url: d.url}); break;
     case 'proof-del': if (!confirm('Supprimer cette capture ?')) break; sb.rpc('remove_proof', {p_id: parseInt(d.pid, 10)}).then(function(r){ if (r.error) { toast(cleanErr(r.error.message)); return; } toast('Capture supprimée.'); delete proofsCache[d.id]; loadProofs(d.id); }); break;
+    case 'afk-claim':
+      if (!confirm('Déclarer que ton adversaire ne joue pas ? Tu seras déclaré gagnant s\'il ne conteste pas dans les 10 minutes.')) break;
+      doRpc('declare_result', {mid: d.id, val: 'won', p_my: null, p_opp: null}, 'Victoire par AFK déclarée. Ton adversaire a 10 minutes pour contester.');
+      break;
     case 'rule-tab': ruleTab = parseInt(d.i, 10) || 0; render(); break;
     case 'rules-accept':
       if (busy) break; busy = true;
