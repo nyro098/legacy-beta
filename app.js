@@ -98,7 +98,7 @@ function signup(d){
   var pseudo = String(d.pseudo || '').trim(), discord = String(d.discord || '').trim(), pw = String(d.password || '');
   if (!discord) return Promise.resolve({ok: false, msg: 'Entre ton Discord.'});
   if (discord.length > 64) return Promise.resolve({ok: false, msg: 'Discord trop long (64 caractères max).'});
-  if (!/^[A-Za-z0-9_-]{3,16}$/.test(pseudo)) return Promise.resolve({ok: false, msg: 'Le pseudo fait 3 à 16 caractères : lettres, chiffres, _ ou -.'});
+  if (pseudo.length < 2 || pseudo.length > 24 || /[\u0000-\u001f\u007f]/.test(pseudo)) return Promise.resolve({ok: false, msg: 'Le pseudo fait 2 à 24 caractères (espaces et caractères spéciaux autorisés).'});
   if (pw.length < 6) return Promise.resolve({ok: false, msg: 'Le mot de passe fait au moins 6 caractères.'});
   if (pw !== String(d.password2 || '')) return Promise.resolve({ok: false, msg: 'Les deux mots de passe ne sont pas identiques.'});
   return sb.rpc('signup_check', {p_pseudo: pseudo, p_discord: discord}).then(function(c){
@@ -354,7 +354,7 @@ function profileHTML(){
   var html = '';
   if (own && editing) {
     html += '<section class="card" style="max-width:560px"><h2 class="sec">Modifier mon profil</h2><form data-form="edit" novalidate>' +
-      '<label for="e-pseudo">Pseudo</label><input id="e-pseudo" name="pseudo" required maxlength="16" autocomplete="off" value="' + esc(p.pseudo) + '">' +
+      '<label for="e-pseudo">Pseudo</label><input id="e-pseudo" name="pseudo" required maxlength="24" autocomplete="off" value="' + esc(p.pseudo) + '">' +
       '<label>Discord (identifiant de connexion)</label><input value="' + esc(p.discord) + '" disabled>' +
       '<label for="e-twitter">X / Twitter (facultatif)</label><input id="e-twitter" name="twitter" maxlength="33" autocomplete="off" value="' + esc(p.twitter) + '" placeholder="@pseudo">' +
       '<label for="e-bio">Bio (facultatif)</label><textarea id="e-bio" name="bio" maxlength="140" placeholder="Ton style de jeu, tes règles préférées…">' + esc(p.bio) + '</textarea>' +
@@ -724,7 +724,7 @@ function welcomeHTML(){
         '<p class="err" role="alert"></p><button class="btn primary" type="submit" style="width:100%">Se connecter</button></form>' +
         '<p class="hint" style="margin-top:16px">Pas encore de compte ? <button class="linkbtn" data-act="auth-tab" data-tab="signup">Inscris-toi</button> et reçois ' + cn(START) + '.</p>'
       : '<form data-form="signup" novalidate><label for="w-discord">Discord</label><input id="w-discord" name="discord" required maxlength="64" autocomplete="username" placeholder="Ton pseudo Discord">' +
-        '<label for="w-pseudo">Pseudo Fortnite</label><input id="w-pseudo" name="pseudo" required maxlength="16" autocomplete="off" placeholder="3 à 16 caractères">' +
+        '<label for="w-pseudo">Pseudo Fortnite</label><input id="w-pseudo" name="pseudo" required maxlength="24" autocomplete="off" placeholder="Ton pseudo exact, espaces et symboles OK">' +
         '<div class="row"><div><label for="w-pw">Mot de passe</label><input id="w-pw" name="password" type="password" required autocomplete="new-password"></div>' +
         '<div><label for="w-pw2">Confirmer</label><input id="w-pw2" name="password2" type="password" required autocomplete="new-password"></div></div>' +
         '<label for="w-twitter">X / Twitter (facultatif)</label><input id="w-twitter" name="twitter" maxlength="33" autocomplete="off" placeholder="@pseudo">' +
