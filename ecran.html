@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Legacy · Écran de stream</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Figtree:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Écran OBS 1920x1080.
+     ecran.html            -> « Le stream va bientôt commencer »
+     ecran.html?type=fin   -> « Le stream est terminé »
+     Options : &min=5 (compte à rebours de 5 min), &twitch=nomdelachaine */
+  :root{--grad:linear-gradient(90deg,#8b5cff 0%,#4f7bff 50%,#00d4ff 100%);--violet:#8b5cff;--cyan:#00d4ff;--gold:#ffd76a;--fg:#f5f6ff;--fg2:#b7bce6;--card:rgba(14,16,44,.78);--line:rgba(139,92,255,.45)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1920px;height:1080px;overflow:hidden;font-family:Figtree,system-ui,sans-serif;color:var(--fg);background:#06071a}
+
+  /* fond animé */
+  .bg{position:absolute;inset:0;overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(120px);opacity:.55;animation:drift 18s ease-in-out infinite alternate}
+  .b1{width:900px;height:900px;left:-200px;top:-300px;background:#5b2bff}
+  .b2{width:800px;height:800px;right:-200px;bottom:-300px;background:#00a8ff;animation-delay:-6s}
+  .b3{width:600px;height:600px;left:700px;top:500px;background:#b03cff;opacity:.3;animation-delay:-11s}
+  @keyframes drift{to{transform:translate(120px,80px) scale(1.15)}}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(139,92,255,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(139,92,255,.09) 1px,transparent 1px);background-size:64px 64px;-webkit-mask:radial-gradient(1200px 700px at 50% 45%,#000,transparent);mask:radial-gradient(1200px 700px at 50% 45%,#000,transparent)}
+  .hex{position:absolute;width:120px;height:138px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(160deg,rgba(139,92,255,.35),rgba(0,212,255,.08));animation:float 14s linear infinite}
+  @keyframes float{from{transform:translateY(1200px) rotate(0)}to{transform:translateY(-300px) rotate(180deg)}}
+
+  .wrap{position:absolute;inset:0;display:grid;grid-template-columns:1fr 600px;gap:70px;padding:90px 110px 150px}
+
+  /* colonne gauche */
+  .brand{display:flex;align-items:center;gap:22px}
+  .brand img{width:110px;height:110px;filter:drop-shadow(0 0 24px rgba(139,92,255,.9))}
+  .brand .name{font:900 92px/1 'Big Shoulders Display';letter-spacing:.06em;text-transform:uppercase}
+  .brand .beta{font:800 20px/1 Figtree;letter-spacing:.14em;color:#07081a;background:var(--gold);padding:6px 10px;border-radius:8px;margin-left:10px;vertical-align:middle;position:relative;top:-14px}
+  .brand .tag{display:block;font:700 24px/1.2 Figtree;color:var(--fg2);letter-spacing:.04em;margin-top:6px}
+
+  .kicker{margin-top:70px;display:inline-flex;align-items:center;gap:12px;font:800 22px Figtree;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan)}
+  .kicker i{width:14px;height:14px;border-radius:50%;background:var(--cyan);box-shadow:0 0 14px var(--cyan);animation:pulse 1.4s infinite}
+  body.fin .kicker{color:var(--gold)} body.fin .kicker i{background:var(--gold);box-shadow:0 0 14px var(--gold)}
+  @keyframes pulse{50%{opacity:.3}}
+  h1{margin-top:18px;white-space:nowrap;font:900 116px/.95 'Big Shoulders Display';text-transform:uppercase;letter-spacing:.01em}
+  h1 .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 30px rgba(79,123,255,.45))}
+
+  .timer{margin-top:34px;display:flex;align-items:center;gap:24px}
+  .clock{font:900 110px/1 'Big Shoulders Display';letter-spacing:.04em;padding:10px 34px;border-radius:22px;background:var(--card);border:2px solid var(--line);box-shadow:0 0 40px rgba(139,92,255,.3);font-variant-numeric:tabular-nums}
+  .loading{width:560px;height:14px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid var(--line)}
+  .loading b{display:block;height:100%;width:40%;border-radius:99px;background:var(--grad);animation:load 2.6s ease-in-out infinite}
+  @keyframes load{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+  .timer .sub{font:700 26px Figtree;color:var(--fg2)}
+
+  .pitch{margin-top:44px;display:flex;flex-wrap:wrap;gap:14px;max-width:1000px}
+  .chip{display:flex;align-items:center;gap:10px;padding:14px 22px;border-radius:999px;background:var(--card);border:1px solid var(--line);font:800 24px Figtree}
+  .chip em{font-style:normal;color:var(--gold)}
+
+  /* colonne droite */
+  .side{display:flex;flex-direction:column;gap:26px;padding-top:8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:26px;padding:28px 30px;box-shadow:0 20px 60px rgba(0,0,0,.35);backdrop-filter:blur(10px)}
+  .card h2{font:900 34px/1 'Big Shoulders Display';letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+  .card h2 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .link{display:flex;align-items:center;gap:18px;padding:14px 0;border-top:1px solid rgba(139,92,255,.2)}
+  .link:first-of-type{border-top:0;padding-top:0}
+  .ico{flex:none;width:58px;height:58px;border-radius:16px;display:grid;place-items:center;font-size:30px}
+  .ico.site{background:var(--grad)} .ico.dc{background:#5865f2} .ico.tw{background:#9146ff}
+  .ico svg{width:32px;height:32px;fill:#fff}
+  .link small{display:block;font:800 16px Figtree;letter-spacing:.14em;text-transform:uppercase;color:var(--fg2)}
+  .link b{display:block;font:800 29px/1.2 Figtree;margin-top:3px}
+
+  .top li{list-style:none;display:flex;align-items:center;gap:16px;padding:10px 0}
+  .rank{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font:900 26px 'Big Shoulders Display';color:#07081a}
+  .r1{background:linear-gradient(135deg,#ffe9a3,#ffc93c)} .r2{background:linear-gradient(135deg,#f1f3ff,#aeb6d6)} .r3{background:linear-gradient(135deg,#ffc79a,#d9844a)}
+  .av{flex:none;width:54px;height:54px;border-radius:50%;background:#20234d center/cover;border:2px solid var(--line);display:grid;place-items:center;font:900 24px 'Big Shoulders Display'}
+  .top .who{flex:1;min-width:0;font:800 27px Figtree;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top .pts{font:800 24px Figtree;color:var(--gold);white-space:nowrap}
+  .empty{font:700 22px Figtree;color:var(--fg2)}
+  .stats{display:flex;gap:16px;margin-top:6px}
+  .stat{flex:1;text-align:center;padding:16px 10px;border-radius:18px;background:rgba(139,92,255,.12);border:1px solid rgba(139,92,255,.3)}
+  .stat b{display:block;font:900 54px/1 'Big Shoulders Display';background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat small{display:block;margin-top:6px;font:800 16px Figtree;letter-spacing:.12em;text-transform:uppercase;color:var(--fg2)}
+
+  /* bandeau défilant */
+  .marquee{position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(7,8,26,.9);border-top:2px solid transparent;border-image:var(--grad) 1;overflow:hidden;display:flex;align-items:center}
+  .track{display:flex;gap:70px;white-space:nowrap;animation:scroll 40s linear infinite;padding-left:70px}
+  .track span{font:800 28px Figtree;display:flex;align-items:center;gap:14px}
+  .track em{font-style:normal;color:var(--gold)}
+  @keyframes scroll{to{transform:translateX(-50%)}}
+</style>
+</head>
+<body>
+  <div class="bg">
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+    <div class="grid"></div>
+    <div class="hex" style="left:6%;animation-duration:22s"></div>
+    <div class="hex" style="left:38%;width:70px;height:80px;animation-duration:17s;animation-delay:-9s"></div>
+    <div class="hex" style="left:58%;width:90px;height:104px;animation-duration:25s;animation-delay:-4s"></div>
+    <div class="hex" style="left:88%;width:60px;height:70px;animation-duration:19s;animation-delay:-13s"></div>
+  </div>
+
+  <div class="wrap">
+    <div>
+      <div class="brand"><img src="logo.svg" alt=""><div><span class="name">Legacy</span><span class="beta">BÊTA</span><span class="tag">Défis Fortnite · 100 % gratuit</span></div></div>
+
+      <div class="kicker" id="kicker"><i></i><span></span></div>
+      <h1 id="title"></h1>
+
+      <div class="timer" id="timer"></div>
+
+      <div class="pitch">
+        <div class="chip">⚔️ Défis <em>1v1 · 2v2 · 3v3</em></div>
+        <div class="chip">🪙 Mise des coins sur tes matchs</div>
+        <div class="chip">🎁 <em>10 coins offerts</em> à l'inscription</div>
+        <div class="chip">🏆 Tournois &amp; classement</div>
+        <div class="chip">🛍️ Boutique : VIP, cadres, titres</div>
+        <div class="chip">✅ Aucun argent réel</div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h2>📍 <span>Retrouve-nous</span></h2>
+        <div class="link"><div class="ico site"><img src="logo.svg" alt="" style="width:36px;height:36px"></div><div><small>Le site</small><b>nyro098.github.io/legacy-beta</b></div></div>
+        <div class="link"><div class="ico dc"><svg viewBox="0 0 24 24"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.6 3a19.7 19.7 0 0 0-4.9 1.5C.6 9.1-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2.1a12.9 12.9 0 0 1-2-1l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.6-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg></div><div><small>Discord GRIND</small><b>discord.gg/EpNWaAscD</b></div></div>
+        <div class="link"><div class="ico tw"><svg viewBox="0 0 24 24"><path d="M4.3 1 1.5 4.7v14.8h5V23h2.8l3.5-3.5h4.3L23 13.6V1H4.3zm16.6 11.6-3.4 3.4h-5.2L9.3 19v-3H5V3h15.9v9.6zM17.6 6.2v5.6h-2.1V6.2h2.1zm-5.7 0v5.6H9.8V6.2h2.1z"/></svg></div><div><small>Twitch</small><b id="tw"></b></div></div>
+      </div>
+
+      <div class="card">
+        <h2>🥇 <span>Top 3 de la semaine</span></h2>
+        <ul class="top" id="top"><li class="empty">Chargement…</li></ul>
+        <div class="stats">
+          <div class="stat"><b id="sp">–</b><small>Joueurs</small></div>
+          <div class="stat"><b id="sm">–</b><small>Matchs joués</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="marquee"><div class="track" id="track"></div></div>
+
+<script>
+(function(){
+  var q = new URLSearchParams(location.search);
+  var fin = q.get('type') === 'fin';
+  var twitch = (q.get('twitch') || 'fcs_ayzox').replace(/[^\w]/g, '');
+  if (fin) document.body.classList.add('fin');
+  document.getElementById('tw').textContent = 'twitch.tv/' + twitch;
+
+  document.querySelector('#kicker span').textContent = fin ? 'Merci d\'avoir regardé 💜' : 'Installe-toi, ça arrive';
+  document.getElementById('title').innerHTML = fin
+    ? 'Le stream<br>est <span class="g">terminé</span>'
+    : 'Le stream va<br><span class="g">bientôt commencer</span>';
+
+  // compte à rebours (?min=5) ou barre de chargement
+  var timer = document.getElementById('timer'), min = parseFloat(q.get('min'));
+  if (fin) {
+    timer.innerHTML = '<div class="sub">💬 On continue sur le Discord — et défie-moi sur Legacy !</div>';
+  } else if (min > 0) {
+    var end = Date.now() + min * 60000;
+    timer.innerHTML = '<div class="clock" id="clock">00:00</div><div class="sub">avant le début du live</div>';
+    var tick = function(){
+      var s = Math.max(0, Math.round((end - Date.now()) / 1000));
+      document.getElementById('clock').textContent = s ? String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') : 'ÇA COMMENCE !';
+    };
+    tick(); setInterval(tick, 500);
+  } else {
+    timer.innerHTML = '<div class="loading"><b></b></div><div class="sub">Pendant ce temps, inscris-toi sur Legacy 👇</div>';
+  }
+
+  // bandeau défilant
+  var items = fin ? [
+    ['💜', 'Merci d\'être passé ! Pense à <em>suivre la chaîne</em> pour le prochain live'],
+    ['⚔️', 'Défie-moi en 1v1 sur <em>nyro098.github.io/legacy-beta</em>'],
+    ['💬', 'Rejoins le Discord GRIND : <em>discord.gg/EpNWaAscD</em>'],
+    ['🏆', 'Grimpe dans le classement et deviens <em>joueur de la semaine</em>']
+  ] : [
+    ['🎮', 'Inscris-toi gratuitement sur <em>nyro098.github.io/legacy-beta</em>'],
+    ['🎁', '<em>10 coins offerts</em> à l\'inscription · aucun argent réel'],
+    ['⚔️', 'Lance un défi et mise tes coins · le gagnant remporte tout'],
+    ['💬', 'Rejoins le Discord GRIND : <em>discord.gg/EpNWaAscD</em>'],
+    ['🔴', 'Ajoute ta chaîne Twitch sur ton profil pour apparaître en <em>LIVE</em> sur le site']
+  ];
+  var html = items.map(function(m){ return '<span>' + m[0] + ' ' + m[1] + '</span>'; }).join('');
+  document.getElementById('track').innerHTML = html + html;
+
+  // données en direct
+  var URL_ = 'https://ypwgultwbngvurdxbfnt.supabase.co/rest/v1/', KEY = 'sb_publishable_2FpofK1E8T4bzFcaPvqzJg_qxSjbii2';
+  var H = {apikey: KEY, Authorization: 'Bearer ' + KEY};
+  function get(p){ return fetch(URL_ + p, {headers: H}).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function fmt(n){ n = Math.round(Number(n || 0) * 10) / 10; return String(n).replace('.', ','); }
+
+  function load(){
+    Promise.all([
+      get('profiles?select=id,pseudo,is_owner,status,avatar_url'),
+      get('matches?select=team_a,team_b,winner,stake,finished_at&status=eq.done&order=finished_at.desc&limit=1000')
+    ]).then(function(r){
+      var P = {}, ok = function(id){ return P[id] && !P[id].is_owner && P[id].status !== 'banned'; };
+      (r[0] || []).forEach(function(p){ P[p.id] = p; });
+      document.getElementById('sp').textContent = (r[0] || []).filter(function(p){ return ok(p.id); }).length;
+      document.getElementById('sm').textContent = (r[1] || []).length;
+      var since = Date.now() - 7 * 864e5, sc = {};
+      (r[1] || []).forEach(function(m){
+        if (!m.finished_at || Date.parse(m.finished_at) < since) return;
+        (m.winner === 'A' ? m.team_a : m.team_b).forEach(function(id){ sc[id] = (sc[id] || 0) + Number(m.stake); });
+        (m.winner === 'A' ? m.team_b : m.team_a).forEach(function(id){ sc[id] = (sc[id] || 0) - Number(m.stake); });
+      });
+      var top = Object.keys(sc).filter(function(id){ return ok(id) && sc[id] > 0; }).sort(function(a, b){ return sc[b] - sc[a]; }).slice(0, 3);
+      document.getElementById('top').innerHTML = top.length ? top.map(function(id, i){
+        var p = P[id], av = p.avatar_url ? ' style="background-image:url(\'' + esc(p.avatar_url) + '\')"' : '';
+        return '<li><div class="rank r' + (i + 1) + '">' + (i + 1) + '</div><div class="av"' + av + '>' + (p.avatar_url ? '' : esc((p.pseudo || '?').charAt(0).toUpperCase())) + '</div>'
+          + '<div class="who">' + esc(p.pseudo) + '</div><div class="pts">+' + fmt(sc[id]) + ' 🪙</div></li>';
+      }).join('') : '<li class="empty">Personne encore cette semaine… à toi de jouer !</li>';
+    });
+  }
+  load(); setInterval(load, 120000);
+})();
+</script>
+</body>
+</html>
