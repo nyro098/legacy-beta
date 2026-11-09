@@ -414,7 +414,7 @@ function profileHTML(){
       '<label for="e-bio">Bio (facultatif)</label><textarea id="e-bio" name="bio" maxlength="140" placeholder="Ton style de jeu, tes règles préférées…">' + esc(p.bio) + '</textarea>' +
       '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="edit-off">Annuler</button></div></form></section>';
   } else {
-    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
+    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] + (SCENES.indexOf(p.eq.banner.split(':')[1]) >= 0 ? ' scene' : '') : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
       (own && EPIC_ID && (p.epic || EPIC_PUBLIC || isOwner()) ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
@@ -938,8 +938,10 @@ var TITLES = {best_fighter: 'Best Fighter', roi_box: 'Roi du Box Fight', edit_ma
   cracked: 'Cracked', sweaty: 'Sweaty', aim_god: 'Aim God', pioche: 'Maître de la pioche', speedrunner: 'Speedrunner', no_scope: 'No-Scope',
   turtle: 'Roi du turtle', w_key: 'W-Key', one_pump: 'One Pump', cranker: 'Cranker 90s', realistic: 'Pro du Realistic', smurf: 'Smurf assumé',
   grinder: 'Grinder', chill: 'Toujours chill', trash_talk: 'Trash-talker'};
-var RARE_TITLES = {intouchable: ['Intouchable', 10], predateur: ['Prédateur', 12], le_boss: ['Le Boss', 15], demi_dieu: ['Demi-Dieu', 20], legende_vivante: ['Légende vivante', 25],
-  empereur: ['L\'Empereur', 35], goat: ['Le G.O.A.T', 50], immortel: ['Immortel', 75], divin: ['Divin', 100], roi_legacy: ['Roi de Legacy', 150], eternel: ['L\'Éternel', 250]};
+var RARE_TITLES = {intouchable: ['Intouchable', 10], predateur: ['Prédateur', 12], sans_pitie: ['Sans pitié', 12], monstre: ['Le Monstre', 12], le_boss: ['Le Boss', 15], phenomene: ['Phénomène', 15],
+  prodige: ['Prodige', 18], demi_dieu: ['Demi-Dieu', 20], inarretable: ['L\'Inarrêtable', 20], legende_vivante: ['Légende vivante', 25], patron: ['Le Patron', 25], champion_legacy: ['Champion de Legacy', 30],
+  empereur: ['L\'Empereur', 35], maitre_du_jeu: ['Maître du jeu', 35], prince_legacy: ['Prince de Legacy', 40], seigneur_arene: ['Seigneur de l\'arène', 45], goat: ['Le G.O.A.T', 50], main_de_dieu: ['Main de Dieu', 60],
+  immortel: ['Immortel', 75], divin: ['Divin', 100], roi_legacy: ['Roi de Legacy', 150], reine_legacy: ['Reine de Legacy', 150], eternel: ['L\'Éternel', 175]};
 function titleTier(k){ var r = RARE_TITLES[k]; return !r ? '' : r[1] >= 75 ? ' mythic' : r[1] >= 35 ? ' legend' : ' rare'; }
 Object.keys(RARE_TITLES).forEach(function(k){ TITLES[k] = RARE_TITLES[k][0]; });
 var LIMITED_UNTIL = Date.parse('2027-01-01T00:00:00+01:00');
@@ -954,6 +956,9 @@ var CATALOG = {
   'frame:plasma': ['Cadre plasma', 40], 'frame:crown': ['Cadre royal', 75], 'frame:legacy': ['Cadre Legacy holographique', 150],
   'banner:ocean': ['Bannière océan', 5], 'banner:aurora': ['Bannière aurore boréale', 8], 'banner:lava': ['Bannière lave', 8], 'banner:neon_city': ['Bannière ville néon', 10],
   'banner:gold_rush': ['Bannière ruée vers l\'or', 40], 'banner:legacy': ['Bannière Legacy mythique', 120],
+  'banner:peaks': ['Sommets au crépuscule', 12], 'banner:night_sea': ['Mer de nuit', 12], 'banner:forest': ['Forêt enchantée', 12], 'banner:cyber_city': ['Ville cyber', 15],
+  'banner:volcano': ['Volcan en éruption', 15], 'banner:storm_eye': ['Œil de la tempête', 15], 'banner:saturn': ['Planète aux anneaux', 18], 'banner:synthwave': ['Synthwave', 20],
+  'banner:arena': ['Arène Legacy', 25], 'banner:phoenix': ['Phénix', 35], 'banner:throne': ['Salle du trône', 90],
   'fx:shadow': ['Pseudo ombre', 8], 'fx:fire': ['Pseudo en feu', 10], 'fx:ice': ['Pseudo givré', 10], 'fx:gold': ['Pseudo or massif', 30], 'fx:holo': ['Pseudo holographique', 80],
   'emoji:skull': ['💀', 2], 'emoji:ghost': ['👻', 2], 'emoji:alien': ['👽', 2], 'emoji:rocket': ['🚀', 2], 'emoji:money': ['💸', 2], 'emoji:ninja': ['🥷', 2],
   'emoji:ice': ['🧊', 2], 'emoji:clown': ['🤡', 2], 'emoji:brain': ['🧠', 2], 'emoji:eyes': ['👀', 2], 'emoji:dragon': ['🐉', 10], 'emoji:unicorn': ['🦄', 10], 'emoji:trophy': ['🏆', 15],
@@ -961,6 +966,7 @@ var CATALOG = {
   'win:fireworks': ['Victoire feu d\'artifice', 12], 'win:money': ['Victoire pluie de billets', 15], 'win:crown': ['Victoire couronne royale', 50]
 };
 var EMOJI = {fire: '🔥', crown: '👑', bolt: '⚡', gem: '💎', goat: '🐐', target: '🎯', skull: '💀', ghost: '👻', alien: '👽', rocket: '🚀', money: '💸', ninja: '🥷', ice: '🧊', clown: '🤡', brain: '🧠', eyes: '👀', dragon: '🐉', unicorn: '🦄', trophy: '🏆'};
+var SCENES = ['peaks', 'night_sea', 'forest', 'cyber_city', 'volcano', 'storm_eye', 'saturn', 'synthwave', 'arena', 'phoenix', 'throne'];
 var WIN_ICON = {confetti: '🎉', lightning: '⚡', fireworks: '🎆', money: '💸', crown: '👑'};
 function ownersOf(i){ var n = 0; for (var k in S.players) { var p = S.players[k]; if ((p.owned || []).indexOf(i) >= 0) n++; } return n; }
 function itemPrice(i){ if (i.indexOf('title:') === 0) { var k = i.slice(6); return RARE_TITLES[k] ? RARE_TITLES[k][1] : ITEM_PRICE; } return CATALOG[i] ? CATALOG[i][1] : ITEM_PRICE; }
@@ -1002,6 +1008,10 @@ function shopHTML(){
   if (shopTab === 'vip') return html + vipShopHTML();
   if (shopTab === 'profil') {
     html += '<section><h2 class="sec shop-h">Cadres de photo</h2><div class="shop-grid">' + ['frame:neon', 'frame:fire', 'frame:lightning', 'frame:diamond', 'frame:gold', 'frame:toxic', 'frame:galaxy', 'frame:blood', 'frame:rainbow'].map(function(i){ return itemCard(i, 'Un contour animé autour de ta photo, partout sur le site.'); }).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Bannières illustrées <span class="new-tag">Nouveau</span></h2><p class="help" style="margin-bottom:12px">De vraies scènes animées en haut de ton profil : étoiles qui scintillent, lucioles, projecteurs, éruption…</p><div class="shop-grid scene-grid">' +
+      [['banner:peaks', 'Montagnes au soleil couchant et oiseaux.'], ['banner:night_sea', 'Lune, étoiles et reflets sur l\'eau.'], ['banner:forest', 'Sapins dans la brume et lucioles.'], ['banner:cyber_city', 'Gratte-ciel néon et soleil rétro.'],
+       ['banner:volcano', 'Lave, étincelles et fumée.'], ['banner:storm_eye', 'Un vortex qui tourne et des éclairs.'], ['banner:saturn', 'Nébuleuse et planète à anneaux.'], ['banner:synthwave', 'Grille rétro et montagnes néon.'],
+       ['banner:arena', 'Projecteurs, foule et logo Legacy.'], ['banner:phoenix', 'Un phénix aux ailes de feu.']].map(function(x){ return itemCard(x[0], x[1]); }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Bannières de profil</h2><div class="shop-grid">' + ['banner:galaxy', 'banner:sunset', 'banner:matrix', 'banner:ocean', 'banner:aurora', 'banner:lava', 'banner:neon_city'].map(function(i){ return itemCard(i, 'Le fond animé en haut de ton profil.'); }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Effets de pseudo</h2><div class="shop-grid">' + ['fx:glitch', 'fx:sparkle', 'fx:wave', 'fx:shadow', 'fx:fire', 'fx:ice'].map(function(i){ return itemCard(i, 'Ton pseudo s\'anime partout.'); }).join('') + itemCard('neon', 'Choisis la couleur néon de ton pseudo.') + itemCard('gif', 'Mets un GIF comme photo de profil.') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Emoji à côté du pseudo</h2><div class="emoji-grid">' + Object.keys(EMOJI).map(function(k){ var i = 'emoji:' + k, on = p.eq && p.eq.emoji === i; return '<div class="emoji-item' + (on ? ' on' : '') + '"><span>' + EMOJI[k] + '</span>' + itemAction(i) + '</div>'; }).join('') + '</div></section>';
@@ -1043,10 +1053,10 @@ function prestigeHTML(){
   var html = '<section class="prestige-hero"><p class="eyebrow">💎 Prestige</p><h2>Les objets les plus rares de Legacy.</h2><p class="help">Hors de prix, ultra visibles, et presque personne ne les a. Le VIP ne les inclut pas.</p></section>';
   html += '<section><h2 class="sec shop-h">Titres mythiques</h2><div class="prestige-grid">' +
     prestigeCard('title:immortel', 'Holographique et animé, sous ton pseudo partout.') + prestigeCard('title:divin', 'Pour ceux qui ne perdent jamais.') +
-    prestigeCard('title:roi_legacy', 'Le titre du patron de l\'arène.') + prestigeCard('title:eternel', 'Le plus cher du site. Une légende pour toujours.') + '</div></section>';
+    prestigeCard('title:roi_legacy', 'Le titre du patron de l\'arène.') + prestigeCard('title:reine_legacy', 'La reine de l\'arène, au même rang que le Roi.') + prestigeCard('title:eternel', 'Le plus cher du site. Une légende pour toujours.') + '</div></section>';
   html += '<section><h2 class="sec shop-h">Cadres & bannières</h2><div class="prestige-grid">' +
     prestigeCard('frame:plasma', 'Un cadre d\'énergie qui pulse en continu.') + prestigeCard('frame:crown', 'Or massif, rubis et saphirs autour de ta photo.') + prestigeCard('frame:legacy', 'Le cadre holographique aux couleurs de Legacy.') +
-    prestigeCard('banner:gold_rush', 'Une pluie d\'or en haut de ton profil.') + prestigeCard('banner:legacy', 'La bannière mythique, holographique et animée.') + '</div></section>';
+    prestigeCard('banner:throne', 'Ta salle du trône : piliers d\'or, tapis rouge et couronne.') + prestigeCard('banner:gold_rush', 'Une pluie d\'or en haut de ton profil.') + prestigeCard('banner:legacy', 'La bannière mythique, holographique et animée.') + '</div></section>';
   html += '<section><h2 class="sec shop-h">Pseudo, affiche & victoire</h2><div class="prestige-grid">' +
     prestigeCard('fx:gold', 'Ton pseudo en or massif qui brille.') + prestigeCard('fx:holo', 'Ton pseudo change de couleur comme une carte holo.') +
     prestigeCard('poster:legacy', 'Ton côté de l\'affiche de match en version mythique.') + prestigeCard('win:crown', 'Une pluie de couronnes quand tu gagnes, sous les yeux de ton adversaire.') + '</div></section>';
