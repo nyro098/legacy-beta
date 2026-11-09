@@ -250,7 +250,7 @@ function headerHTML(v){
     '<button class="btn sm ghost" data-act="logout">Déconnexion</button>' +
     '</div></div></header>';
 }
-function footerHTML(){ return '<footer class="foot"><div class="wrap"><span><a href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer">Serveur Discord Legacy</a> · Legacy bêta · les coins n\'ont aucune valeur réelle, pas d\'achat ni de retrait.</span><span>Non affilié à Epic Games.</span></div></footer>'; }
+function footerHTML(){ return '<footer class="foot"><div class="wrap"><span><a href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer">Serveur Discord Legacy</a> · Legacy bêta · les coins n\'ont aucune valeur réelle, pas d\'achat ni de retrait.</span><span><a href="confidentialite.html">Confidentialité</a> · Non affilié à Epic Games.</span></div></footer>'; }
 
 function arenaHTML(){
   var all = Object.keys(S.matches).map(function(k){ return S.matches[k]; });
@@ -412,6 +412,7 @@ function profileHTML(){
   } else {
     html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
+      (own && EPIC_ID ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
       (p.twitch ? '<a href="https://www.twitch.tv/' + encodeURIComponent(p.twitch) + '" target="_blank" rel="noopener noreferrer">Twitch : ' + esc(p.twitch) + (isLive(p.twitch) ? ' <b class="live-dot">🔴 LIVE</b>' : '') + '</a>' : '') + (p.twitter ? '<a href="https://x.com/' + encodeURIComponent(p.twitter) + '" target="_blank" rel="noopener noreferrer">X : @' + esc(p.twitter) + '</a>' : '') +
       '<span>Inscrit ' + ago(p.createdAt) + '</span></div>' + (p.bio ? '<p style="margin-top:10px;max-width:56ch;color:var(--fg-2)">' + esc(p.bio) + '</p>' : '') + '</div>' +
@@ -1461,6 +1462,13 @@ function act(name, el){
       break;
     }
     case 'fn-setup': viewPid = S.me; editing = true; if (viewName() === 'profil') render(); else location.hash = '#profil'; setTimeout(function(){ var i = document.getElementById('e-fortnite'); if (i) i.focus(); }, 80); break;
+    case 'epic-link': {
+      var st = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try { sessionStorage.setItem('legacy-epic-state', st); } catch (e) {}
+      location.href = 'https://www.epicgames.com/id/authorize?client_id=' + encodeURIComponent(EPIC_ID) + '&response_type=code&scope=basic_profile&redirect_uri=' + encodeURIComponent(epicRedirect()) + '&state=' + st;
+      break;
+    }
+    case 'epic-unlink': if (!confirm('Délier ton compte Epic ? Ton pseudo Fortnite ne se mettra plus à jour tout seul.')) break; epicCall({action: 'unlink'}, 'Compte Epic délié.'); break;
     case 'copy-fn': {
       var fnp = P(d.pid).fortnite;
       try { navigator.clipboard.writeText(fnp).then(function(){ toast('Pseudo Fortnite copié : ' + fnp); }, function(){ toast('Pseudo Fortnite : ' + fnp); }); } catch(e){ toast('Pseudo Fortnite : ' + fnp); }
@@ -1596,13 +1604,34 @@ document.addEventListener('submit', function(e){
 });
 window.addEventListener('hashchange', function(){ if (viewName() === 'profil' && !S.players[viewPid]) viewPid = S.me; render(); window.scrollTo(0, 0); });
 
+/* ---------- connexion Epic Games ---------- */
+var EPIC_ID = (window.LEGACY_CONFIG && window.LEGACY_CONFIG.epicClientId) || '';
+function epicRedirect(){ return location.origin + location.pathname; }
+function epicCall(body, okMsg){
+  if (busy) return; busy = true;
+  return sb.functions.invoke('epic', {body: body}).then(function(r){
+    if (!r.error) return r.data || {};
+    var ctx = r.error.context;
+    return (ctx && ctx.json ? ctx.json().catch(function(){ return {}; }) : Promise.resolve({})).then(function(j){ throw new Error((j && j.error) || 'La connexion avec Epic a échoué.'); });
+  }).then(function(d){ busy = false; toast(typeof okMsg === 'function' ? okMsg(d) : okMsg); return refresh(); }, function(e){ busy = false; toast(e.message); }).then(render);
+}
+function epicReturn(){
+  var q = new URLSearchParams(location.search), code = q.get('code'), st = q.get('state'), saved = null;
+  if (!code) return;
+  try { saved = sessionStorage.getItem('legacy-epic-state'); sessionStorage.removeItem('legacy-epic-state'); } catch (e) {}
+  history.replaceState(null, '', location.pathname + '#profil');
+  if (!S.me || !saved || saved !== st) { toast('Liaison Epic annulée, réessaie depuis ton profil.'); return; }
+  viewPid = S.me; render();
+  epicCall({action: 'link', code: code}, function(d){ return 'Compte Epic lié ! Pseudo Fortnite : ' + (d.fortnite || ''); });
+}
+
 /* ---------- démarrage ---------- */
 render();
 if (sb) {
   sb.auth.getSession().then(function(s){
     S.me = s.data.session ? s.data.session.user.id : null;
     return refresh();
-  }).then(render);
+  }).then(function(){ render(); epicReturn(); });
   sb.auth.onAuthStateChange(function(ev, session){ S.me = session ? session.user.id : null; });
   try {
     sb.channel('legacy-live')
