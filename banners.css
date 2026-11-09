@@ -35,3 +35,5 @@
 .sig-mini{position:absolute;right:8px;top:50%;transform:translateY(-50%) skewX(-10deg);max-width:62%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:900 30px/1 var(--f-display);text-transform:uppercase;color:#fff;text-shadow:0 0 12px var(--sig2,#2f8bff),0 2px 0 rgba(0,0,0,.4)}
 .sig-grid .shop-item:first-child{border-color:#3fb6ff;box-shadow:0 0 22px rgba(63,182,255,.35);background:linear-gradient(160deg,rgba(47,139,255,.18),var(--surface))}
 @media (prefers-reduced-motion:reduce){.sig-name b,.sig-tera b::after{animation:none}}
+
+.fr-tag.excl{color:#9fe3ff;border-color:rgba(63,182,255,.6);background:rgba(47,139,255,.15);white-space:nowrap}
