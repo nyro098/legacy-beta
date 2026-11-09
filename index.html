@@ -674,6 +674,70 @@ html,body{overflow-x:clip}
 .btn.epic-btn:hover{background:#2a2a2a}
 .ticket-box{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 16px;margin:0 0 14px;border-radius:14px;background:rgba(88,101,242,.12);border:1px solid #5865f2}
 .ticket-box p{margin:0;flex:1 1 260px}
+/* ===== boutique géante ===== */
+/* cadres */
+.avf-gold{background-image:linear-gradient(120deg,#8a5d00,#ffd76a,#fff4c2,#ffc93c,#8a5d00);filter:drop-shadow(0 0 8px rgba(255,201,60,.8))}
+.avf-toxic{background-image:linear-gradient(90deg,#39ff14,#0b3d00,#b6ff00,#39ff14);filter:drop-shadow(0 0 8px rgba(57,255,20,.8))}
+.avf-galaxy{background-image:linear-gradient(120deg,#1a0b3d,#8b5cff,#00d4ff,#ff3fa4,#1a0b3d);filter:drop-shadow(0 0 8px rgba(139,92,255,.85))}
+.avf-blood{background-image:linear-gradient(0deg,#3d0000,#c8102e,#ff4d4d,#3d0000);filter:drop-shadow(0 0 8px rgba(200,16,46,.85))}
+.avf-rainbow{background-image:linear-gradient(90deg,#ff3355,#ff9500,#ffd000,#39ff14,#00d4ff,#8b5cff,#ff3355);filter:drop-shadow(0 0 8px rgba(255,255,255,.5));animation-duration:2s}
+.avf-plasma{background-image:radial-gradient(circle at 30% 30%,#fff,transparent 40%),linear-gradient(45deg,#ff00e5,#00e5ff,#7a00ff,#ff00e5);filter:drop-shadow(0 0 12px rgba(255,0,229,.9)) drop-shadow(0 0 4px #00e5ff);animation:avfmove 1.4s linear infinite,plasma 1.2s ease-in-out infinite}
+@keyframes plasma{50%{filter:drop-shadow(0 0 20px rgba(0,229,255,1)) drop-shadow(0 0 6px #ff00e5)}}
+.avf-crown{background-image:linear-gradient(120deg,#ffd76a,#c8102e,#ffd76a,#1e5ab4,#ffd76a,#fff4c2,#ffd76a);filter:drop-shadow(0 0 10px rgba(255,201,60,1));padding:4px}
+.avf-crown.xl{padding:7px}
+.avf-legacy{background-image:conic-gradient(from 0deg,#8b5cff,#00d4ff,#39ff14,#ffd000,#ff3fa4,#8b5cff);background-size:100% 100%;filter:drop-shadow(0 0 14px rgba(139,92,255,1)) drop-shadow(0 0 6px rgba(0,212,255,.9));animation:holo 3s linear infinite;padding:4px}
+.avf-legacy.xl{padding:7px}
+@keyframes holo{to{filter:hue-rotate(360deg) drop-shadow(0 0 14px rgba(139,92,255,1)) drop-shadow(0 0 6px rgba(0,212,255,.9))}}
+/* bannières */
+.bn-ocean{background-image:linear-gradient(120deg,#002b5c,#0077b6,#00b4d8,#90e0ef,#002b5c)}
+.bn-aurora{background-image:linear-gradient(120deg,#020024,#00ffa3,#0a3d62,#b388ff,#00ffa3,#020024)}
+.bn-lava{background-image:radial-gradient(circle at 30% 70%,rgba(255,200,0,.5),transparent 40%),linear-gradient(120deg,#2b0000,#ff3c00,#ff9500,#780000,#2b0000)}
+.bn-neon_city{background-image:repeating-linear-gradient(90deg,rgba(255,63,164,.25) 0 3px,transparent 3px 40px),linear-gradient(180deg,#0b0033,#3d0066,#ff3fa4,#0b0033)}
+.bn-gold_rush{background-image:radial-gradient(circle at 15% 25%,#fff4c2 0 1.5px,transparent 3px),radial-gradient(circle at 65% 45%,#ffd76a 0 1.5px,transparent 3px),radial-gradient(circle at 85% 75%,#fff 0 1px,transparent 3px),linear-gradient(120deg,#3d2600,#ffd76a,#8a5d00,#ffc93c,#3d2600)}
+.bn-legacy{background-image:conic-gradient(from 90deg at 30% 50%,#8b5cff,#00d4ff,#39ff14,#ffd000,#ff3fa4,#8b5cff);animation:avfmove 12s linear infinite,bnholo 6s linear infinite}
+@keyframes bnholo{to{filter:hue-rotate(360deg)}}
+/* effets de pseudo */
+.fx-shadow{text-shadow:3px 3px 0 rgba(0,0,0,.7),6px 6px 0 rgba(139,92,255,.35)}
+.fx-fire.fx-fire,.fx-ice.fx-ice,.fx-gold.fx-gold,.fx-holo.fx-holo{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;background-size:200% auto;text-shadow:none}
+.fx-fire{background-image:linear-gradient(0deg,#ff3300,#ff9500,#ffd000,#ff3300);animation:fxmove 1.2s linear infinite;filter:drop-shadow(0 0 4px rgba(255,120,0,.8))}
+.fx-ice{background-image:linear-gradient(90deg,#e8f7ff,#7cc8ff,#ffffff,#9ad7ff,#e8f7ff);animation:fxmove 3s linear infinite;filter:drop-shadow(0 0 4px rgba(160,220,255,.9))}
+.fx-gold{background-image:linear-gradient(110deg,#8a5d00 0%,#ffd76a 30%,#fff9e0 45%,#ffc93c 60%,#8a5d00 100%);animation:fxmove 2.2s linear infinite;filter:drop-shadow(0 0 6px rgba(255,201,60,.9))}
+.fx-holo{background-image:linear-gradient(90deg,#ff3fa4,#ffd000,#39ff14,#00d4ff,#8b5cff,#ff3fa4);animation:fxmove 2s linear infinite;filter:drop-shadow(0 0 6px rgba(139,92,255,.9))}
+@keyframes fxmove{to{background-position:200% center}}
+/* thèmes d'affiche */
+.side.pt-neon{background:linear-gradient(160deg,rgba(255,63,164,.5),rgba(0,212,255,.45))}
+.side.pt-toxic{background:linear-gradient(160deg,rgba(57,255,20,.45),rgba(11,61,0,.7))}
+.side.pt-storm{background:repeating-linear-gradient(115deg,rgba(255,255,255,.08) 0 2px,transparent 2px 16px),linear-gradient(160deg,rgba(40,60,90,.8),rgba(10,15,40,.85))}
+.side.pt-legacy{background:conic-gradient(from 0deg,rgba(139,92,255,.6),rgba(0,212,255,.55),rgba(57,255,20,.45),rgba(255,208,0,.5),rgba(255,63,164,.55),rgba(139,92,255,.6));animation:bnholo 6s linear infinite}
+.pt-prev.pt-neon{background:linear-gradient(160deg,#ff3fa4,#00d4ff)}
+.pt-prev.pt-toxic{background:linear-gradient(160deg,#39ff14,#0b3d00)}
+.pt-prev.pt-storm{background:repeating-linear-gradient(115deg,rgba(255,255,255,.15) 0 2px,transparent 2px 12px),linear-gradient(160deg,#283c5a,#0a0f28)}
+.pt-prev.pt-legacy{background:conic-gradient(#8b5cff,#00d4ff,#39ff14,#ffd000,#ff3fa4,#8b5cff);animation:bnholo 6s linear infinite}
+/* animations de victoire */
+.win-fireworks i,.win-money i,.win-crown i{position:absolute;top:-60px;font-style:normal;animation:bolt 2s ease-in forwards}
+.win-fireworks i{font-size:54px;filter:drop-shadow(0 0 12px #ff3fa4)}
+.win-money i{font-size:44px;animation-duration:2.6s}
+.win-crown i{font-size:50px;filter:drop-shadow(0 0 14px #ffc93c);animation-duration:2.4s}
+/* titres : légendaires et mythiques */
+.ptitle.legend{color:#3d2600;background:linear-gradient(110deg,#8a5d00,#ffd76a,#fff9e0,#ffc93c,#8a5d00);background-size:200% auto;border-color:transparent;box-shadow:0 0 12px rgba(255,201,60,.7);animation:fxmove 2.4s linear infinite;font-weight:800}
+.ptitle.mythic{color:#fff;background:linear-gradient(90deg,#ff3fa4,#ffd000,#39ff14,#00d4ff,#8b5cff,#ff3fa4);background-size:200% auto;border-color:transparent;box-shadow:0 0 14px rgba(139,92,255,.9),0 0 4px rgba(255,255,255,.8);text-shadow:0 1px 2px rgba(0,0,0,.6);animation:fxmove 2s linear infinite;font-weight:800}
+.title-item.legend{border-color:rgba(255,201,60,.6);background:linear-gradient(135deg,rgba(255,201,60,.14),rgba(138,93,0,.1))}
+.title-item.mythic{border-color:rgba(139,92,255,.7);background:linear-gradient(135deg,rgba(139,92,255,.16),rgba(0,212,255,.12))}
+/* onglet Prestige */
+.prestige-hero{padding:22px;border-radius:20px;margin-bottom:8px;border:1px solid rgba(139,92,255,.6);background:linear-gradient(120deg,rgba(139,92,255,.22),rgba(0,212,255,.12),rgba(255,201,60,.16));box-shadow:0 0 30px rgba(139,92,255,.25)}
+.prestige-hero h2{font:900 clamp(26px,5vw,38px)/1.05 var(--f-display);text-transform:uppercase;margin:6px 0}
+.prestige-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.prestige-item{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:18px;border:1px solid rgba(139,92,255,.45);background:linear-gradient(160deg,var(--surface),rgba(139,92,255,.1));position:relative;overflow:hidden;min-width:0}
+.prestige-item::before{content:"";position:absolute;inset:-40%;background:conic-gradient(from 0deg,transparent,rgba(255,255,255,.06),transparent 30%);animation:pspin 8s linear infinite;pointer-events:none}
+@keyframes pspin{to{transform:rotate(360deg)}}
+.pi-prev{min-height:76px;display:grid;place-items:center;position:relative}
+.pi-txt{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pi-txt b{font-size:16px}
+.pi-txt small{color:var(--fg-2)}
+.pi-own{font:700 12px var(--f-body);color:var(--accent-text)}
+.pi-buy{position:relative;display:flex;justify-content:flex-end}
+.pi-buy .btn{font-size:15px}
+@media (prefers-reduced-motion:reduce){.avf-plasma,.avf-legacy,.bn-legacy,.fx-fire,.fx-ice,.fx-gold,.fx-holo,.ptitle.legend,.ptitle.mythic,.prestige-item::before,.side.pt-legacy,.pt-prev.pt-legacy{animation:none}}
 .btn.admin{border-color:var(--gold);color:var(--gold);background:rgba(255,197,61,.08)}
 .chat-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:12px;background:rgba(7,8,26,.5);border:1px solid var(--line);border-radius:12px}
 .msg{display:flex;gap:10px;align-items:flex-start;min-width:0}
@@ -693,6 +757,6 @@ html,body{overflow-x:clip}
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1794245791"></script>
-<script src="app.js?v=1794245791"></script>
+<script src="config.js?v=1794252117"></script>
+<script src="app.js?v=1794252117"></script>
 </body></html>

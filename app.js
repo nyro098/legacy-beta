@@ -141,7 +141,7 @@ function me(){ return S.me ? S.players[S.me] : null; }
 function isAdmin(){ var p = me(); return !!(p && p.admin); }
 function isOwner(){ var p = me(); return !!(p && p.owner); }
 function nm(p){ var fx = p.eq && p.eq.fx ? ' fx-' + p.eq.fx.split(':')[1] : '', em = p.eq && p.eq.emoji ? ' <span class="emo">' + (EMOJI[p.eq.emoji.split(':')[1]] || '') + '</span>' : ''; var cls = (p.nameStyle ? 'neon neon-' + p.nameStyle : '') + fx; return (cls ? '<span class="' + cls.trim() + '" data-t="' + esc(p.pseudo) + '">' + esc(p.pseudo) + '</span>' : esc(p.pseudo)) + em; }
-function titleHTML(p){ return p.title ? '<span class="ptitle">' + esc(p.title) + '</span>' : ''; }
+function titleHTML(p){ return p.title ? '<span class="ptitle' + titleTier(p.titleKey) + '">' + esc(p.title) + '</span>' : ''; }
 function badge(p){ return (p.vip ? ' <em class="beta vip">VIP</em>' : '') + ((p.owned || []).length >= 10 ? ' <em class="beta col" title="Collectionneur : 10 articles">🏅</em>' : '') + (p.owner ? ' <em class="beta owner">FONDATEUR</em>' : p.admin ? ' <em class="beta">ADMIN</em>' : '') + (isAdmin() && p.status === 'banned' ? ' <em class="beta ban">BANNI</em>' : isAdmin() && p.status === 'restricted' ? ' <em class="beta ban">RESTREINT</em>' : ''); }
 function names(ids){ return ids.map(function(i){ return P(i).pseudo; }).join(', '); }
 function capA(m){ return m.teamA[0] || null; }
@@ -414,7 +414,7 @@ function profileHTML(){
       '<label for="e-bio">Bio (facultatif)</label><textarea id="e-bio" name="bio" maxlength="140" placeholder="Ton style de jeu, tes règles préférées…">' + esc(p.bio) + '</textarea>' +
       '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="edit-off">Annuler</button></div></form></section>';
   } else {
-    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
+    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
       (own && EPIC_ID && (p.epic || EPIC_PUBLIC || isOwner()) ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
@@ -934,8 +934,13 @@ function pickDialog(){
 /* ---------- boutique ---------- */
 var ITEM_PRICE = 3;
 var TITLES = {best_fighter: 'Best Fighter', roi_box: 'Roi du Box Fight', edit_machine: 'Edit Machine', build_god: 'Build God', clutch: 'Clutch Master', zone_wars: 'Pro des Zone Wars',
-  piece_control: 'Piece Control', invaincu: 'Invaincu', sniper: 'Sniper d\'élite', sang_froid: 'Sang-froid', tryhard: 'Tryhard assumé', legende: 'Légende de l\'arène'};
-var RARE_TITLES = {intouchable: ['Intouchable', 10], le_boss: ['Le Boss', 15], legende_vivante: ['Légende vivante', 25]};
+  piece_control: 'Piece Control', invaincu: 'Invaincu', sniper: 'Sniper d\'élite', sang_froid: 'Sang-froid', tryhard: 'Tryhard assumé', legende: 'Légende de l\'arène',
+  cracked: 'Cracked', sweaty: 'Sweaty', aim_god: 'Aim God', pioche: 'Maître de la pioche', speedrunner: 'Speedrunner', no_scope: 'No-Scope',
+  turtle: 'Roi du turtle', w_key: 'W-Key', one_pump: 'One Pump', cranker: 'Cranker 90s', realistic: 'Pro du Realistic', smurf: 'Smurf assumé',
+  grinder: 'Grinder', chill: 'Toujours chill', trash_talk: 'Trash-talker'};
+var RARE_TITLES = {intouchable: ['Intouchable', 10], predateur: ['Prédateur', 12], le_boss: ['Le Boss', 15], demi_dieu: ['Demi-Dieu', 20], legende_vivante: ['Légende vivante', 25],
+  empereur: ['L\'Empereur', 35], goat: ['Le G.O.A.T', 50], immortel: ['Immortel', 75], divin: ['Divin', 100], roi_legacy: ['Roi de Legacy', 150], eternel: ['L\'Éternel', 250]};
+function titleTier(k){ var r = RARE_TITLES[k]; return !r ? '' : r[1] >= 75 ? ' mythic' : r[1] >= 35 ? ' legend' : ' rare'; }
 Object.keys(RARE_TITLES).forEach(function(k){ TITLES[k] = RARE_TITLES[k][0]; });
 var LIMITED_UNTIL = Date.parse('2027-01-01T00:00:00+01:00');
 var CATALOG = {
@@ -944,9 +949,20 @@ var CATALOG = {
   'fx:glitch': ['Pseudo glitch', 8], 'fx:sparkle': ['Pseudo scintillant', 6], 'fx:wave': ['Pseudo vague', 6],
   'emoji:fire': ['🔥', 2], 'emoji:crown': ['👑', 2], 'emoji:bolt': ['⚡', 2], 'emoji:gem': ['💎', 2], 'emoji:goat': ['🐐', 2], 'emoji:target': ['🎯', 2],
   'poster:lava': ['Affiche lave', 5], 'poster:ice': ['Affiche glace', 5], 'poster:galaxy': ['Affiche galaxie', 5], 'poster:gold': ['Affiche or', 6],
-  'win:confetti': ['Victoire confettis', 6], 'win:lightning': ['Victoire éclairs', 8]
+  'win:confetti': ['Victoire confettis', 6], 'win:lightning': ['Victoire éclairs', 8],
+  'frame:gold': ['Cadre or', 10], 'frame:toxic': ['Cadre toxique', 10], 'frame:galaxy': ['Cadre galaxie', 12], 'frame:blood': ['Cadre sang', 12], 'frame:rainbow': ['Cadre arc-en-ciel', 15],
+  'frame:plasma': ['Cadre plasma', 40], 'frame:crown': ['Cadre royal', 75], 'frame:legacy': ['Cadre Legacy holographique', 150],
+  'banner:ocean': ['Bannière océan', 5], 'banner:aurora': ['Bannière aurore boréale', 8], 'banner:lava': ['Bannière lave', 8], 'banner:neon_city': ['Bannière ville néon', 10],
+  'banner:gold_rush': ['Bannière ruée vers l\'or', 40], 'banner:legacy': ['Bannière Legacy mythique', 120],
+  'fx:shadow': ['Pseudo ombre', 8], 'fx:fire': ['Pseudo en feu', 10], 'fx:ice': ['Pseudo givré', 10], 'fx:gold': ['Pseudo or massif', 30], 'fx:holo': ['Pseudo holographique', 80],
+  'emoji:skull': ['💀', 2], 'emoji:ghost': ['👻', 2], 'emoji:alien': ['👽', 2], 'emoji:rocket': ['🚀', 2], 'emoji:money': ['💸', 2], 'emoji:ninja': ['🥷', 2],
+  'emoji:ice': ['🧊', 2], 'emoji:clown': ['🤡', 2], 'emoji:brain': ['🧠', 2], 'emoji:eyes': ['👀', 2], 'emoji:dragon': ['🐉', 10], 'emoji:unicorn': ['🦄', 10], 'emoji:trophy': ['🏆', 15],
+  'poster:neon': ['Affiche néon', 6], 'poster:toxic': ['Affiche toxique', 6], 'poster:storm': ['Affiche tempête', 8], 'poster:legacy': ['Affiche Legacy mythique', 60],
+  'win:fireworks': ['Victoire feu d\'artifice', 12], 'win:money': ['Victoire pluie de billets', 15], 'win:crown': ['Victoire couronne royale', 50]
 };
-var EMOJI = {fire: '🔥', crown: '👑', bolt: '⚡', gem: '💎', goat: '🐐', target: '🎯'};
+var EMOJI = {fire: '🔥', crown: '👑', bolt: '⚡', gem: '💎', goat: '🐐', target: '🎯', skull: '💀', ghost: '👻', alien: '👽', rocket: '🚀', money: '💸', ninja: '🥷', ice: '🧊', clown: '🤡', brain: '🧠', eyes: '👀', dragon: '🐉', unicorn: '🦄', trophy: '🏆'};
+var WIN_ICON = {confetti: '🎉', lightning: '⚡', fireworks: '🎆', money: '💸', crown: '👑'};
+function ownersOf(i){ var n = 0; for (var k in S.players) { var p = S.players[k]; if ((p.owned || []).indexOf(i) >= 0) n++; } return n; }
 function itemPrice(i){ if (i.indexOf('title:') === 0) { var k = i.slice(6); return RARE_TITLES[k] ? RARE_TITLES[k][1] : ITEM_PRICE; } return CATALOG[i] ? CATALOG[i][1] : ITEM_PRICE; }
 function isVipItem(i){ return i === 'neon' || i === 'gif' || (i.indexOf('title:') === 0 && !RARE_TITLES[i.slice(6)]); }
 function hasItem(i){ var p = me(); return !!(p && ((p.owned || []).indexOf(i) >= 0 || (p.vip && isVipItem(i)))); }
@@ -970,7 +986,7 @@ function previewOf(i){
   if (slot === 'fx') return '<span class="si-demo"><span class="fx-' + key + '" data-t="' + esc(p.pseudo) + '">' + esc(p.pseudo) + '</span></span>';
   if (slot === 'emoji') return '<span class="emo-prev">' + EMOJI[key] + '</span>';
   if (slot === 'poster') return '<span class="pt-prev pt-' + key + '"></span>';
-  if (slot === 'win') return '<span class="win-prev">' + (key === 'confetti' ? '🎉' : '⚡') + '</span>';
+  if (slot === 'win') return '<span class="win-prev">' + (WIN_ICON[key] || '🎉') + '</span>';
   return '';
 }
 function itemCard(i, desc){
@@ -980,27 +996,31 @@ function itemCard(i, desc){
 var shopTab = 'vip';
 function shopHTML(){
   var p = me();
-  var tabs = [['vip', '👑 VIP'], ['profil', '✨ Profil'], ['matchs', '⚔️ Matchs'], ['titres', '🏷️ Titres'], ['limite', '⏳ Limité']];
+  var tabs = [['vip', '👑 VIP'], ['profil', '✨ Profil'], ['matchs', '⚔️ Matchs'], ['titres', '🏷️ Titres'], ['limite', '⏳ Limité'], ['prestige', '💎 Prestige']];
   var html = '<section class="hero"><div><p class="eyebrow">Boutique</p><h1>Fais briller ton profil.</h1><p class="lead">Dépense tes coins pour te démarquer. Achats définitifs, aucun argent réel. Ton solde : <b>' + cn(avail(S.me)) + '</b>' + ((p.owned || []).length ? ' · ' + (p.owned || []).length + ' article' + ((p.owned || []).length > 1 ? 's' : '') + ' achetés' : '') + '.</p></div></section>';
   html += '<div class="tabs shop-tabs" role="tablist">' + tabs.map(function(t){ return '<button role="tab" aria-selected="' + (shopTab === t[0]) + '" data-act="shop-tab" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
   if (shopTab === 'vip') return html + vipShopHTML();
   if (shopTab === 'profil') {
-    html += '<section><h2 class="sec shop-h">Cadres de photo</h2><div class="shop-grid">' + ['frame:neon', 'frame:fire', 'frame:lightning', 'frame:diamond'].map(function(i){ return itemCard(i, 'Un contour animé autour de ta photo, partout sur le site.'); }).join('') + '</div></section>';
-    html += '<section><h2 class="sec shop-h">Bannières de profil</h2><div class="shop-grid">' + ['banner:galaxy', 'banner:sunset', 'banner:matrix'].map(function(i){ return itemCard(i, 'Le fond animé en haut de ton profil.'); }).join('') + '</div></section>';
-    html += '<section><h2 class="sec shop-h">Effets de pseudo</h2><div class="shop-grid">' + ['fx:glitch', 'fx:sparkle', 'fx:wave'].map(function(i){ return itemCard(i, 'Ton pseudo s\'anime partout.'); }).join('') + itemCard('neon', 'Choisis la couleur néon de ton pseudo.') + itemCard('gif', 'Mets un GIF comme photo de profil.') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Cadres de photo</h2><div class="shop-grid">' + ['frame:neon', 'frame:fire', 'frame:lightning', 'frame:diamond', 'frame:gold', 'frame:toxic', 'frame:galaxy', 'frame:blood', 'frame:rainbow'].map(function(i){ return itemCard(i, 'Un contour animé autour de ta photo, partout sur le site.'); }).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Bannières de profil</h2><div class="shop-grid">' + ['banner:galaxy', 'banner:sunset', 'banner:matrix', 'banner:ocean', 'banner:aurora', 'banner:lava', 'banner:neon_city'].map(function(i){ return itemCard(i, 'Le fond animé en haut de ton profil.'); }).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Effets de pseudo</h2><div class="shop-grid">' + ['fx:glitch', 'fx:sparkle', 'fx:wave', 'fx:shadow', 'fx:fire', 'fx:ice'].map(function(i){ return itemCard(i, 'Ton pseudo s\'anime partout.'); }).join('') + itemCard('neon', 'Choisis la couleur néon de ton pseudo.') + itemCard('gif', 'Mets un GIF comme photo de profil.') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Emoji à côté du pseudo</h2><div class="emoji-grid">' + Object.keys(EMOJI).map(function(k){ var i = 'emoji:' + k, on = p.eq && p.eq.emoji === i; return '<div class="emoji-item' + (on ? ' on' : '') + '"><span>' + EMOJI[k] + '</span>' + itemAction(i) + '</div>'; }).join('') + '</div></section>';
     if (hasItem('neon')) html += neonPickerHTML();
   } else if (shopTab === 'matchs') {
-    html += '<section><h2 class="sec shop-h">Thème d\'affiche</h2><p class="help" style="margin-bottom:12px">Ton côté de l\'affiche de match avec un fond spécial.</p><div class="shop-grid">' + ['poster:lava', 'poster:ice', 'poster:galaxy', 'poster:gold'].map(function(i){ return itemCard(i, ''); }).join('') + '</div></section>';
-    html += '<section><h2 class="sec shop-h">Animation de victoire</h2><p class="help" style="margin-bottom:12px">Quand tu gagnes, l\'animation se joue sur la page du match, sous les yeux de ton adversaire.</p><div class="shop-grid">' + ['win:confetti', 'win:lightning'].map(function(i){ return itemCard(i, ''); }).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Thème d\'affiche</h2><p class="help" style="margin-bottom:12px">Ton côté de l\'affiche de match avec un fond spécial.</p><div class="shop-grid">' + ['poster:lava', 'poster:ice', 'poster:galaxy', 'poster:gold', 'poster:neon', 'poster:toxic', 'poster:storm'].map(function(i){ return itemCard(i, ''); }).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Animation de victoire</h2><p class="help" style="margin-bottom:12px">Quand tu gagnes, l\'animation se joue sur la page du match, sous les yeux de ton adversaire.</p><div class="shop-grid">' + ['win:confetti', 'win:lightning', 'win:fireworks', 'win:money'].map(function(i){ return itemCard(i, ''); }).join('') + '</div></section>';
     html += '<section class="panel"><h2>📌 Défi épinglé · ' + cn(3) + '</h2><p class="help">Ton défi reste tout en haut de l\'arène pendant 1 heure. Ouvre un de tes défis ouverts et clique sur « Épingler ».</p></section>';
   } else if (shopTab === 'titres') {
-    html += '<section><h2 class="sec shop-h">Titres rares</h2><div class="title-grid">' + Object.keys(RARE_TITLES).map(titleCard).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Titres légendaires</h2><p class="help" style="margin-bottom:12px">Dorés et animés, ils se voient de loin.</p><div class="title-grid">' + Object.keys(RARE_TITLES).filter(function(k){ return titleTier(k) === ' legend'; }).map(titleCard).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Titres rares</h2><div class="title-grid">' + Object.keys(RARE_TITLES).filter(function(k){ return titleTier(k) === ' rare'; }).map(titleCard).join('') + '</div></section>';
+    html += '<section class="panel"><h2>💎 Les titres mythiques sont dans l\'onglet Prestige</h2><p class="help">Immortel, Divin, Roi de Legacy, L\'Éternel… les titres les plus rares du site.</p></section>';
     html += '<section><h2 class="sec shop-h">Titre exclusif de la roue</h2><p class="help" style="margin-bottom:12px">Impossible à acheter : seuls les plus chanceux le gagnent à la <a href="#roue">roue quotidienne</a>.</p><div class="title-grid">' + Object.keys(WHEEL_TITLES).map(function(k){
       var own = (p.owned || []).indexOf('title:' + k) >= 0, on = p.titleKey === k;
       return '<div class="title-item rare' + (on ? ' on' : '') + '"><span class="ptitle rare luck">' + esc(WHEEL_TITLES[k]) + '</span>' + (own ? (on ? '<button class="btn sm ghost" data-act="equip-title" data-key="">Retirer</button>' : '<button class="btn sm" data-act="equip-title" data-key="' + k + '">Équiper</button>') : '<span class="help">🎡 Roue uniquement</span>') + '</div>';
     }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Titres · ' + cn(ITEM_PRICE) + '</h2><p class="help" style="margin-bottom:12px">Inclus dans le VIP.</p><div class="title-grid">' + Object.keys(TITLES).filter(function(k){ return !RARE_TITLES[k]; }).map(titleCard).join('') + '</div></section>';
+  } else if (shopTab === 'prestige') {
+    html += prestigeHTML();
   } else if (shopTab === 'limite') {
     var left = LIMITED_UNTIL - Date.now(), days = Math.max(0, Math.ceil(left / 864e5));
     html += '<section class="limited"><p class="eyebrow">Édition limitée</p><h2 class="sec">Cadre Hiver 2026</h2><p class="help">' + (left > 0 ? 'Disponible encore <b>' + days + ' jour' + (days > 1 ? 's' : '') + '</b>, ensuite il ne sera plus jamais en vente.' : 'Cette édition est terminée.') + '</p><div class="shop-grid">' + itemCard('frame:winter', 'Flocons et givre animés autour de ta photo.') + '</div></section>';
@@ -1009,9 +1029,28 @@ function shopHTML(){
   return html;
 }
 function titleCard(k){
-  var p = me(), own = hasItem('title:' + k), on = p.titleKey === k, rare = RARE_TITLES[k];
-  return '<div class="title-item' + (on ? ' on' : '') + (rare ? ' rare' : '') + '"><span class="ptitle' + (rare ? ' rare' : '') + '">' + esc(TITLES[k]) + '</span>' +
+  var p = me(), own = hasItem('title:' + k), on = p.titleKey === k, rare = RARE_TITLES[k], tier = titleTier(k);
+  return '<div class="title-item' + (on ? ' on' : '') + tier + '"><span class="ptitle' + tier + '">' + esc(TITLES[k]) + '</span>' +
     (own ? (on ? '<button class="btn sm ghost" data-act="equip-title" data-key="">Retirer</button>' : '<button class="btn sm" data-act="equip-title" data-key="' + k + '">Équiper</button>') : buyBtn('title:' + k)) + '</div>';
+}
+function prestigeCard(i, desc){
+  var key = i.split(':')[1], isTitle = i.indexOf('title:') === 0, n = ownersOf(i);
+  var prev = isTitle ? '<span class="ptitle big' + titleTier(key) + '">' + esc(TITLES[key]) + '</span>' : previewOf(i);
+  var act = isTitle ? (hasItem(i) ? (me().titleKey === key ? '<button class="btn sm ghost" data-act="equip-title" data-key="">Retirer</button>' : '<button class="btn sm" data-act="equip-title" data-key="' + key + '">Équiper</button>') : buyBtn(i)) : itemAction(i);
+  return '<div class="prestige-item"><div class="pi-prev">' + prev + '</div><div class="pi-txt"><b>' + esc(itemName(i)) + '</b><small>' + desc + '</small><span class="pi-own">' + (n ? '👥 ' + n + ' joueur' + (n > 1 ? 's' : '') + ' l\'ont' : '🔒 Personne ne l\'a encore') + '</span></div><div class="pi-buy">' + act + '</div></div>';
+}
+function prestigeHTML(){
+  var html = '<section class="prestige-hero"><p class="eyebrow">💎 Prestige</p><h2>Les objets les plus rares de Legacy.</h2><p class="help">Hors de prix, ultra visibles, et presque personne ne les a. Le VIP ne les inclut pas.</p></section>';
+  html += '<section><h2 class="sec shop-h">Titres mythiques</h2><div class="prestige-grid">' +
+    prestigeCard('title:immortel', 'Holographique et animé, sous ton pseudo partout.') + prestigeCard('title:divin', 'Pour ceux qui ne perdent jamais.') +
+    prestigeCard('title:roi_legacy', 'Le titre du patron de l\'arène.') + prestigeCard('title:eternel', 'Le plus cher du site. Une légende pour toujours.') + '</div></section>';
+  html += '<section><h2 class="sec shop-h">Cadres & bannières</h2><div class="prestige-grid">' +
+    prestigeCard('frame:plasma', 'Un cadre d\'énergie qui pulse en continu.') + prestigeCard('frame:crown', 'Or massif, rubis et saphirs autour de ta photo.') + prestigeCard('frame:legacy', 'Le cadre holographique aux couleurs de Legacy.') +
+    prestigeCard('banner:gold_rush', 'Une pluie d\'or en haut de ton profil.') + prestigeCard('banner:legacy', 'La bannière mythique, holographique et animée.') + '</div></section>';
+  html += '<section><h2 class="sec shop-h">Pseudo, affiche & victoire</h2><div class="prestige-grid">' +
+    prestigeCard('fx:gold', 'Ton pseudo en or massif qui brille.') + prestigeCard('fx:holo', 'Ton pseudo change de couleur comme une carte holo.') +
+    prestigeCard('poster:legacy', 'Ton côté de l\'affiche de match en version mythique.') + prestigeCard('win:crown', 'Une pluie de couronnes quand tu gagnes, sous les yeux de ton adversaire.') + '</div></section>';
+  return html;
 }
 function neonPickerHTML(){
   var p = me();
@@ -1038,12 +1077,12 @@ var winFxPlayed = {};
 function winFxHTML(kind, mid){
   if (winFxPlayed[mid]) return '';
   winFxPlayed[mid] = true;
-  var n = kind === 'confetti' ? 40 : 10, parts = '';
+  var n = kind === 'confetti' ? 40 : kind === 'crown' ? 26 : kind === 'money' ? 22 : kind === 'fireworks' ? 16 : 10, parts = '';
   for (var i = 0; i < n; i++) {
     var left = Math.round(Math.random() * 100), delay = (Math.random() * 0.8).toFixed(2), hueV = Math.round(Math.random() * 360), dur = (1.8 + Math.random() * 1.4).toFixed(2);
     parts += kind === 'confetti'
       ? '<i style="left:' + left + '%;animation-delay:' + delay + 's;animation-duration:' + dur + 's;background:hsl(' + hueV + ' 90% 60%)"></i>'
-      : '<i style="left:' + left + '%;animation-delay:' + delay + 's">⚡</i>';
+      : '<i style="left:' + left + '%;animation-delay:' + delay + 's">' + (kind === 'fireworks' ? (i % 2 ? '🎆' : '🎇') : kind === 'money' ? (i % 3 ? '💸' : '💰') : kind === 'crown' ? (i % 4 ? '✨' : '👑') : '⚡') + '</i>';
   }
   return '<div class="win-fx win-' + kind + '" aria-hidden="true">' + parts + '</div>';
 }
