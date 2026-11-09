@@ -41,7 +41,7 @@ var S = {players: {}, matches: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -52,7 +52,7 @@ function mapMatch(m){
 }
 function refresh(){
   return Promise.all([
-    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,created_at'),
+    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
     sb.from('matches').select('*').order('created_at', {ascending: false}).limit(400),
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
@@ -264,6 +264,7 @@ function arenaHTML(){
     '<button class="btn primary" data-act="new-match">Lancer un défi</button></section>';
   html += podiumHTML(true);
   html += '<section class="strip" aria-label="Chiffres de Legacy"><div><b>' + Object.keys(S.players).filter(function(k){ return !S.players[k].owner; }).length + '</b><span>Joueurs</span></div><div><b>' + played + '</b><span>Matchs joués</span></div><div><b>' + fmt(coinsInPlay()) + '</b><span>Coins en jeu</span></div></section>';
+  if (!me().fortnite) html += '<div class="notice fn-notice"><p><b>🎮 Ajoute ton pseudo Fortnite</b> pour que tes adversaires puissent t’ajouter en jeu facilement.</p><button class="btn sm primary" data-act="fn-setup">Ajouter</button></div>';
   if (avail(S.me) <= 0) html += '<div class="notice"><p><b>Plus aucun coin disponible.</b> Tu peux regarder les défis et en recevoir. Donne ton pseudo à un autre joueur pour qu\'il t\'envoie un pourboire.</p><button class="btn sm" data-act="copy-pseudo">Copier mon pseudo</button></div>';
   function t(id, label, n){ return '<button role="tab" aria-selected="' + (tab === id) + '" data-act="tab" data-tab="' + id + '">' + label + '<i>' + n + '</i></button>'; }
   html += '<div><div class="tabs" role="tablist">' + t('ouverts', 'Défis ouverts', open.length) + t('mes', 'Mes matchs', mineM.length) + t('termines', 'Terminés', doneM.length) + '</div></div>';
@@ -304,7 +305,7 @@ function teamCard(m, team){
   var title = mt ? (mt === team ? 'Ton équipe' : 'Équipe adverse') : 'Équipe ' + team, lis = '';
   for (var i = 0; i < m.size; i++) {
     var q = ids[i];
-    lis += q ? (masked(m, q) ? '<li><span class="anon-row">' + anonAv() + '<span class="nm">Joueur anonyme <small>· révélé au début du match</small></span></span>' : '<li><button data-act="goto-player" data-pid="' + esc(q) + '">' + av(P(q)) + '<span class="nm">' + nm(P(q)) + (q === S.me ? ' (toi)' : '') + '</span></button>') + (i === 0 ? '<i>Capitaine</i>' : '') + '</li>'
+    lis += q ? (masked(m, q) ? '<li><span class="anon-row">' + anonAv() + '<span class="nm">Joueur anonyme <small>· révélé au début du match</small></span></span>' : '<li><button data-act="goto-player" data-pid="' + esc(q) + '">' + av(P(q)) + '<span class="nm">' + nm(P(q)) + (q === S.me ? ' (toi)' : '') + (P(q).fortnite ? '<small class="fn-tag">🎮 ' + esc(P(q).fortnite) + (P(q).epic ? ' ✅' : '') + '</small>' : '') + '</span></button>' + (P(q).fortnite && q !== S.me ? '<button class="btn sm ghost fn-copy" data-act="copy-fn" data-pid="' + esc(q) + '" title="Copier son pseudo Fortnite pour l’ajouter en jeu">Copier</button>' : '')) + (i === 0 ? '<i>Capitaine</i>' : '') + '</li>'
              : '<li class="free"><span class="av empty-av">+</span>Place libre</li>';
   }
   return '<div class="tcard' + (mt === team ? ' mine' : '') + '"><h3>' + title + '<small>ÉQUIPE ' + team + '</small></h3><ul>' + lis + '</ul></div>';
@@ -404,11 +405,13 @@ function profileHTML(){
       '<label for="e-pseudo">Pseudo</label><input id="e-pseudo" name="pseudo" required maxlength="24" autocomplete="off" value="' + esc(p.pseudo) + '">' +
       '<label>Discord (identifiant de connexion)</label><input value="' + esc(p.discord) + '" disabled>' +
       '<label for="e-twitch">Ta chaîne Twitch (facultatif)</label><input id="e-twitch" name="twitch" maxlength="60" autocomplete="off" value="' + esc(p.twitch) + '" placeholder="Ton pseudo Twitch ou le lien de ta chaîne"><p class="hint">Si tu es en live pendant un match, ton stream s’affichera automatiquement sur la page du match.</p>' +
+      '<label for="e-fortnite">Ton pseudo Fortnite</label><input id="e-fortnite" name="fortnite" maxlength="32" autocomplete="off" value="' + esc(p.fortnite) + '" placeholder="Ton nom dans Fortnite"' + (p.epic ? ' disabled' : '') + '><p class="hint">' + (p.epic ? '✅ Synchronisé avec ton compte Epic Games : il se met à jour tout seul.' : 'Tes adversaires s’en servent pour t’ajouter en jeu. Pense à le changer ici si tu changes de pseudo dans Fortnite.') + '</p>' +
       '<label for="e-twitter">X / Twitter (facultatif)</label><input id="e-twitter" name="twitter" maxlength="33" autocomplete="off" value="' + esc(p.twitter) + '" placeholder="@pseudo">' +
       '<label for="e-bio">Bio (facultatif)</label><textarea id="e-bio" name="bio" maxlength="140" placeholder="Ton style de jeu, tes règles préférées…">' + esc(p.bio) + '</textarea>' +
       '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="edit-off">Annuler</button></div></form></section>';
   } else {
     html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
+      (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
       (p.twitch ? '<a href="https://www.twitch.tv/' + encodeURIComponent(p.twitch) + '" target="_blank" rel="noopener noreferrer">Twitch : ' + esc(p.twitch) + (isLive(p.twitch) ? ' <b class="live-dot">🔴 LIVE</b>' : '') + '</a>' : '') + (p.twitter ? '<a href="https://x.com/' + encodeURIComponent(p.twitter) + '" target="_blank" rel="noopener noreferrer">X : @' + esc(p.twitter) + '</a>' : '') +
       '<span>Inscrit ' + ago(p.createdAt) + '</span></div>' + (p.bio ? '<p style="margin-top:10px;max-width:56ch;color:var(--fg-2)">' + esc(p.bio) + '</p>' : '') + '</div>' +
@@ -1272,7 +1275,7 @@ var searchQ = '';
 function searchListHTML(){
   var q = searchQ.trim().toLowerCase();
   if (!q) return '<p class="help">Tape le pseudo d\'un joueur pour aller sur son profil.</p>';
-  var res = Object.keys(S.players).filter(function(k){ var p = S.players[k]; return (isAdmin() || p.status !== 'banned') && p.pseudo.toLowerCase().indexOf(q) >= 0; })
+  var res = Object.keys(S.players).filter(function(k){ var p = S.players[k]; return (isAdmin() || p.status !== 'banned') && (p.pseudo.toLowerCase().indexOf(q) >= 0 || (p.fortnite || '').toLowerCase().indexOf(q) >= 0); })
     .sort(function(a, b){ return P(a).pseudo.toLowerCase().indexOf(q) - P(b).pseudo.toLowerCase().indexOf(q) || P(a).pseudo.localeCompare(P(b).pseudo); }).slice(0, 20);
   if (!res.length) return '<p class="help">Aucun joueur trouvé pour « ' + esc(searchQ) + ' ».</p>';
   return '<ul class="fr-list">' + res.map(function(k){ return personRow(k, '<button class="btn sm" data-act="goto-player" data-pid="' + esc(k) + '">Voir le profil</button>'); }).join('') + '</ul>';
@@ -1457,6 +1460,12 @@ function act(name, el){
       try { navigator.clipboard.writeText(url).then(function(){ toast('Lien copié. Envoie-le à ton adversaire !'); }, function(){ toast(url); }); } catch(e){ toast(url); }
       break;
     }
+    case 'fn-setup': viewPid = S.me; editing = true; if (viewName() === 'profil') render(); else location.hash = '#profil'; setTimeout(function(){ var i = document.getElementById('e-fortnite'); if (i) i.focus(); }, 80); break;
+    case 'copy-fn': {
+      var fnp = P(d.pid).fortnite;
+      try { navigator.clipboard.writeText(fnp).then(function(){ toast('Pseudo Fortnite copié : ' + fnp); }, function(){ toast('Pseudo Fortnite : ' + fnp); }); } catch(e){ toast('Pseudo Fortnite : ' + fnp); }
+      break;
+    }
     case 'copy-pseudo': {
       var nm = me().pseudo;
       try { navigator.clipboard.writeText(nm).then(function(){ toast('Pseudo copié : ' + nm); }, function(){ toast('Ton pseudo : ' + nm); }); } catch(e){ toast('Ton pseudo : ' + nm); }
@@ -1575,6 +1584,9 @@ document.addEventListener('submit', function(e){
   rpc(map[0], map[1]).then(function(r){
     if (!r.ok || kind !== 'edit') return r;
     return rpc('set_twitch', {p_twitch: d.twitch || ''});
+  }).then(function(r){
+    if (!r.ok || kind !== 'edit' || me().epic) return r;
+    return rpc('set_fortnite', {p_name: d.fortnite || ''});
   }).then(function(r){
     if (!r.ok) return fail(r.msg);
     if (kind === 'edit') editing = false;
