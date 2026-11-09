@@ -416,7 +416,7 @@ function profileHTML(){
   } else {
     html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
-      (own && EPIC_ID ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
+      (own && EPIC_ID && (p.epic || EPIC_PUBLIC || isOwner()) ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
       (p.twitch ? '<a href="https://www.twitch.tv/' + encodeURIComponent(p.twitch) + '" target="_blank" rel="noopener noreferrer">Twitch : ' + esc(p.twitch) + (isLive(p.twitch) ? ' <b class="live-dot">🔴 LIVE</b>' : '') + '</a>' : '') + (p.twitter ? '<a href="https://x.com/' + encodeURIComponent(p.twitter) + '" target="_blank" rel="noopener noreferrer">X : @' + esc(p.twitter) + '</a>' : '') +
       '<span>Inscrit ' + ago(p.createdAt) + '</span></div>' + (p.bio ? '<p style="margin-top:10px;max-width:56ch;color:var(--fg-2)">' + esc(p.bio) + '</p>' : '') + '</div>' +
@@ -1632,6 +1632,8 @@ window.addEventListener('hashchange', function(){ if (viewName() === 'profil' &&
 
 /* ---------- connexion Epic Games ---------- */
 var EPIC_ID = (window.LEGACY_CONFIG && window.LEGACY_CONFIG.epicClientId) || '';
+// tant qu'Epic n'a pas validé la marque (Brand Review), seul le fondateur peut lier son compte
+var EPIC_PUBLIC = !!(window.LEGACY_CONFIG && window.LEGACY_CONFIG.epicPublic);
 function epicRedirect(){ return location.origin + location.pathname; }
 function epicCall(body, okMsg){
   if (busy) return; busy = true;
