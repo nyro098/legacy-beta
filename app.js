@@ -968,7 +968,7 @@ var CATALOG = {
   'win:fireworks': ['Victoire feu d\'artifice', 12], 'win:money': ['Victoire pluie de billets', 15], 'win:crown': ['Victoire couronne royale', 50]
 };
 var EMOJI = {fire: '🔥', crown: '👑', bolt: '⚡', gem: '💎', goat: '🐐', target: '🎯', skull: '💀', ghost: '👻', alien: '👽', rocket: '🚀', money: '💸', ninja: '🥷', ice: '🧊', clown: '🤡', brain: '🧠', eyes: '👀', dragon: '🐉', unicorn: '🦄', trophy: '🏆'};
-var SIG = {sig_ice: 1, sig_fire: 1, sig_toxic: 1, sig_void: 1, sig_gold: 1, tera: 'TERA'};
+var SIG = {sig_ice: 1, sig_fire: 1, sig_toxic: 1, sig_void: 1, sig_gold: 1};  // la bannière de Tera est une image avec son nom déjà dessus
 function sigHTML(key, name){ return SIG[key] ? '<div class="sig-name' + (key === 'tera' ? ' sig-tera' : '') + '">' + (key === 'tera' ? '<i>Exclusivité</i>' : '') + '<b>' + esc(SIG[key] === 1 ? name : SIG[key]) + '</b><small>Legacy · Competitive player</small></div>' : ''; }
 var SCENES = ['sig_ice', 'sig_fire', 'sig_toxic', 'sig_void', 'sig_gold', 'tera', 'peaks', 'night_sea', 'forest', 'cyber_city', 'volcano', 'storm_eye', 'saturn', 'synthwave', 'arena', 'phoenix', 'throne'];
 var WIN_ICON = {confetti: '🎉', lightning: '⚡', fireworks: '🎆', money: '💸', crown: '👑'};
@@ -1014,7 +1014,7 @@ function shopHTML(){
   if (shopTab === 'profil') {
     html += '<section><h2 class="sec shop-h">Cadres de photo</h2><div class="shop-grid">' + ['frame:neon', 'frame:fire', 'frame:lightning', 'frame:diamond', 'frame:gold', 'frame:toxic', 'frame:galaxy', 'frame:blood', 'frame:rainbow'].map(function(i){ return itemCard(i, 'Un contour animé autour de ta photo, partout sur le site.'); }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Bannières Signature <span class="new-tag">Nouveau</span></h2><p class="help" style="margin-bottom:12px">Ton pseudo en énorme sur une scène animée : portail runique qui tourne, cristaux qui flottent, rayon de lumière.</p><div class="shop-grid scene-grid sig-grid">' +
-      [['banner:tera', '❄️ Bannière unique, réservée à Tera : impossible à acheter.'], ['banner:sig_ice', 'Bleu glacé, cristaux et portail.'], ['banner:sig_fire', 'Rouge et orange, braises qui montent.'],
+      [['banner:tera', '❄️ La vraie bannière de Tera, réservée à lui seul : impossible à acheter.'], ['banner:sig_ice', 'Bleu glacé, cristaux et portail.'], ['banner:sig_fire', 'Rouge et orange, braises qui montent.'],
        ['banner:sig_toxic', 'Vert radioactif, éclats lumineux.'], ['banner:sig_void', 'Violet du néant, énergie mystique.'], ['banner:sig_gold', 'Or massif, pour les plus riches.']].map(function(x){ return itemCard(x[0], x[1]); }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Bannières illustrées</h2><p class="help" style="margin-bottom:12px">De vraies scènes animées en haut de ton profil : étoiles qui scintillent, lucioles, projecteurs, éruption…</p><div class="shop-grid scene-grid">' +
       [['banner:peaks', 'Montagnes au soleil couchant et oiseaux.'], ['banner:night_sea', 'Lune, étoiles et reflets sur l\'eau.'], ['banner:forest', 'Sapins dans la brume et lucioles.'], ['banner:cyber_city', 'Gratte-ciel néon et soleil rétro.'],
