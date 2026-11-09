@@ -62,7 +62,7 @@ function refresh(){
     sb.from('tournament_players').select('*'),
     sb.from('tournament_matches').select('*'),
     S.me ? sb.from('wheel_spins').select('at').eq('player', S.me).order('at', {ascending: false}).limit(1) : Promise.resolve({data: []}),
-    sb.from('wheel_spins').select('player,prize,amount,at').neq('prize', 'c001').order('at', {ascending: false}).limit(8)
+    sb.from('wheel_spins').select('player,prize,amount,at').in('prize', ['c05', 'c1', 'c5', 'title', 'title_dup']).order('at', {ascending: false}).limit(8)
   ]).then(function(r){
     S.lastSpin = r[9] && r[9].data && r[9].data[0] ? Date.parse(r[9].data[0].at) : 0;
     S.spinFeed = (r[10] && r[10].data) || [];
@@ -491,56 +491,113 @@ function uploadAvatar(file){
 }
 /* ---------- roue quotidienne ---------- */
 var WHEEL_TITLES = {chanceux: '🍀 Chanceux'};
-var WHEEL = [['0,01', 'c'], ['0,5', 'b'], ['0,01', 'c'], ['1', 'a'], ['0,01', 'c'], ['🍀', 't'], ['0,01', 'c'], ['0,5', 'b'], ['0,01', 'c'], ['5', 'g']];
-var WHEEL_IDX = {c001: [0, 2, 4, 6, 8], c05: [1, 7], c1: [3], title: [5], title_dup: [5], c5: [9]};
-var WHEEL_ODDS = [['0,01 coin', '84,7 %', 'Presque à chaque fois'], ['0,5 coin', '12 %', 'Pas mal'], ['1 coin', '2,5 %', 'Rare'], ['🍀 Titre « Chanceux »', '0,5 %', 'Très rare · exclusif'], ['5 coins', '0,3 %', 'Jackpot']];
-var wheelRot = 0, spinLock = false, renderPending = false, wheelResult = null;
+// 24 cases, la case 0 est en haut (sous le pointeur) ; les gros lots sont entourés de petites cases
+var WHEEL = ['c5', 'c001', 'c005', 'c002', 'c01', 'c001', 'c05', 'c002', 'c005', 'c001', 'c02', 'c002', 'title', 'c001', 'c005', 'c01', 'c002', 'c001', 'c1', 'c002', 'c005', 'c01', 'c02', 'c001'];
+var WHEEL_LBL = {c001: '0,01', c002: '0,02', c005: '0,05', c01: '0,1', c02: '0,2', c05: '0,5', c1: '1', c5: '5', title: '🍀'};
+var WHEEL_COL = {c001: ['#1b2350', '#202a5e'], c002: ['#272f6e', '#2c3579'], c005: ['#3a2f8f', '#40349a'], c01: ['#4a37b8', '#4a37b8'], c02: ['#0f7d8c', '#0f7d8c'], c05: ['#8b2bff', '#8b2bff'], c1: ['#00a3d9', '#00a3d9'], c5: ['#ffc93c', '#ffc93c'], title: ['#1f9d55', '#1f9d55']};
+var WHEEL_ODDS = [['0,01 coin', '55 %', 'Le plus courant'], ['0,02 coin', '22 %', 'Courant'], ['0,05 coin', '12 %', 'Peu courant'], ['0,1 coin', '6,5 %', 'Peu courant'], ['0,2 coin', '2,25 %', 'Rare'], ['0,5 coin', '1,5 %', 'Très rare'], ['1 coin', '0,5 %', 'Exceptionnel'], ['🍀 Titre « Chanceux »', '0,2 %', 'Légendaire · exclusif'], ['5 coins', '0,05 %', 'JACKPOT']];
+var WHEEL_TIER = {c001: 0, c002: 0, c005: 1, c01: 1, c02: 2, c05: 3, c1: 4, title: 5, title_dup: 4, c5: 6};
+var NSEG = WHEEL.length, SEG = 360 / NSEG;
+var wheelRot = 0, spinLock = false, renderPending = false, wheelResult = null, wheelHit = -1;
+var wheelSound = true; try { wheelSound = localStorage.getItem('legacy-wheel-sound') !== '0'; } catch (e) {}
 function spinReady(){ return !!S.me && Date.now() - (S.lastSpin || 0) >= 864e5; }
-function waitTxt(ms){ var m = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(m / 60); return (h ? h + ' h ' : '') + (m % 60) + ' min'; }
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function waitTxt(ms){ var s = Math.max(0, Math.ceil(ms / 1000)); return pad2(Math.floor(s / 3600)) + ' h ' + pad2(Math.floor(s / 60) % 60) + ' min ' + pad2(s % 60) + ' s'; }
 function prizeTxt(pr, amt){ return pr === 'title' ? 'le titre exclusif 🍀 Chanceux' : pr === 'title_dup' ? '1 coin (tu avais déjà le titre Chanceux)' : cn(amt); }
+
+// ----- sons (générés, aucun fichier à charger)
+var actx = null;
+function audio(){ if (!wheelSound) return null; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; } catch (e) { return null; } }
+function beep(freq, at, dur, type, vol){
+  var a = audio(); if (!a) return;
+  var t = a.currentTime + (at || 0), o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'triangle'; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(vol || 0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+function tickSound(){ beep(1900 + Math.random() * 300, 0, 0.035, 'square', 0.05); }
+function winSound(tier){
+  var seqs = [[523, 659], [523, 659, 784], [523, 659, 784, 1047], [523, 659, 784, 1047, 1319], [392, 523, 659, 784, 1047, 1319], [392, 523, 659, 784, 1047, 1319, 1568], [392, 523, 659, 784, 659, 784, 1047, 1319, 1568, 2093]];
+  var s = seqs[tier] || seqs[0];
+  s.forEach(function(f, i){ beep(f, i * 0.09, tier >= 5 ? 0.35 : 0.22, 'triangle', 0.13); });
+  if (tier >= 5) s.forEach(function(f, i){ beep(f / 2, i * 0.09, 0.3, 'sawtooth', 0.03); });
+}
+
 function wheelSVG(){
-  var s = '', n = WHEEL.length, a = 360 / n, col = {c: ['#1d2a5c', '#24346f'], b: ['#5b2bff', '#5b2bff'], a: ['#00a3d9', '#00a3d9'], t: ['#1f9d55', '#1f9d55'], g: ['#ffc93c', '#ffc93c']}, k = {c: 0};
-  for (var i = 0; i < n; i++) {
-    var a0 = (i * a - a / 2 - 90) * Math.PI / 180, a1 = ((i + 1) * a - a / 2 - 90) * Math.PI / 180, t = WHEEL[i][1];
-    var fill = t === 'c' ? col.c[(k.c++) % 2] : col[t][0];
-    s += '<path d="M0 0L' + (96 * Math.cos(a0)).toFixed(2) + ' ' + (96 * Math.sin(a0)).toFixed(2) + 'A96 96 0 0 1 ' + (96 * Math.cos(a1)).toFixed(2) + ' ' + (96 * Math.sin(a1)).toFixed(2) + 'Z" fill="' + fill + '" stroke="#0b0f12" stroke-width="1.2"/>';
-    s += '<text transform="rotate(' + (i * a) + ') translate(0 -66)" text-anchor="middle" dominant-baseline="middle" class="wl wl-' + t + '">' + WHEEL[i][0] + '</text>';
+  var s = '', bulbs = '';
+  for (var i = 0; i < NSEG; i++) {
+    var a0 = (i * SEG - SEG / 2 - 90) * Math.PI / 180, a1 = ((i + 1) * SEG - SEG / 2 - 90) * Math.PI / 180, k = WHEEL[i], fill = WHEEL_COL[k][i % 2];
+    s += '<path id="ws-' + i + '" class="ws' + (i === wheelHit ? ' hit' : '') + '" d="M0 0L' + (88 * Math.cos(a0)).toFixed(2) + ' ' + (88 * Math.sin(a0)).toFixed(2) + 'A88 88 0 0 1 ' + (88 * Math.cos(a1)).toFixed(2) + ' ' + (88 * Math.sin(a1)).toFixed(2) + 'Z" fill="' + fill + '"/>';
+    s += '<text transform="rotate(' + (i * SEG) + ') translate(0 -62) rotate(-90)" text-anchor="middle" dominant-baseline="middle" class="wl wl-' + k + '">' + WHEEL_LBL[k] + '</text>';
+    var b = (i * SEG - SEG / 2 - 90) * Math.PI / 180;
+    bulbs += '<circle class="bulb b' + (i % 2) + '" cx="' + (94 * Math.cos(b)).toFixed(2) + '" cy="' + (94 * Math.sin(b)).toFixed(2) + '" r="2.6"/>';
   }
-  return '<svg viewBox="-100 -100 200 200" aria-hidden="true"><circle r="99" fill="#0b0f12"/><g id="wheel-g" style="transform:rotate(' + wheelRot + 'deg)">' + s + '</g><circle r="17" fill="#0b0f12" stroke="#ffc93c" stroke-width="3"/><text class="wl-hub" text-anchor="middle" dominant-baseline="middle">L</text></svg>';
+  return '<svg viewBox="-100 -100 200 200" aria-hidden="true"><defs><radialGradient id="wg-rim" r="1"><stop offset=".86" stop-color="#2a1a00"/><stop offset=".93" stop-color="#ffc93c"/><stop offset="1" stop-color="#8a5d00"/></radialGradient><radialGradient id="wg-shine"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
+    '<circle r="99" fill="url(#wg-rim)"/><g id="wheel-g" style="transform:rotate(' + wheelRot + 'deg)">' + s + '</g>' +
+    '<circle r="88" fill="url(#wg-shine)" pointer-events="none"/><g class="bulbs">' + bulbs + '</g>' +
+    '<circle r="20" fill="#0b0f12" stroke="#ffc93c" stroke-width="3"/><text class="wl-hub" text-anchor="middle" dominant-baseline="central">L</text></svg>';
 }
 function wheelHTML(){
   var ready = spinReady(), left = (S.lastSpin || 0) + 864e5 - Date.now();
-  var html = '<section class="hero"><div><p class="eyebrow">Roue quotidienne</p><h1>Tente ta chance, c\'est gratuit.</h1><p class="lead">Un tour offert toutes les 24 heures. Le plus souvent, tu gagnes une petite pièce… mais avec de la chance, c\'est le jackpot ou un titre exclusif.</p></div></section>';
-  html += '<div class="wheel-wrap"><div class="wheel-box"><div class="wheel-pin" aria-hidden="true"></div><div class="wheel">' + wheelSVG() + '</div></div><div class="wheel-side">';
+  var html = '<section class="hero"><div><p class="eyebrow">Roue quotidienne · gratuite</p><h1>Tente ta chance.</h1><p class="lead">Un tour offert toutes les 24 heures, comme une loterie… sans rien payer. Le plus souvent tu repars avec quelques centimes de coin, mais les plus chanceux décrochent le jackpot ou le titre légendaire.</p></div></section>';
+  html += '<div class="wheel-wrap"><div class="wheel-box" id="wheel-box"><div class="wheel-pin" id="wheel-pin" aria-hidden="true"></div><div class="wheel">' + wheelSVG() + '</div></div><div class="wheel-side">';
   html += ready
     ? '<button class="btn primary lg wheel-btn" data-act="spin" id="spin-btn">🎡 Tourner la roue</button><p class="help">Gratuit · 1 tour toutes les 24 h</p>'
-    : '<button class="btn lg wheel-btn" disabled>⏳ Prochain tour dans <span id="wheel-cd">' + waitTxt(left) + '</span></button><p class="help">Reviens demain pour un nouveau tour gratuit.</p>';
-  if (wheelResult) html += '<div class="wheel-res wr-' + wheelResult.prize + '"><b>' + (wheelResult.prize === 'c001' ? '🪙' : '🎉') + ' Tu as gagné ' + prizeTxt(wheelResult.prize, wheelResult.amount) + ' !</b>' + (wheelResult.prize === 'title' ? '<small>Équipe-le dans Boutique → Titres.</small>' : '') + '</div>';
-  html += '<table class="odds"><caption>Les chances</caption>' + WHEEL_ODDS.map(function(o){ return '<tr><td>' + o[0] + '</td><td><b>' + o[1] + '</b></td><td>' + o[2] + '</td></tr>'; }).join('') + '</table>';
+    : '<div class="wheel-cd-box"><small>Prochain tour gratuit dans</small><b id="wheel-cd">' + waitTxt(left) + '</b></div>';
+  html += '<button class="btn sm ghost wheel-snd" data-act="wheel-sound">' + (wheelSound ? '🔊 Son activé' : '🔇 Son coupé') + '</button>';
+  if (wheelResult) {
+    var tier = WHEEL_TIER[wheelResult.prize] || 0;
+    html += '<div class="wheel-res tier-' + tier + '"><small>' + (tier >= 6 ? '💰 JACKPOT 💰' : tier === 5 ? 'LÉGENDAIRE' : tier >= 3 ? 'Très rare !' : 'Ton gain du jour') + '</small><b>' + (tier >= 3 ? '🎉 ' : '🪙 ') + prizeTxt(wheelResult.prize, wheelResult.amount) + '</b>' + (wheelResult.prize === 'title' ? '<small>Équipe-le dans Boutique → Titres.</small>' : '') + '</div>';
+  }
+  html += '<table class="odds"><caption>Les chances</caption>' + WHEEL_ODDS.map(function(o, i){ return '<tr class="' + (i >= 5 ? 'rare' : '') + '"><td>' + o[0] + '</td><td><b>' + o[1] + '</b></td><td>' + o[2] + '</td></tr>'; }).join('') + '</table>';
   var feed = (S.spinFeed || []).filter(function(x){ return S.players[x.player]; }).slice(0, 6);
-  if (feed.length) html += '<div class="wheel-feed"><h3>Derniers gros gains</h3><ul>' + feed.map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>' + (x.prize === 'title' ? '🍀 Titre' : '+' + cn(x.amount)) + '</b></li>'; }).join('') + '</ul></div>';
+  html += '<div class="wheel-feed"><h3>Derniers gros gains</h3>' + (feed.length ? '<ul>' + feed.map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span class="wf-n">' + nm(P(x.player)) + '</span><b>' + (x.prize === 'title' ? '🍀 Titre Chanceux' : '+' + cn(x.amount)) + '</b></li>'; }).join('') + '</ul>' : '<p class="help">Personne n\'a encore décroché de gros lot. Ce sera peut-être toi !</p>') + '</div>';
   return html + '</div></div>';
 }
 function spinWheel(){
   if (spinLock || busy || !spinReady()) return;
+  audio(); // débloque le son pendant le clic
   busy = true; var btn = document.getElementById('spin-btn'); if (btn) { btn.disabled = true; btn.textContent = 'La roue tourne…'; }
   sb.rpc('spin_wheel').then(function(r){
     busy = false;
     if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render); return; }
-    var res = r.data, idx = WHEEL_IDX[res.prize] || [0], i = idx[Math.floor(Math.random() * idx.length)];
-    var target = (360 - i * 36) % 360, jitter = Math.random() * 20 - 10, cur = ((wheelRot % 360) + 360) % 360;
-    wheelRot += 360 * 6 + ((target - cur + 360) % 360) + jitter;
-    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, g = document.getElementById('wheel-g');
-    spinLock = true;
-    if (g) { g.style.transition = reduce ? 'none' : 'transform 5.2s cubic-bezier(.12,.6,.1,1)'; g.style.transform = 'rotate(' + wheelRot + 'deg)'; }
-    setTimeout(function(){
-      wheelResult = res; S.lastSpin = Date.now(); spinLock = false;
-      toast('Tu as gagné ' + prizeTxt(res.prize, res.amount) + ' !');
-      refresh().then(function(){ render(); if (res.prize !== 'c001' && res.prize !== 'c05') { document.body.insertAdjacentHTML('beforeend', winFxHTML('confetti', 'wheel' + Date.now())); var fx = document.body.lastElementChild; setTimeout(function(){ if (fx) fx.remove(); }, 5000); } });
-    }, reduce ? 300 : 5400);
+    var res = r.data, tier = WHEEL_TIER[res.prize] || 0, key = res.prize === 'title_dup' ? 'title' : res.prize;
+    var idx = []; WHEEL.forEach(function(k, i){ if (k === key) idx.push(i); });
+    var i = idx.length ? idx[Math.floor(Math.random() * idx.length)] : 1;
+    var start = wheelRot, cur = ((start % 360) + 360) % 360, target = (360 - i * SEG) % 360;
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, end = start + 360 * (reduce ? 5 : 9) + ((target - cur + 360) % 360) + (Math.random() * 0.7 - 0.35) * SEG;
+    var D = reduce ? 4500 : 8500;
+    var g = document.getElementById('wheel-g'), pin = document.getElementById('wheel-pin'), box = document.getElementById('wheel-box');
+    var t0 = performance.now(), lastSeg = null, lastTick = 0;
+    spinLock = true; wheelHit = -1; if (box) box.classList.add('spinning');
+    function ease(t){ return 1 - Math.pow(1 - t, 4); }
+    function frame(now){
+      var t = Math.min(1, (now - t0) / D), rot = start + (end - start) * ease(t);
+      if (g) g.style.transform = 'rotate(' + rot + 'deg)';
+      var seg = Math.floor((((-rot % 360) + 360) % 360 + SEG / 2) / SEG) % NSEG;
+      if (seg !== lastSeg) {
+        lastSeg = seg;
+        if (now - lastTick > 30) { lastTick = now; tickSound(); if (pin) { pin.classList.remove('kick'); void pin.offsetWidth; pin.classList.add('kick'); } }
+      }
+      if (t < 1) { requestAnimationFrame(frame); return; }
+      wheelRot = end; wheelHit = i;
+      if (box) box.classList.remove('spinning');
+      var hit = document.getElementById('ws-' + i); if (hit) hit.classList.add('hit');
+      winSound(tier);
+      setTimeout(function(){
+        wheelResult = res; S.lastSpin = Date.now(); spinLock = false;
+        toast('Tu as gagné ' + prizeTxt(res.prize, res.amount) + ' !');
+        refresh().then(function(){
+          render();
+          var b2 = document.getElementById('wheel-box'); if (b2 && tier >= 3) b2.classList.add('big-win');
+          if (tier >= 3) { document.body.insertAdjacentHTML('beforeend', winFxHTML('confetti', 'wheel' + Date.now())); var fx = document.body.lastElementChild; setTimeout(function(){ if (fx) fx.remove(); }, 5000); }
+        });
+      }, 700);
+    }
+    requestAnimationFrame(frame);
   });
 }
-setInterval(function(){ var el = document.getElementById('wheel-cd'); if (el) { var left = (S.lastSpin || 0) + 864e5 - Date.now(); if (left <= 0) render(); else el.textContent = waitTxt(left); } }, 30000);
+setInterval(function(){ var el = document.getElementById('wheel-cd'); if (el) { var left = (S.lastSpin || 0) + 864e5 - Date.now(); if (left <= 0) render(); else el.textContent = waitTxt(left); } }, 1000);
 
 /* ---------- tournois ---------- */
 var tourId = null;
@@ -1349,6 +1406,7 @@ function act(name, el){
       doRpc('buy_item', {p_item: d.item}, 'Achat réussi : ' + itemName(d.item) + ' !');
       break;
     case 'spin': spinWheel(); break;
+    case 'wheel-sound': wheelSound = !wheelSound; try { localStorage.setItem('legacy-wheel-sound', wheelSound ? '1' : '0'); } catch (e) {} el.textContent = wheelSound ? '🔊 Son activé' : '🔇 Son coupé'; if (wheelSound) tickSound(); break;
     case 'equip-title': doRpc('set_cosmetics', {p_style: me().nameStyle, p_title: d.key}, d.key ? 'Titre équipé !' : 'Titre retiré.'); break;
     case 'buy-vip':
       if (!confirm('Acheter 1 mois de Pass VIP pour ' + cn(VIP_PRICE) + ' ?')) break;
