@@ -414,7 +414,7 @@ function profileHTML(){
       '<label for="e-bio">Bio (facultatif)</label><textarea id="e-bio" name="bio" maxlength="140" placeholder="Ton style de jeu, tes règles préférées…">' + esc(p.bio) + '</textarea>' +
       '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="edit-off">Annuler</button></div></form></section>';
   } else {
-    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] + (SCENES.indexOf(p.eq.banner.split(':')[1]) >= 0 ? ' scene' : '') : '') + '">' + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
+    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] + (SCENES.indexOf(p.eq.banner.split(':')[1]) >= 0 ? ' scene' : '') : '') + '">' + (p.eq && p.eq.banner ? sigHTML(p.eq.banner.split(':')[1], p.pseudo) : '') + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
       (own && EPIC_ID && (p.epic || EPIC_PUBLIC || isOwner()) ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
@@ -959,6 +959,8 @@ var CATALOG = {
   'banner:peaks': ['Sommets au crépuscule', 12], 'banner:night_sea': ['Mer de nuit', 12], 'banner:forest': ['Forêt enchantée', 12], 'banner:cyber_city': ['Ville cyber', 15],
   'banner:volcano': ['Volcan en éruption', 15], 'banner:storm_eye': ['Œil de la tempête', 15], 'banner:saturn': ['Planète aux anneaux', 18], 'banner:synthwave': ['Synthwave', 20],
   'banner:arena': ['Arène Legacy', 25], 'banner:phoenix': ['Phénix', 35], 'banner:throne': ['Salle du trône', 90],
+  'banner:sig_ice': ['Signature Glace', 30], 'banner:sig_fire': ['Signature Feu', 30], 'banner:sig_toxic': ['Signature Toxique', 30], 'banner:sig_void': ['Signature Néant', 32],
+  'banner:sig_gold': ['Signature Or', 35], 'banner:tera': ['Exclusivité Tera', 35],
   'fx:shadow': ['Pseudo ombre', 8], 'fx:fire': ['Pseudo en feu', 10], 'fx:ice': ['Pseudo givré', 10], 'fx:gold': ['Pseudo or massif', 30], 'fx:holo': ['Pseudo holographique', 80],
   'emoji:skull': ['💀', 2], 'emoji:ghost': ['👻', 2], 'emoji:alien': ['👽', 2], 'emoji:rocket': ['🚀', 2], 'emoji:money': ['💸', 2], 'emoji:ninja': ['🥷', 2],
   'emoji:ice': ['🧊', 2], 'emoji:clown': ['🤡', 2], 'emoji:brain': ['🧠', 2], 'emoji:eyes': ['👀', 2], 'emoji:dragon': ['🐉', 10], 'emoji:unicorn': ['🦄', 10], 'emoji:trophy': ['🏆', 15],
@@ -966,7 +968,9 @@ var CATALOG = {
   'win:fireworks': ['Victoire feu d\'artifice', 12], 'win:money': ['Victoire pluie de billets', 15], 'win:crown': ['Victoire couronne royale', 50]
 };
 var EMOJI = {fire: '🔥', crown: '👑', bolt: '⚡', gem: '💎', goat: '🐐', target: '🎯', skull: '💀', ghost: '👻', alien: '👽', rocket: '🚀', money: '💸', ninja: '🥷', ice: '🧊', clown: '🤡', brain: '🧠', eyes: '👀', dragon: '🐉', unicorn: '🦄', trophy: '🏆'};
-var SCENES = ['peaks', 'night_sea', 'forest', 'cyber_city', 'volcano', 'storm_eye', 'saturn', 'synthwave', 'arena', 'phoenix', 'throne'];
+var SIG = {sig_ice: 1, sig_fire: 1, sig_toxic: 1, sig_void: 1, sig_gold: 1, tera: 'TERA'};
+function sigHTML(key, name){ return SIG[key] ? '<div class="sig-name' + (key === 'tera' ? ' sig-tera' : '') + '">' + (key === 'tera' ? '<i>Exclusivité</i>' : '') + '<b>' + esc(SIG[key] === 1 ? name : SIG[key]) + '</b><small>Legacy · Competitive player</small></div>' : ''; }
+var SCENES = ['sig_ice', 'sig_fire', 'sig_toxic', 'sig_void', 'sig_gold', 'tera', 'peaks', 'night_sea', 'forest', 'cyber_city', 'volcano', 'storm_eye', 'saturn', 'synthwave', 'arena', 'phoenix', 'throne'];
 var WIN_ICON = {confetti: '🎉', lightning: '⚡', fireworks: '🎆', money: '💸', crown: '👑'};
 function ownersOf(i){ var n = 0; for (var k in S.players) { var p = S.players[k]; if ((p.owned || []).indexOf(i) >= 0) n++; } return n; }
 function itemPrice(i){ if (i.indexOf('title:') === 0) { var k = i.slice(6); return RARE_TITLES[k] ? RARE_TITLES[k][1] : ITEM_PRICE; } return CATALOG[i] ? CATALOG[i][1] : ITEM_PRICE; }
@@ -988,7 +992,7 @@ function itemAction(i){
 function previewOf(i){
   var p = me(), slot = slotOf(i), key = i.split(':')[1];
   if (slot === 'frame') return '<span class="avf avf-' + key + '"><span class="av lg" style="--h:' + hue(p.pseudo) + '">' + (p.avatar ? '<img src="' + esc(p.avatar) + '" alt="" style="width:100%;height:100%;object-fit:cover">' : ini(p.pseudo)) + '</span></span>';
-  if (slot === 'banner') return '<span class="bn-prev bn-' + key + '"></span>';
+  if (slot === 'banner') return '<span class="bn-prev bn-' + key + (SIG[key] ? ' sig-prev' : '') + '">' + (SIG[key] ? '<span class="sig-mini">' + esc(SIG[key] === 1 ? p.pseudo : SIG[key]) + '</span>' : '') + '</span>';
   if (slot === 'fx') return '<span class="si-demo"><span class="fx-' + key + '" data-t="' + esc(p.pseudo) + '">' + esc(p.pseudo) + '</span></span>';
   if (slot === 'emoji') return '<span class="emo-prev">' + EMOJI[key] + '</span>';
   if (slot === 'poster') return '<span class="pt-prev pt-' + key + '"></span>';
@@ -1008,7 +1012,10 @@ function shopHTML(){
   if (shopTab === 'vip') return html + vipShopHTML();
   if (shopTab === 'profil') {
     html += '<section><h2 class="sec shop-h">Cadres de photo</h2><div class="shop-grid">' + ['frame:neon', 'frame:fire', 'frame:lightning', 'frame:diamond', 'frame:gold', 'frame:toxic', 'frame:galaxy', 'frame:blood', 'frame:rainbow'].map(function(i){ return itemCard(i, 'Un contour animé autour de ta photo, partout sur le site.'); }).join('') + '</div></section>';
-    html += '<section><h2 class="sec shop-h">Bannières illustrées <span class="new-tag">Nouveau</span></h2><p class="help" style="margin-bottom:12px">De vraies scènes animées en haut de ton profil : étoiles qui scintillent, lucioles, projecteurs, éruption…</p><div class="shop-grid scene-grid">' +
+    html += '<section><h2 class="sec shop-h">Bannières Signature <span class="new-tag">Nouveau</span></h2><p class="help" style="margin-bottom:12px">Ton pseudo en énorme sur une scène animée : portail runique qui tourne, cristaux qui flottent, rayon de lumière.</p><div class="shop-grid scene-grid sig-grid">' +
+      [['banner:tera', '❄️ Édition exclusive : « TERA » en grand, cristaux de glace géants.'], ['banner:sig_ice', 'Bleu glacé, cristaux et portail.'], ['banner:sig_fire', 'Rouge et orange, braises qui montent.'],
+       ['banner:sig_toxic', 'Vert radioactif, éclats lumineux.'], ['banner:sig_void', 'Violet du néant, énergie mystique.'], ['banner:sig_gold', 'Or massif, pour les plus riches.']].map(function(x){ return itemCard(x[0], x[1]); }).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Bannières illustrées</h2><p class="help" style="margin-bottom:12px">De vraies scènes animées en haut de ton profil : étoiles qui scintillent, lucioles, projecteurs, éruption…</p><div class="shop-grid scene-grid">' +
       [['banner:peaks', 'Montagnes au soleil couchant et oiseaux.'], ['banner:night_sea', 'Lune, étoiles et reflets sur l\'eau.'], ['banner:forest', 'Sapins dans la brume et lucioles.'], ['banner:cyber_city', 'Gratte-ciel néon et soleil rétro.'],
        ['banner:volcano', 'Lave, étincelles et fumée.'], ['banner:storm_eye', 'Un vortex qui tourne et des éclairs.'], ['banner:saturn', 'Nébuleuse et planète à anneaux.'], ['banner:synthwave', 'Grille rétro et montagnes néon.'],
        ['banner:arena', 'Projecteurs, foule et logo Legacy.'], ['banner:phoenix', 'Un phénix aux ailes de feu.']].map(function(x){ return itemCard(x[0], x[1]); }).join('') + '</div></section>';
