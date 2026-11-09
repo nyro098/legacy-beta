@@ -16,7 +16,7 @@ function dcBtn(label){ return '<a class="btn sm discord-btn dc-top" href="' + DI
 /* ---------- utilitaires ---------- */
 function $(s){ return document.querySelector(s); }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function fmt(n){ n = Math.round(Number(n || 0) * 10) / 10; return String(n).replace('.', ','); }
+function fmt(n){ n = Math.round(Number(n || 0) * 100) / 100; return String(n).replace('.', ','); }
 function num(v){ return parseFloat(String(v == null ? '' : v).replace(',', '.')); }
 function cn(n){ return fmt(n) + ' coin' + (Math.abs(n) > 1 ? 's' : ''); }
 var MAXC = 100;
@@ -41,7 +41,7 @@ var S = {players: {}, matches: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -60,8 +60,12 @@ function refresh(){
     S.me ? sb.from('notifications').select('*').order('created_at', {ascending: false}).limit(40) : Promise.resolve({data: []}),
     sb.from('tournaments').select('*').order('created_at', {ascending: false}).limit(50),
     sb.from('tournament_players').select('*'),
-    sb.from('tournament_matches').select('*')
+    sb.from('tournament_matches').select('*'),
+    S.me ? sb.from('wheel_spins').select('at').eq('player', S.me).order('at', {ascending: false}).limit(1) : Promise.resolve({data: []}),
+    sb.from('wheel_spins').select('player,prize,amount,at').neq('prize', 'c001').order('at', {ascending: false}).limit(8)
   ]).then(function(r){
+    S.lastSpin = r[9] && r[9].data && r[9].data[0] ? Date.parse(r[9].data[0].at) : 0;
+    S.spinFeed = (r[10] && r[10].data) || [];
     if (r[0].error) throw r[0].error;
     if (r[1].error) throw r[1].error;
     var P = {}, M = {};
@@ -163,7 +167,7 @@ function myDecl(m){ return S.me === capA(m) ? m.declA : S.me === capB(m) ? m.dec
 
 /* ---------- état de l'interface ---------- */
 var authTab = 'login', tab = 'ouverts', viewPid = null, editing = false, dlg = null, lastFocus = null, toastT = null, busy = false;
-var VIEWS = ['arene', 'tournois', 'classement', 'amis', 'boutique', 'profil', 'regles', 'signaler', 'match'];
+var VIEWS = ['arene', 'roue', 'tournois', 'classement', 'amis', 'boutique', 'profil', 'regles', 'signaler', 'match'];
 function viewName(){
   var h = (location.hash || '').slice(1);
   if (h.indexOf('match-') === 0) { S.lastMatch = h.slice(6); return S.matches[S.lastMatch] ? 'match' : 'arene'; }
@@ -235,7 +239,7 @@ function headerHTML(v){
   function link(h, label){ return '<a href="#' + h + '"' + (v === h || (h === 'arene' && v === 'match') ? ' aria-current="page"' : '') + (h === 'profil' ? ' data-act="myprofile"' : '') + '>' + label + '</a>'; }
   return betaBar() + '<header class="top"><div class="wrap bar">' +
     '<a class="logo" href="#arene" aria-label="Legacy, accueil">' + LOGO + '<span>Legacy</span><em class="beta">BÊTA</em></a>' +
-    '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('tournois', 'Tournois') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() ? ' <i class="count">' + pendingIn() + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
+    '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('roue', '🎡 Roue' + (spinReady() ? ' <i class="count">1</i>' : '')) + link('tournois', 'Tournois') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() ? ' <i class="count">' + pendingIn() + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
     '<div class="bar-right">' +
     '<a class="bal" href="#profil" data-act="myprofile" title="Ton solde disponible">' + COIN + '<span>' + fmt(bal) + '</span>' + (lk ? '<small>' + fmt(lk) + ' en jeu</small>' : '') + '</a>' +
     dcBtn('Discord') +
@@ -391,7 +395,7 @@ function boardHTML(){
   return html + '</tbody></table></div>';
 }
 
-var TX_LABEL = {shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', admin: 'Ajustement admin'};
+var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', admin: 'Ajustement admin'};
 function profileHTML(){
   var pid = S.players[viewPid] ? viewPid : S.me, p = P(pid), own = pid === S.me, s = stats(pid), bal = avail(pid), lk = locked(pid);
   var html = '';
@@ -485,6 +489,59 @@ function uploadAvatar(file){
     toast(e && e.message === 'format' ? 'Ce format d\'image n\'est pas reconnu. Essaie une photo JPG ou PNG.' : 'Envoi impossible : ' + cleanErr(e && e.message));
   });
 }
+/* ---------- roue quotidienne ---------- */
+var WHEEL_TITLES = {chanceux: '🍀 Chanceux'};
+var WHEEL = [['0,01', 'c'], ['0,5', 'b'], ['0,01', 'c'], ['1', 'a'], ['0,01', 'c'], ['🍀', 't'], ['0,01', 'c'], ['0,5', 'b'], ['0,01', 'c'], ['5', 'g']];
+var WHEEL_IDX = {c001: [0, 2, 4, 6, 8], c05: [1, 7], c1: [3], title: [5], title_dup: [5], c5: [9]};
+var WHEEL_ODDS = [['0,01 coin', '84,7 %', 'Presque à chaque fois'], ['0,5 coin', '12 %', 'Pas mal'], ['1 coin', '2,5 %', 'Rare'], ['🍀 Titre « Chanceux »', '0,5 %', 'Très rare · exclusif'], ['5 coins', '0,3 %', 'Jackpot']];
+var wheelRot = 0, spinLock = false, renderPending = false, wheelResult = null;
+function spinReady(){ return !!S.me && Date.now() - (S.lastSpin || 0) >= 864e5; }
+function waitTxt(ms){ var m = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(m / 60); return (h ? h + ' h ' : '') + (m % 60) + ' min'; }
+function prizeTxt(pr, amt){ return pr === 'title' ? 'le titre exclusif 🍀 Chanceux' : pr === 'title_dup' ? '1 coin (tu avais déjà le titre Chanceux)' : cn(amt); }
+function wheelSVG(){
+  var s = '', n = WHEEL.length, a = 360 / n, col = {c: ['#1d2a5c', '#24346f'], b: ['#5b2bff', '#5b2bff'], a: ['#00a3d9', '#00a3d9'], t: ['#1f9d55', '#1f9d55'], g: ['#ffc93c', '#ffc93c']}, k = {c: 0};
+  for (var i = 0; i < n; i++) {
+    var a0 = (i * a - a / 2 - 90) * Math.PI / 180, a1 = ((i + 1) * a - a / 2 - 90) * Math.PI / 180, t = WHEEL[i][1];
+    var fill = t === 'c' ? col.c[(k.c++) % 2] : col[t][0];
+    s += '<path d="M0 0L' + (96 * Math.cos(a0)).toFixed(2) + ' ' + (96 * Math.sin(a0)).toFixed(2) + 'A96 96 0 0 1 ' + (96 * Math.cos(a1)).toFixed(2) + ' ' + (96 * Math.sin(a1)).toFixed(2) + 'Z" fill="' + fill + '" stroke="#0b0f12" stroke-width="1.2"/>';
+    s += '<text transform="rotate(' + (i * a) + ') translate(0 -66)" text-anchor="middle" dominant-baseline="middle" class="wl wl-' + t + '">' + WHEEL[i][0] + '</text>';
+  }
+  return '<svg viewBox="-100 -100 200 200" aria-hidden="true"><circle r="99" fill="#0b0f12"/><g id="wheel-g" style="transform:rotate(' + wheelRot + 'deg)">' + s + '</g><circle r="17" fill="#0b0f12" stroke="#ffc93c" stroke-width="3"/><text class="wl-hub" text-anchor="middle" dominant-baseline="middle">L</text></svg>';
+}
+function wheelHTML(){
+  var ready = spinReady(), left = (S.lastSpin || 0) + 864e5 - Date.now();
+  var html = '<section class="hero"><div><p class="eyebrow">Roue quotidienne</p><h1>Tente ta chance, c\'est gratuit.</h1><p class="lead">Un tour offert toutes les 24 heures. Le plus souvent, tu gagnes une petite pièce… mais avec de la chance, c\'est le jackpot ou un titre exclusif.</p></div></section>';
+  html += '<div class="wheel-wrap"><div class="wheel-box"><div class="wheel-pin" aria-hidden="true"></div><div class="wheel">' + wheelSVG() + '</div></div><div class="wheel-side">';
+  html += ready
+    ? '<button class="btn primary lg wheel-btn" data-act="spin" id="spin-btn">🎡 Tourner la roue</button><p class="help">Gratuit · 1 tour toutes les 24 h</p>'
+    : '<button class="btn lg wheel-btn" disabled>⏳ Prochain tour dans <span id="wheel-cd">' + waitTxt(left) + '</span></button><p class="help">Reviens demain pour un nouveau tour gratuit.</p>';
+  if (wheelResult) html += '<div class="wheel-res wr-' + wheelResult.prize + '"><b>' + (wheelResult.prize === 'c001' ? '🪙' : '🎉') + ' Tu as gagné ' + prizeTxt(wheelResult.prize, wheelResult.amount) + ' !</b>' + (wheelResult.prize === 'title' ? '<small>Équipe-le dans Boutique → Titres.</small>' : '') + '</div>';
+  html += '<table class="odds"><caption>Les chances</caption>' + WHEEL_ODDS.map(function(o){ return '<tr><td>' + o[0] + '</td><td><b>' + o[1] + '</b></td><td>' + o[2] + '</td></tr>'; }).join('') + '</table>';
+  var feed = (S.spinFeed || []).filter(function(x){ return S.players[x.player]; }).slice(0, 6);
+  if (feed.length) html += '<div class="wheel-feed"><h3>Derniers gros gains</h3><ul>' + feed.map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>' + (x.prize === 'title' ? '🍀 Titre' : '+' + cn(x.amount)) + '</b></li>'; }).join('') + '</ul></div>';
+  return html + '</div></div>';
+}
+function spinWheel(){
+  if (spinLock || busy || !spinReady()) return;
+  busy = true; var btn = document.getElementById('spin-btn'); if (btn) { btn.disabled = true; btn.textContent = 'La roue tourne…'; }
+  sb.rpc('spin_wheel').then(function(r){
+    busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render); return; }
+    var res = r.data, idx = WHEEL_IDX[res.prize] || [0], i = idx[Math.floor(Math.random() * idx.length)];
+    var target = (360 - i * 36) % 360, jitter = Math.random() * 20 - 10, cur = ((wheelRot % 360) + 360) % 360;
+    wheelRot += 360 * 6 + ((target - cur + 360) % 360) + jitter;
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, g = document.getElementById('wheel-g');
+    spinLock = true;
+    if (g) { g.style.transition = reduce ? 'none' : 'transform 5.2s cubic-bezier(.12,.6,.1,1)'; g.style.transform = 'rotate(' + wheelRot + 'deg)'; }
+    setTimeout(function(){
+      wheelResult = res; S.lastSpin = Date.now(); spinLock = false;
+      toast('Tu as gagné ' + prizeTxt(res.prize, res.amount) + ' !');
+      refresh().then(function(){ render(); if (res.prize !== 'c001' && res.prize !== 'c05') { document.body.insertAdjacentHTML('beforeend', winFxHTML('confetti', 'wheel' + Date.now())); var fx = document.body.lastElementChild; setTimeout(function(){ if (fx) fx.remove(); }, 5000); } });
+    }, reduce ? 300 : 5400);
+  });
+}
+setInterval(function(){ var el = document.getElementById('wheel-cd'); if (el) { var left = (S.lastSpin || 0) + 864e5 - Date.now(); if (left <= 0) render(); else el.textContent = waitTxt(left); } }, 30000);
+
 /* ---------- tournois ---------- */
 var tourId = null;
 var TOUR_STATUS = {registration: ['Inscriptions ouvertes', 'open'], running: ['En cours', 'live'], done: ['Terminé', 'done'], cancelled: ['Annulé', 'cancelled']};
@@ -853,6 +910,10 @@ function shopHTML(){
     html += '<section class="panel"><h2>📌 Défi épinglé · ' + cn(3) + '</h2><p class="help">Ton défi reste tout en haut de l\'arène pendant 1 heure. Ouvre un de tes défis ouverts et clique sur « Épingler ».</p></section>';
   } else if (shopTab === 'titres') {
     html += '<section><h2 class="sec shop-h">Titres rares</h2><div class="title-grid">' + Object.keys(RARE_TITLES).map(titleCard).join('') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Titre exclusif de la roue</h2><p class="help" style="margin-bottom:12px">Impossible à acheter : seuls les plus chanceux le gagnent à la <a href="#roue">roue quotidienne</a>.</p><div class="title-grid">' + Object.keys(WHEEL_TITLES).map(function(k){
+      var own = (p.owned || []).indexOf('title:' + k) >= 0, on = p.titleKey === k;
+      return '<div class="title-item rare' + (on ? ' on' : '') + '"><span class="ptitle rare luck">' + esc(WHEEL_TITLES[k]) + '</span>' + (own ? (on ? '<button class="btn sm ghost" data-act="equip-title" data-key="">Retirer</button>' : '<button class="btn sm" data-act="equip-title" data-key="' + k + '">Équiper</button>') : '<span class="help">🎡 Roue uniquement</span>') + '</div>';
+    }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Titres · ' + cn(ITEM_PRICE) + '</h2><p class="help" style="margin-bottom:12px">Inclus dans le VIP.</p><div class="title-grid">' + Object.keys(TITLES).filter(function(k){ return !RARE_TITLES[k]; }).map(titleCard).join('') + '</div></section>';
   } else if (shopTab === 'limite') {
     var left = LIMITED_UNTIL - Date.now(), days = Math.max(0, Math.ceil(left / 864e5));
@@ -1184,6 +1245,7 @@ function closeDialog(){ dlg = null; $('#layer').innerHTML = ''; if (lastFocus &&
 
 /* ---------- rendu ---------- */
 function render(){
+  if (spinLock) { renderPending = true; return; }
   var app = $('#app');
   if (!configured) { app.innerHTML = betaBar() + '<div class="wrap welcome"><div class="card"><h2 class="sec">Site pas encore relié</h2><p style="margin-top:12px">Il manque l\'adresse et la clé Supabase dans <code>config.js</code>.</p></div></div>'; return; }
   if (!loaded) { app.innerHTML = betaBar() + '<div class="wrap welcome"><p class="eyebrow">Chargement de l\'arène…</p></div>'; return; }
@@ -1194,7 +1256,7 @@ function render(){
   if (!me().rulesAt) { if (!document.getElementById('rules-btn')) { app.innerHTML = rulesGateHTML(); window.scrollTo(0, 0); } return; }
   if (!me().joined) { if (!document.getElementById('dc-ok')) app.innerHTML = discordGateHTML(); return; }
   var v = viewName();
-  var body = v === 'classement' ? boardHTML() : v === 'profil' ? profileHTML() : v === 'regles' ? rulesHTML() : v === 'signaler' ? reportHTML() : v === 'amis' ? friendsHTML() : v === 'boutique' ? shopHTML() : v === 'tournois' ? tournamentsHTML() : v === 'match' ? matchPageHTML() : arenaHTML();
+  var body = v === 'classement' ? boardHTML() : v === 'profil' ? profileHTML() : v === 'regles' ? rulesHTML() : v === 'signaler' ? reportHTML() : v === 'amis' ? friendsHTML() : v === 'boutique' ? shopHTML() : v === 'tournois' ? tournamentsHTML() : v === 'roue' ? wheelHTML() : v === 'match' ? matchPageHTML() : arenaHTML();
   app.innerHTML = headerHTML(v) + (loadErr ? '<div class="wrap"><div class="notice" style="margin-top:16px"><p>Problème de connexion au serveur : ' + esc(loadErr) + '</p></div></div>' : '') + '<main class="wrap main" id="main">' + (me().status === 'restricted' ? '<div class="notice restricted"><p><b>Compte restreint jusqu\'à ' + untilTxt(me().restrictedUntil) + '.</b> Tu peux regarder le site mais tu ne peux plus jouer, écrire dans les chats ni envoyer de coins' + (me().statusReason ? ' (raison : « ' + esc(me().statusReason) + ' »)' : '') + '. Pour contester, ouvre un ticket sur le Discord.</p></div>' : '') + body + '</main>';
   updateStreamsHost(v === 'arene');
   var ft = document.getElementById('foot'); if (ft && !ft.firstChild) ft.innerHTML = footerHTML();
@@ -1286,6 +1348,7 @@ function act(name, el){
       if (!confirm('Acheter « ' + itemName(d.item) + ' » pour ' + cn(itemPrice(d.item)) + ' ?')) break;
       doRpc('buy_item', {p_item: d.item}, 'Achat réussi : ' + itemName(d.item) + ' !');
       break;
+    case 'spin': spinWheel(); break;
     case 'equip-title': doRpc('set_cosmetics', {p_style: me().nameStyle, p_title: d.key}, d.key ? 'Titre équipé !' : 'Titre retiré.'); break;
     case 'buy-vip':
       if (!confirm('Acheter 1 mois de Pass VIP pour ' + cn(VIP_PRICE) + ' ?')) break;
