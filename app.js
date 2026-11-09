@@ -52,7 +52,7 @@ function mapMatch(m){
 }
 function refresh(){
   return Promise.all([
-    sb.from('profiles').select('id,pseudo,discord,twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
+    sb.from('profiles').select('id,pseudo,' + (S.me ? 'discord,' : '') + 'twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
     sb.from('matches').select('*').order('created_at', {ascending: false}).limit(400),
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
@@ -108,7 +108,8 @@ function signup(d){
   if (!discord) return Promise.resolve({ok: false, msg: 'Entre ton Discord.'});
   if (discord.length > 64) return Promise.resolve({ok: false, msg: 'Discord trop long (64 caractères max).'});
   if (pseudo.length < 2 || pseudo.length > 24 || /[\u0000-\u001f\u007f]/.test(pseudo)) return Promise.resolve({ok: false, msg: 'Le pseudo fait 2 à 24 caractères (espaces et caractères spéciaux autorisés).'});
-  if (pw.length < 6) return Promise.resolve({ok: false, msg: 'Le mot de passe fait au moins 6 caractères.'});
+  if (pw.length < 8) return Promise.resolve({ok: false, msg: 'Le mot de passe fait au moins 8 caractères.'});
+  if (/^(.)\1+$|^(12345678|123456789|azertyui|azertyuiop|password|motdepasse|fortnite)/i.test(pw)) return Promise.resolve({ok: false, msg: 'Mot de passe trop facile à deviner, choisis-en un autre.'});
   if (pw !== String(d.password2 || '')) return Promise.resolve({ok: false, msg: 'Les deux mots de passe ne sont pas identiques.'});
   return sb.rpc('signup_check', {p_pseudo: pseudo, p_discord: discord}).then(function(c){
     if (c.error) return {ok: false, msg: cleanErr(c.error.message)};
@@ -1216,7 +1217,7 @@ function welcomeHTML(){
         '<div class="row"><div><label for="w-pw">Mot de passe</label><input id="w-pw" name="password" type="password" required autocomplete="new-password"></div>' +
         '<div><label for="w-pw2">Confirmer</label><input id="w-pw2" name="password2" type="password" required autocomplete="new-password"></div></div>' +
         '<label for="w-twitter">X / Twitter (facultatif)</label><input id="w-twitter" name="twitter" maxlength="33" autocomplete="off" placeholder="@pseudo">' +
-        '<p class="hint">Un seul compte par Discord. Tous les caractères sont acceptés. Mot de passe : 6 caractères minimum.</p>' +
+        '<p class="hint">Un seul compte par Discord. Tous les caractères sont acceptés. Mot de passe : 8 caractères minimum.</p>' +
         '<p class="err" role="alert"></p><button class="btn primary" type="submit" style="width:100%">Créer mon compte</button></form>') +
     '</div></div>';
 }
