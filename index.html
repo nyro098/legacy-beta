@@ -653,7 +653,15 @@ td.bal-c,tr.top1 td.rank{color:var(--gold)}
 .wheel-feed li .wf-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wheel-feed li b{color:var(--accent-text)}
 .ptitle.luck{background:linear-gradient(90deg,#1f9d55,#ffc93c);color:#0b0f12}
-@media (max-width:760px){.wheel-wrap{grid-template-columns:1fr}.wheel-box{max-width:360px}}
+@media (max-width:760px){.wheel-wrap{grid-template-columns:minmax(0,1fr)}.wheel-box{max-width:360px}}
+.wheel-side,.wheel-feed,.odds{min-width:0;max-width:100%}
+.odds{table-layout:fixed}
+.odds td:first-child{width:46%;overflow-wrap:anywhere}
+.wheel-feed li{min-width:0}
+/* mobile : la barre du haut passe à la ligne au lieu de dépasser */
+@media (max-width:600px){.bar-right{flex-wrap:wrap;margin-left:0;width:100%;min-width:0}.bar-right .btn{flex:0 1 auto}}
+html,body{overflow-x:clip}
+.tablewrap{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
 @media (prefers-reduced-motion:reduce){.btn.lg.wheel-btn{animation:none}}
 /* pseudo Fortnite */
 .fn-tag{display:block;font:600 12px var(--f-body);color:var(--fg-2);margin-top:2px;letter-spacing:.02em}
@@ -685,6 +693,6 @@ td.bal-c,tr.top1 td.rank{color:var(--gold)}
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1794220144"></script>
-<script src="app.js?v=1794220144"></script>
+<script src="config.js?v=1794228182"></script>
+<script src="app.js?v=1794228182"></script>
 </body></html>
