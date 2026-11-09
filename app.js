@@ -62,10 +62,12 @@ function refresh(){
     sb.from('tournament_players').select('*'),
     sb.from('tournament_matches').select('*'),
     S.me ? sb.from('wheel_spins').select('at').eq('player', S.me).order('at', {ascending: false}).limit(1) : Promise.resolve({data: []}),
+    S.me ? sb.from('match_tickets').select('match_id,guild_id,channel_id,status,deadline_at') : Promise.resolve({data: []}),
     sb.from('wheel_spins').select('player,prize,amount,at').in('prize', ['c05', 'c1', 'c5', 'title', 'title_dup']).order('at', {ascending: false}).limit(8)
   ]).then(function(r){
     S.lastSpin = r[9] && r[9].data && r[9].data[0] ? Date.parse(r[9].data[0].at) : 0;
     S.spinFeed = (r[10] && r[10].data) || [];
+    S.tickets = {}; ((r[11] && r[11].data) || []).forEach(function(t){ S.tickets[t.match_id] = t; });
     if (r[0].error) throw r[0].error;
     if (r[1].error) throw r[1].error;
     var P = {}, M = {};
@@ -338,12 +340,13 @@ function matchPageHTML(){
     } else if (m.creator === S.me) r += '<div class="actions">' + (m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé jusqu\'à ' + untilTxt(m.pinnedUntil) + '</span>' : '<button class="btn" data-act="pin" data-id="' + id + '">📌 Épingler 1 h · ' + cn(3) + '</button>') + (m.teamA.length === 1 && m.teamB.length === 0 ? '<button class="btn danger" data-act="cancel" data-id="' + id + '">Annuler le défi</button></div><p class="help">Tu peux annuler tant que personne n\'a rejoint ton défi. Ta mise t\'est alors rendue.</p>' : '</div><p class="help">🔒 Un joueur a rejoint ton défi : il ne peut plus être annulé.</p>');
     else r += '<div class="actions"><button class="btn danger" data-act="leave" data-id="' + id + '">Quitter le match</button></div><p class="help">Ta mise t\'est rendue si tu quittes avant le début du match.</p>';
   } else if (st === 'live' || st === 'dispute') {
+    if (st === 'dispute' && (mt || isAdmin())) r += ticketBoxHTML(m);
     if (mt) {
       var mine = myDecl(m), myCap = mt === 'A' ? ca : cb, oppCap = mt === 'A' ? cb : ca;
       var myD = mt === 'A' ? m.declA : m.declB, od = mt === 'A' ? m.declB : m.declA;
       var myS = declScore(m, mt), oppS = declScore(m, mt === 'A' ? 'B' : 'A');
       if (isCap) {
-        r += '<p>' + (st === 'dispute' ? 'Les déclarations ne concordent pas. Vérifie le score : corrige-le si tu t\'es trompé, sinon un admin tranchera à partir des captures.' : 'Une fois le match joué, entre le score final et ajoute la capture d\'écran du résultat. Les coins bougent quand les deux capitaines sont d\'accord.') + '</p>' +
+        r += '<p>' + (st === 'dispute' ? 'Les déclarations ne concordent pas. Vérifie le score : corrige-le si tu t\'es trompé, sinon ajoute ta capture du score : c\'est elle qui fera gagner le litige.' : 'Une fois le match joué, entre le score final et ajoute la capture d\'écran du résultat. Les coins bougent quand les deux capitaines sont d\'accord.') + '</p>' +
           '<form data-form="result" data-id="' + id + '" class="result-form" novalidate>' +
           '<div class="score-entry"><label><span>' + (m.size > 1 ? 'Ton équipe' : 'Toi') + '</span><input name="my" type="number" inputmode="numeric" min="0" max="99" step="1" required value="' + (myS ? myS[0] : '') + '" placeholder="0"></label><b>–</b><label><span>' + (m.size > 1 ? 'Adversaires' : esc(P(oppCap).pseudo)) + '</span><input name="opp" type="number" inputmode="numeric" min="0" max="99" step="1" required value="' + (myS ? myS[1] : '') + '" placeholder="0"></label></div>' +
           '<label class="shot-pick"><input type="file" name="shot" accept="image/*"><span class="shot-ico">📷</span><span class="shot-txt">Ajouter la capture du résultat <small>(conseillé, obligatoire en cas de litige)</small></span></label>' +
@@ -494,6 +497,27 @@ function uploadAvatar(file){
     toast(e && e.message === 'format' ? 'Ce format d\'image n\'est pas reconnu. Essaie une photo JPG ou PNG.' : 'Envoi impossible : ' + cleanErr(e && e.message));
   });
 }
+/* ---------- tickets de litige (bot Discord) ---------- */
+function ticketBoxHTML(m){
+  var t = S.tickets && S.tickets[m.id];
+  if (t) return '<div class="ticket-box"><p><b>🎫 Ticket ouvert sur Discord.</b> Le bot gère le litige : capture du score à envoyer ici avant <b>' + untilTxt(Date.parse(t.deadline_at)) + '</b>, sinon l\'autre équipe gagne.</p><a class="btn primary" href="https://discord.com/channels/' + esc(t.guild_id) + '/' + esc(t.channel_id) + '" target="_blank" rel="noopener noreferrer">Aller au ticket ↗</a></div>';
+  return '<div class="ticket-box"><p><b>⚖️ Litige :</b> ouvre un ticket, le bot Discord s\'en occupe tout seul (rappels, délai de 24 h, décision).</p><button class="btn primary" data-act="ticket-open" data-id="' + esc(m.id) + '">🎫 Ouvrir un ticket sur Discord</button></div>';
+}
+function openTicket(mid){
+  if (busy) return; busy = true;
+  var w = window.open('about:blank', '_blank');
+  toast('Le bot crée ton ticket…');
+  sb.functions.invoke('discord', {body: {action: 'open', match_id: mid}}).then(function(r){
+    if (!r.error) return r.data || {};
+    var ctx = r.error.context;
+    return (ctx && ctx.json ? ctx.json().catch(function(){ return {}; }) : Promise.resolve({})).then(function(j){ throw new Error((j && j.error) || 'Impossible de créer le ticket.'); });
+  }).then(function(d){
+    busy = false;
+    if (d.url) { if (w) w.location.href = d.url; else location.href = d.url; toast('Ticket ouvert sur Discord !'); }
+    return refresh().then(render);
+  }, function(e){ busy = false; if (w) w.close(); toast(e.message); });
+}
+
 /* ---------- roue quotidienne ---------- */
 var WHEEL_TITLES = {chanceux: '🍀 Chanceux'};
 // 24 cases, la case 0 est en haut (sous le pointeur) ; les gros lots sont entourés de petites cases
@@ -1411,6 +1435,7 @@ function act(name, el){
       doRpc('buy_item', {p_item: d.item}, 'Achat réussi : ' + itemName(d.item) + ' !');
       break;
     case 'spin': spinWheel(); break;
+    case 'ticket-open': openTicket(d.id); break;
     case 'wheel-sound': wheelSound = !wheelSound; try { localStorage.setItem('legacy-wheel-sound', wheelSound ? '1' : '0'); } catch (e) {} el.textContent = wheelSound ? '🔊 Son activé' : '🔇 Son coupé'; if (wheelSound) tickSound(); break;
     case 'equip-title': doRpc('set_cosmetics', {p_style: me().nameStyle, p_title: d.key}, d.key ? 'Titre équipé !' : 'Titre retiré.'); break;
     case 'buy-vip':
