@@ -280,7 +280,11 @@ function posterHTML(m, big){
         (m.teamB.length < m.size ? '<button class="btn primary sm" data-act="join" data-id="' + id + '" data-team="B">Équipe B</button>' : '') + '</div>';
   } else if (st === 'live' && tm) f = '<small>' + (myDecl(m) ? 'Résultat envoyé' : 'Résultat à déclarer') + '</small><button class="btn sm" data-act="open-match" data-id="' + id + '">Ouvrir</button>';
   else if (st === 'dispute') f = '<small>Déclarations contradictoires</small>' + (tm || isAdmin() ? '<button class="btn sm" data-act="open-match" data-id="' + id + '">Ouvrir</button>' : '');
-  else if (st === 'done') { var wl = ws === 'A' ? m.teamA : m.teamB; f = '<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '</small>'; }
+  else if (st === 'done') {
+    var wl = ws === 'A' ? m.teamA : m.teamB, dbl = m.stake * 2;
+    f = '<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '</small>' +
+      (tm ? '<button class="btn primary sm" data-act="double" data-id="' + id + '"' + (avail(S.me) < dbl ? ' disabled title="Il te faut ' + cn(dbl) + ' disponible(s)"' : ' title="Revanche immédiate avec le double de la mise"') + '>🔥 Double · ' + cn(dbl) + '</button>' : '');
+  }
   else if (st === 'live') f = '<small>Match en cours</small>';
   else f = '<small>Défi annulé</small>';
   var a = PM(m, m.teamA[0]);
@@ -416,6 +420,11 @@ function matchPageHTML(){
     r += m.scoreA != null
       ? '<div class="final-score"><span>' + esc(m.size > 1 ? 'Équipe A' : P(ca).pseudo) + '</span><b class="' + (ws === 'A' ? 'w' : '') + '">' + m.scoreA + '</b><i>–</i><b class="' + (ws === 'B' ? 'w' : '') + '">' + m.scoreB + '</b><span>' + esc(m.size > 1 ? 'Équipe B' : P(cb).pseudo) + '</span><em class="fr-tag ' + (m.scoreOk ? 'ok' : '') + '">' + (m.scoreOk ? '✓ Score confirmé' : 'Score non confirmé') + '</em></div>'
       : '<p class="help">Aucun score n\'a été déclaré pour ce match.</p>';
+    if (mt) {
+      var dblStake = m.stake * 2, shortDbl = avail(S.me) < dblStake, oppCapId = mt === 'A' ? cb : ca;
+      r += '<div class="actions" style="margin-top:16px"><button class="btn primary lg" data-act="double" data-id="' + id + '"' + (shortDbl ? ' disabled' : '') + '>🔥 Double · Revanche à ' + cn(dblStake) + '</button></div>' +
+        '<p class="help">' + (shortDbl ? 'Il te faut ' + cn(dblStake) + ' disponible(s) pour lancer le Double (tu en as ' + cn(Math.max(avail(S.me), 0)) + ').' : 'Lance immédiatement une revanche' + (m.size === 1 && oppCapId ? ' réservée à <b>' + esc(P(oppCapId).pseudo) + '</b>' : '') + ' avec les mêmes règles et <b>le double de la mise (' + cn(dblStake) + ')</b>.') + '</p>';
+    }
     if (isAdmin()) r += '<form data-form="admin-score" data-id="' + id + '" class="adminbox admin-score" novalidate><p class="help"><b>Admin</b> : corriger le score final.</p><div class="score-entry"><label><span>Équipe A</span><input name="a" type="number" min="0" max="99" value="' + (m.scoreA != null ? m.scoreA : '') + '"></label><b>–</b><label><span>Équipe B</span><input name="b" type="number" min="0" max="99" value="' + (m.scoreB != null ? m.scoreB : '') + '"></label><button class="btn sm" type="submit">Enregistrer</button></div><p class="err" role="alert"></p></form>';
   } else r += '<p>Ce défi a été annulé. Les mises ont été rendues.</p>';
   if (isAdmin() && active(m)) {
@@ -1588,6 +1597,30 @@ function act(name, el){
     case 'join': {
       var m = S.matches[d.id];
       doRpc('join_match', {mid: d.id, team: d.team || 'B'}, m ? cn(m.stake) + ' mis dans le pot. Bonne chance !' : '', function(){ openMatch(d.id); });
+      break;
+    }
+    case 'double': {
+      var dm = S.matches[d.id];
+      if (!dm) break;
+      var dStake = dm.stake * 2, dSide = teamOf(dm, S.me);
+      if (!dSide) break;
+      if (avail(S.me) < dStake) { toast('Il te faut ' + cn(dStake) + ' disponibles pour faire un Double.'); break; }
+      var dOpp = dSide === 'A' ? capB(dm) : capA(dm);
+      var dTarget = dm.size === 1 && dOpp ? dOpp : null;
+      if (!confirm('Lancer une revanche « Double » (' + dm.mode + ' ' + dm.format + ') en misant le double soit ' + cn(dStake) + (dTarget ? ' contre ' + P(dTarget).pseudo : '') + ' ?')) break;
+      doRpc('create_match', {
+        p_mode: dm.mode,
+        p_format: dm.format,
+        p_bo: dm.bo,
+        p_stake: dStake,
+        p_rules: dm.rules || '',
+        p_target: dTarget,
+        p_team: null,
+        p_pingpong: !!dm.pingpong,
+        p_kill_lead: dm.killLead || 1
+      }, '🔥 Revanche Double lancée (' + cn(dStake) + ' mis en jeu) !', function(r){
+        if (r && r.data) openMatch(r.data);
+      });
       break;
     }
     case 'leave': doRpc('leave_match', {mid: d.id}, 'Tu as quitté le match. Ta mise t\'est rendue.'); break;
