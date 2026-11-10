@@ -37,7 +37,7 @@ var CFG = window.LEGACY_CONFIG || {};
 var configured = /^https:\/\//.test(CFG.url || '') && CFG.key && CFG.key.indexOf('COLLE') < 0;
 var sb = configured ? window.supabase.createClient(CFG.url, CFG.key) : null;
 
-var S = {players: {}, matches: {}, me: null, lastMatch: null};
+var S = {players: {}, matches: {}, bets: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
@@ -64,11 +64,18 @@ function refresh(){
     sb.from('tournament_matches').select('*'),
     S.me ? sb.from('wheel_spins').select('at').eq('player', S.me).order('at', {ascending: false}).limit(1) : Promise.resolve({data: []}),
     S.me ? sb.from('match_tickets').select('match_id,guild_id,channel_id,status,deadline_at') : Promise.resolve({data: []}),
-    sb.from('wheel_spins').select('player,prize,amount,at').in('prize', ['c05', 'c1', 'c5', 'title', 'title_dup']).order('at', {ascending: false}).limit(8)
+    sb.from('wheel_spins').select('player,prize,amount,at').in('prize', ['c05', 'c1', 'c5', 'title', 'title_dup']).order('at', {ascending: false}).limit(8),
+    sb.from('match_bets').select('*').order('created_at', {ascending: false}).limit(400)
   ]).then(function(r){
     S.lastSpin = r[9] && r[9].data && r[9].data[0] ? Date.parse(r[9].data[0].at) : 0;
-    S.spinFeed = (r[10] && r[10].data) || [];
-    S.tickets = {}; ((r[11] && r[11].data) || []).forEach(function(t){ S.tickets[t.match_id] = t; });
+    S.tickets = {}; ((r[10] && r[10].data) || []).forEach(function(t){ S.tickets[t.match_id] = t; });
+    S.spinFeed = (r[11] && r[11].data) || [];
+    var B = {};
+    ((r[12] && r[12].data) || []).forEach(function(b){
+      if (!B[b.match_id]) B[b.match_id] = [];
+      B[b.match_id].push({id: b.id, matchId: b.match_id, player: b.player, side: b.side, amount: Number(b.amount), settled: !!b.settled, won: b.won, at: Date.parse(b.created_at)});
+    });
+    S.bets = B;
     if (r[0].error) throw r[0].error;
     if (r[1].error) throw r[1].error;
     var P = {}, M = {};
@@ -273,17 +280,23 @@ function posterHTML(m, big){
     sideHTML(m, 'A', ws) + sideHTML(m, 'B', ws) + (m.status === 'done' && m.scoreA != null ? '<div class="vs score" aria-label="Score ' + m.scoreA + ' à ' + m.scoreB + '">' + m.scoreA + '<i>–</i>' + m.scoreB + '</div>' : '<div class="vs" aria-hidden="true">VS</div>') + '</div>';
   var pot = '<div class="p-pot"><span>Mise de chaque joueur</span><b>' + COIN + fmt(m.stake) + '</b></div>';
   var liveTag = matchLive(m) ? '<span class="live-tag">🔴 LIVE</span>' : '';
-  var top = '<div class="p-top">' + liveTag + '<span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(BO_LABEL[m.bo] || m.bo) + '</span><span class="bo">Kill lead ' + (m.killLead != null ? m.killLead : 1) + '</span>' + (m.pingpong ? '<span class="bo pp">Ping-pong</span>' : '') + (st === 'open' && m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé</span>' : '') + '<span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
+  var bt = betTotals(m.id), mb = myBet(m.id);
+  var betTag = bt.total > 0 ? '<span class="bo bet-tag" title="Paris enregistrés : gain x2">🎲 ' + fmt(bt.total) + ' (x2)</span>' : '';
+  var top = '<div class="p-top">' + liveTag + betTag + '<span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(BO_LABEL[m.bo] || m.bo) + '</span><span class="bo">Kill lead ' + (m.killLead != null ? m.killLead : 1) + '</span>' + (m.pingpong ? '<span class="bo pp">Ping-pong</span>' : '') + (st === 'open' && m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé</span>' : '') + '<span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
   if (big) return '<div class="poster big">' + top + face + pot + '</div>';
   var f = '', needs = m.size * 2 - m.teamA.length - m.teamB.length;
   if (st === 'open') {
     if (tm) f = '<small>Tu es dans l\'équipe ' + tm + ' · ' + needs + ' place' + (needs > 1 ? 's' : '') + ' libre' + (needs > 1 ? 's' : '') + '</small><button class="btn sm" data-act="open-match" data-id="' + id + '">Ouvrir</button>';
-    else if (m.target && m.target !== S.me) f = '<small>Réservé à ' + esc(P(m.target).pseudo) + '</small>';
-    else if (m.size === 1) f = '<small>Lancé ' + ago(m.createdAt) + '</small><button class="btn primary sm" data-act="join" data-id="' + id + '">Accepter</button>';
+    else if (m.target && m.target !== S.me) f = '<small>Réservé à ' + esc(P(m.target).pseudo) + '</small>' + (mb ? '<span class="chip" style="background:rgba(240,180,41,0.18);color:#f0b429">🎲 ' + cn(mb.amount) + '</span>' : '<button class="btn sm" data-act="bet-dialog" data-id="' + id + '">🎲 Parier · x2</button>');
+    else if (m.size === 1) f = '<small>Lancé ' + ago(m.createdAt) + '</small><div class="actions"><button class="btn primary sm" data-act="join" data-id="' + id + '">Accepter</button>' + (mb ? '<span class="chip" style="background:rgba(240,180,41,0.18);color:#f0b429">🎲 ' + cn(mb.amount) + '</span>' : '<button class="btn sm" data-act="bet-dialog" data-id="' + id + '">🎲 Parier · x2</button>') + '</div>';
     else f = '<small>' + needs + ' place' + (needs > 1 ? 's' : '') + ' libre' + (needs > 1 ? 's' : '') + '</small><div class="actions">' +
         (m.teamA.length < m.size && canJoinA(m) ? '<button class="btn primary sm" data-act="join" data-id="' + id + '" data-team="A">Équipe A</button>' : '') +
-        (m.teamB.length < m.size ? '<button class="btn primary sm" data-act="join" data-id="' + id + '" data-team="B">Équipe B</button>' : '') + '</div>';
+        (m.teamB.length < m.size ? '<button class="btn primary sm" data-act="join" data-id="' + id + '" data-team="B">Équipe B</button>' : '') +
+        (mb ? '<span class="chip" style="background:rgba(240,180,41,0.18);color:#f0b429">🎲 ' + cn(mb.amount) + '</span>' : '<button class="btn sm" data-act="bet-dialog" data-id="' + id + '">🎲 Parier · x2</button>') + '</div>';
   } else if (st === 'live' && tm) f = '<small>' + (myDecl(m) ? 'Résultat envoyé' : 'Résultat à déclarer') + '</small><button class="btn sm" data-act="open-match" data-id="' + id + '">Ouvrir</button>';
+  else if (st === 'live') {
+    f = '<small>Match en cours</small><div class="actions">' + (mb ? '<span class="chip" style="background:rgba(240,180,41,0.18);color:#f0b429">🎲 ' + cn(mb.amount) + ' sur ' + mb.side + ' (x2)</span>' : '<button class="btn sm primary" data-act="bet-dialog" data-id="' + id + '">🎲 Parier · x2</button>') + '<button class="btn sm" data-act="open-match" data-id="' + id + '">Ouvrir</button></div>';
+  }
   else if (st === 'dispute') f = '<small>Déclarations contradictoires</small>' + (tm || isAdmin() ? '<button class="btn sm" data-act="open-match" data-id="' + id + '">Ouvrir</button>' : '');
   else if (st === 'done') {
     var wl = ws === 'A' ? m.teamA : m.teamB, dbl = m.stake * 2;
@@ -296,10 +309,10 @@ function posterHTML(m, big){
       else if (!myDbl && oppDbl) dblBtn = '<button class="btn win sm" data-act="double" data-id="' + id + '"' + (avail(S.me) < dbl ? ' disabled title="Il te faut ' + cn(dbl) + ' disponible(s)"' : '') + '>🔥 Accepter Double (2/2) · ' + cn(dbl) + '</button>';
       else dblBtn = '<button class="btn primary sm" data-act="double" data-id="' + id + '"' + (avail(S.me) < dbl ? ' disabled title="Il te faut ' + cn(dbl) + ' disponible(s)"' : ' title="Les 2 doivent accepter pour lancer le Double"') + '>🔥 Double (0/2) · ' + cn(dbl) + '</button>';
     }
-    f = '<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '</small>' + dblBtn;
+    var betResult = mb ? (mb.won ? '<span class="chip win" style="margin-left:6px">🎲 +' + cn(mb.amount * 2) + '</span>' : '<span class="chip" style="margin-left:6px;opacity:0.7">🎲 −' + cn(mb.amount) + '</span>') : '';
+    f = '<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '</small>' + betResult + dblBtn;
   }
-  else if (st === 'live') f = '<small>Match en cours</small>';
-  else f = '<small>Défi annulé</small>';
+  else f = '<small>Défi annulé' + (mb ? ' · pari remboursé' : '') + '</small>';
   var a = PM(m, m.teamA[0]);
   return '<article class="poster" data-open="' + id + '" tabindex="0" role="button" aria-label="' + esc(m.mode + ' ' + m.format + ' : équipe de ' + a.pseudo + ', mise ' + cn(m.stake)) + '">' + top + face + pot + '<div class="p-foot">' + f + '</div></article>';
 }
@@ -383,6 +396,91 @@ function teamCard(m, team){
   return '<div class="tcard' + (mt === team ? ' mine' : '') + '"><h3>' + title + '<small>ÉQUIPE ' + team + '</small></h3><ul>' + lis + '</ul></div>';
 }
 
+function matchBets(mid){ return (S.bets && S.bets[mid]) || []; }
+function myBet(mid){
+  if (!S.me) return null;
+  var list = matchBets(mid).filter(function(b){ return b.player === S.me; });
+  return list.length ? list[0] : null;
+}
+function betTotals(mid){
+  var list = matchBets(mid), totA = 0, totB = 0;
+  list.forEach(function(b){
+    if (b.side === 'A') totA += b.amount;
+    else if (b.side === 'B') totB += b.amount;
+  });
+  return {totA: totA, totB: totB, total: totA + totB, count: list.length};
+}
+
+function betsBoxHTML(m){
+  var st = stateOf(m), id = esc(m.id), mt = teamOf(m, S.me);
+  var bList = matchBets(m.id), bt = betTotals(m.id), mb = myBet(m.id);
+  var pA = PM(m, m.teamA[0]), pB = m.teamB.length ? PM(m, m.teamB[0]) : null;
+  var nameA = m.size > 1 ? 'Équipe A' : esc(pA.pseudo);
+  var nameB = m.size > 1 ? 'Équipe B' : (pB ? esc(pB.pseudo) : 'Équipe B');
+  var pctA = bt.total > 0 ? Math.round((bt.totA / bt.total) * 100) : 50;
+  var pctB = bt.total > 0 ? 100 - pctA : 50;
+
+  var html = '<section class="panel bet-panel"><div class="bet-head"><div><p class="eyebrow">🎲 Paris en direct · Multiplicateur x2 fixe</p>' +
+    '<h2>Paris sur ce match</h2></div>' +
+    '<div class="bet-pot-pill"><b>' + cn(bt.total) + '</b><span>paris placés (x2)</span></div></div>' +
+    '<p class="help">N\'importe qui peut parier sur le gagnant de ce match. Si ton équipe l\'emporte, <b>tu empoches le double de ta mise (x2 fixe)</b> !</p>';
+
+  html += '<div class="bet-meter-wrap" style="margin:16px 0">' +
+    '<div class="bet-meter-labels" style="display:flex;justify-content:space-between;font-weight:600;margin-bottom:6px;font-size:13.5px">' +
+      '<span style="color:#00a3d9">🔵 ' + nameA + ' : ' + cn(bt.totA) + ' (' + pctA + '%)</span>' +
+      '<span style="color:#ff7a7a">🔴 ' + nameB + ' : ' + cn(bt.totB) + ' (' + pctB + '%)</span>' +
+    '</div>' +
+    '<div class="bet-bar" style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:#10161a;border:1px solid #26323a">' +
+      '<div style="width:' + pctA + '%;background:#00a3d9;transition:width .3s"></div>' +
+      '<div style="width:' + pctB + '%;background:#ff7a7a;transition:width .3s"></div>' +
+    '</div></div>';
+
+  if (mt) {
+    html += '<div class="notice" style="margin:12px 0"><p>🔒 <b>Tu participes à ce match.</b> Pour garantir une compétition 100 % équitable, les joueurs d\'un match ne peuvent pas parier dessus.</p></div>';
+  } else if (mb) {
+    var winGain = mb.amount * 2;
+    if (st === 'done') {
+      var didWin = mb.won === true || (m.winner && mb.side === m.winner);
+      html += '<div class="banner ' + (didWin ? 'pos' : 'neg') + '" style="margin:14px 0">' +
+        (didWin ? '🎉 <b>Pari gagné !</b> +' + cn(winGain) + ' empochés (gain x2)' : '❌ <b>Pari perdu</b> : ton équipe ' + mb.side + ' n\'a pas gagné ce match.') +
+        '<small>Mise : ' + cn(mb.amount) + ' sur ' + (mb.side === 'A' ? nameA : nameB) + '.</small></div>';
+    } else {
+      html += '<div class="banner pos" style="margin:14px 0">' +
+        '✅ <b>Ton pari est actif !</b> Tu as misé <b>' + cn(mb.amount) + '</b> sur <b>' + (mb.side === 'A' ? nameA : nameB) + '</b>.' +
+        '<small>Gain en cas de victoire : <b class="w" style="color:#ffc93c">+' + cn(winGain) + ' (x2)</b>. Règlement automatique dès la fin du match.</small></div>';
+      if (st === 'open' || st === 'live') {
+        html += '<div class="actions" style="margin-top:10px">' +
+          '<button class="btn sm primary" data-act="bet-dialog" data-id="' + id + '" data-side="' + mb.side + '">+ Augmenter mon pari</button>' +
+        '</div>';
+      }
+    }
+  } else if (st === 'open' || st === 'live') {
+    var canBet = avail(S.me) >= 0.5;
+    html += '<div class="bet-cta-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">' +
+      '<button class="btn primary lg" data-act="bet-dialog" data-id="' + id + '" data-side="A"' + (canBet ? '' : ' disabled') + '>🎲 Parier sur ' + nameA + '<br><small style="font-weight:normal;opacity:0.85">Gains : x2 fixe</small></button>' +
+      '<button class="btn primary lg" data-act="bet-dialog" data-id="' + id + '" data-side="B"' + (canBet ? '' : ' disabled') + '>🎲 Parier sur ' + nameB + '<br><small style="font-weight:normal;opacity:0.85">Gains : x2 fixe</small></button>' +
+    '</div>' + (!canBet ? '<p class="help" style="margin-top:8px">Il te faut au moins 0,5 coin disponible pour parier.</p>' : '');
+  } else if (st === 'done') {
+    html += '<p class="help">Ce match est terminé. Tous les paris ont été réglés automatiquement (gain x2).</p>';
+  } else {
+    html += '<p class="help">Ce défi a été annulé. Tous les paris ont été remboursés.</p>';
+  }
+
+  if (bList.length) {
+    html += '<div class="bet-list-wrap" style="margin-top:18px"><h3 style="font-size:14px;color:var(--fg-2);margin-bottom:8px">Paris enregistrés (' + bList.length + ')</h3><ul class="fr-list">' +
+      bList.slice(0, 8).map(function(b){
+        var bp = P(b.player);
+        var sName = b.side === 'A' ? nameA : nameB;
+        var stTxt = b.settled ? (b.won ? '<b style="color:var(--win)">Gagné (+ ' + cn(b.amount * 2) + ')</b>' : '<span style="color:var(--loss)">Perdu</span>') : '<small>En cours (gain : ' + cn(b.amount * 2) + ')</small>';
+        return '<li style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">' +
+          '<div style="display:flex;align-items:center;gap:10px">' + av(bp, 'sm') + '<div><b>' + nm(bp) + '</b><small style="display:block;color:var(--fg-2)">' + cn(b.amount) + ' sur ' + esc(sName) + '</small></div></div>' +
+          '<div>' + stTxt + '</div></li>';
+      }).join('') + '</ul></div>';
+  }
+
+  return html + '</section>';
+}
+
 function matchPageHTML(){
   var m = S.matches[S.lastMatch], st = stateOf(m), mt = teamOf(m, S.me), ws = winnerSide(m), id = esc(m.id);
   var ca = capA(m), cb = capB(m), isCap = S.me === ca || S.me === cb;
@@ -390,6 +488,7 @@ function matchPageHTML(){
   html += '<section class="mhead"><div><p class="eyebrow">Match · lancé ' + ago(m.createdAt) + '</p><h1>' + esc(m.mode) + ' ' + esc(m.format) + '</h1></div><button class="btn sm" data-act="share" data-id="' + id + '">Copier le lien du match</button></section>';
   html += posterHTML(m, true);
   html += '<section><h2 class="sec" style="margin-bottom:14px">' + (mt ? 'Contre qui tu joues' : 'Les équipes') + '</h2><div class="teams">' + teamCard(m, 'A') + teamCard(m, 'B') + '</div></section>';
+  html += betsBoxHTML(m);
   var r = '<section class="panel"><h2>Résultat</h2>';
   if (st === 'open') {
     var needs = m.size * 2 - m.teamA.length - m.teamB.length;
@@ -490,7 +589,7 @@ function boardHTML(){
   return html + '</tbody></table></div>';
 }
 
-var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', admin: 'Ajustement admin'};
+var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', bet: 'Pari sur match (gain x2 potentiel)', bet_win: 'Pari gagné (gain x2)', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', admin: 'Ajustement admin'};
 function profileHTML(){
   var pid = S.players[viewPid] ? viewPid : S.me, p = P(pid), own = pid === S.me, s = stats(pid), bal = avail(pid), lk = locked(pid);
   var html = '';
@@ -615,7 +714,17 @@ var WHEEL_TITLES = {chanceux: '🍀 Chanceux'};
 var WHEEL = ['c5', 'c001', 'c005', 'c002', 'c01', 'c001', 'c05', 'c002', 'c005', 'c001', 'c02', 'c002', 'title', 'c001', 'c005', 'c01', 'c002', 'c001', 'c1', 'c002', 'c005', 'c01', 'c02', 'c001'];
 var WHEEL_LBL = {c001: '0,01', c002: '0,02', c005: '0,05', c01: '0,1', c02: '0,2', c05: '0,5', c1: '1', c5: '5', title: '🍀'};
 var WHEEL_COL = {c001: ['#1b2350', '#202a5e'], c002: ['#272f6e', '#2c3579'], c005: ['#3a2f8f', '#40349a'], c01: ['#4a37b8', '#4a37b8'], c02: ['#0f7d8c', '#0f7d8c'], c05: ['#8b2bff', '#8b2bff'], c1: ['#00a3d9', '#00a3d9'], c5: ['#ffc93c', '#ffc93c'], title: ['#1f9d55', '#1f9d55']};
-var WHEEL_ODDS = [['0,01 coin', '55 %', 'Le plus courant'], ['0,02 coin', '22 %', 'Courant'], ['0,05 coin', '12 %', 'Peu courant'], ['0,1 coin', '6,5 %', 'Peu courant'], ['0,2 coin', '2,25 %', 'Rare'], ['0,5 coin', '1,5 %', 'Très rare'], ['1 coin', '0,5 %', 'Exceptionnel'], ['🍀 Titre « Chanceux »', '0,2 %', 'Légendaire · exclusif'], ['5 coins', '0,05 %', 'JACKPOT']];
+var WHEEL_ODDS = [
+  ['0,01 coin', '55 %', '1 %', 'Le plus courant'],
+  ['0,02 coin', '22 %', '4 %', 'Courant'],
+  ['0,05 coin', '12 %', '8 %', 'Peu courant'],
+  ['0,1 coin', '6,5 %', '15 %', 'Peu courant'],
+  ['0,2 coin', '2,25 %', '25 %', 'Rare'],
+  ['0,5 coin', '1,5 %', '25 %', 'Très rare (x16 en VIP)'],
+  ['1 coin', '0,5 %', '15 %', 'Exceptionnel (x30 en VIP)'],
+  ['🍀 Titre « Chanceux »', '0,2 %', '5 %', 'Légendaire (x25 en VIP)'],
+  ['5 coins', '0,05 %', '2 %', 'JACKPOT (x40 en VIP !)']
+];
 var WHEEL_TIER = {c001: 0, c002: 0, c005: 1, c01: 1, c02: 2, c05: 3, c1: 4, title: 5, title_dup: 4, c5: 6};
 var NSEG = WHEEL.length, SEG = 360 / NSEG;
 var wheelRot = 0, spinLock = false, renderPending = false, wheelResult = null, wheelHit = -1;
@@ -623,7 +732,7 @@ var wheelSound = true; try { wheelSound = localStorage.getItem('legacy-wheel-sou
 function spinReady(){ return !!S.me && Date.now() - (S.lastSpin || 0) >= 864e5; }
 function pad2(n){ return (n < 10 ? '0' : '') + n; }
 function waitTxt(ms){ var s = Math.max(0, Math.ceil(ms / 1000)); return pad2(Math.floor(s / 3600)) + ' h ' + pad2(Math.floor(s / 60) % 60) + ' min ' + pad2(s % 60) + ' s'; }
-function prizeTxt(pr, amt){ return pr === 'title' ? 'le titre exclusif 🍀 Chanceux' : pr === 'title_dup' ? '1 coin (tu avais déjà le titre Chanceux)' : cn(amt); }
+function prizeTxt(pr, amt, vipBoost){ var t = pr === 'title' ? 'le titre exclusif 🍀 Chanceux' : pr === 'title_dup' ? '1 coin (tu avais déjà le titre Chanceux)' : cn(amt); return t + (vipBoost ? ' (Boost VIP 👑)' : ''); }
 
 // ----- sons (générés, aucun fichier à charger)
 var actx = null;
@@ -667,9 +776,19 @@ function wheelHTML(){
   html += '<button class="btn sm ghost wheel-snd" data-act="wheel-sound">' + (wheelSound ? '🔊 Son activé' : '🔇 Son coupé') + '</button>';
   if (wheelResult) {
     var tier = WHEEL_TIER[wheelResult.prize] || 0;
-    html += '<div class="wheel-res tier-' + tier + '"><small>' + (tier >= 6 ? '💰 JACKPOT 💰' : tier === 5 ? 'LÉGENDAIRE' : tier >= 3 ? 'Très rare !' : 'Ton gain du jour') + '</small><b>' + (tier >= 3 ? '🎉 ' : '🪙 ') + prizeTxt(wheelResult.prize, wheelResult.amount) + '</b>' + (wheelResult.prize === 'title' ? '<small>Équipe-le dans Boutique → Titres.</small>' : '') + '</div>';
+    html += '<div class="wheel-res tier-' + tier + '"><small>' + (tier >= 6 ? '💰 JACKPOT 💰' : tier === 5 ? 'LÉGENDAIRE' : tier >= 3 ? 'Très rare !' : 'Ton gain du jour') + (wheelResult.vip_boost ? ' · Boost VIP 👑' : '') + '</small><b>' + (tier >= 3 ? '🎉 ' : '🪙 ') + prizeTxt(wheelResult.prize, wheelResult.amount, wheelResult.vip_boost) + '</b>' + (wheelResult.prize === 'title' ? '<small>Équipe-le dans Boutique → Titres.</small>' : '') + '</div>';
   }
-  html += '<table class="odds"><caption>Les chances</caption>' + WHEEL_ODDS.map(function(o, i){ return '<tr class="' + (i >= 5 ? 'rare' : '') + '"><td>' + o[0] + '</td><td><b>' + o[1] + '</b></td><td>' + o[2] + '</td></tr>'; }).join('') + '</table>';
+  var isV = me() && me().vip;
+  if (isV) {
+    html += '<div class="notice vip-wheel-box" style="margin-top:14px;background:rgba(255,201,60,0.12);border:1px solid rgba(255,201,60,0.35);padding:10px 14px;border-radius:12px"><p style="margin:0"><b style="color:#ffc93c">👑 Boost VIP Actif !</b> Tes chances sur les gros lots sont décuplées : <b>jusqu\'à x40</b> ! (47 % de chance d\'avoir 0,5 coin ou mieux)</p></div>';
+  } else {
+    html += '<div class="notice" style="margin-top:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px"><p style="margin:0"><b>👑 Envie de plus de gros lots ?</b> Le <b>Pass VIP</b> booste tes chances jusqu\'à <b>x40</b> sur la roue ! <button class="btn sm" data-act="shop-vip" style="margin-left:8px">Voir le VIP</button></p></div>';
+  }
+  html += '<table class="odds" style="margin-top:14px"><caption>Probabilités de gain</caption><thead><tr><th style="text-align:left">Gain</th><th>Standard</th><th class="' + (isV ? 'vip-active-col' : '') + '">👑 VIP</th><th style="text-align:left">Rareté</th></tr></thead><tbody>' +
+    WHEEL_ODDS.map(function(o, i){
+      var isRare = i >= 5;
+      return '<tr class="' + (isRare ? 'rare ' : '') + (isV ? 'is-vip ' : '') + '"><td style="text-align:left">' + o[0] + '</td><td><b>' + o[1] + '</b></td><td class="odds-vip"><b>' + o[2] + '</b></td><td style="text-align:left"><small>' + o[3] + '</small></td></tr>';
+    }).join('') + '</tbody></table>';
   var feed = (S.spinFeed || []).filter(function(x){ return S.players[x.player]; }).slice(0, 6);
   html += '<div class="wheel-feed"><h3>Derniers gros gains</h3>' + (feed.length ? '<ul>' + feed.map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span class="wf-n">' + nm(P(x.player)) + '</span><b>' + (x.prize === 'title' ? '🍀 Titre Chanceux' : '+' + cn(x.amount)) + '</b></li>'; }).join('') + '</ul>' : '<p class="help">Personne n\'a encore décroché de gros lot. Ce sera peut-être toi !</p>') + '</div>';
   return html + '</div></div>';
@@ -1423,6 +1542,34 @@ function newMatchDialog(){
     '<label for="c-rules">Règles, code île (facultatif)</label><input id="c-rules" name="rules" maxlength="120" autocomplete="off" placeholder="Ex. île 1v1, premier à 3 rounds">' +
     '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Publier le défi</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
 }
+function betDialog(mid, defaultSide){
+  var m = S.matches[mid];
+  if (!m) return dialogShell('<h2 id="dt">Parier</h2><p style="margin-top:14px">Match introuvable.</p>');
+  var a = Math.max(avail(S.me), 0);
+  if (a < 0.5) return dialogShell('<h2 id="dt">Parier sur ce match</h2><p style="margin-top:14px">Il te faut au moins 0,5 coin disponible pour parier (tu en as ' + cn(a) + ').</p><div class="actions" style="margin-top:18px"><button class="btn ghost" data-act="close">Fermer</button></div>');
+  
+  var myB = myBet(mid);
+  var side = myB ? myB.side : (defaultSide || 'A');
+  var pA = PM(m, m.teamA[0]), pB = m.teamB.length ? PM(m, m.teamB[0]) : null;
+  var nameA = m.size > 1 ? 'Équipe A (' + esc(pA.pseudo) + '...)' : esc(pA.pseudo);
+  var nameB = m.size > 1 ? ('Équipe B' + (pB ? ' (' + esc(pB.pseudo) + '...)' : '')) : (pB ? esc(pB.pseudo) : 'Équipe B (en attente)');
+  var initAmt = Math.min(1, a);
+
+  return dialogShell('<h2 id="dt">🎲 Parier sur le match · x2</h2>' +
+    '<p class="help" style="margin-top:6px">Multiplicateur <b>x2 fixe</b> : si ton équipe gagne, ta mise est doublée !</p>' +
+    '<form data-form="place-bet" data-id="' + esc(mid) + '" novalidate style="margin-top:14px">' +
+    '<label>Choisis ton équipe gagnante</label>' +
+    '<div class="bet-side-picker" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+      '<label class="bet-opt"><input type="radio" name="side" value="A"' + (side === 'A' ? ' checked' : '') + (myB && myB.side !== 'A' ? ' disabled' : '') + '><span><b>🔵 Équipe A</b><small>' + nameA + '</small></span></label>' +
+      '<label class="bet-opt"><input type="radio" name="side" value="B"' + (side === 'B' ? ' checked' : '') + (myB && myB.side !== 'B' ? ' disabled' : '') + '><span><b>🔴 Équipe B</b><small>' + nameB + '</small></span></label>' +
+    '</div>' +
+    '<label for="b-amount">Montant du pari (coins)</label>' +
+    '<input id="b-amount" name="amount" type="number" inputmode="decimal" min="0.5" max="' + Math.min(a, 100) + '" step="0.5" value="' + initAmt + '" required>' +
+    '<p class="hint">Disponible : <b>' + cn(a) + '</b>. Gain si victoire : <b id="bet-win-calc" class="w" style="color:#ffc93c">' + fmt(initAmt * 2) + ' coins (x2)</b>.</p>' +
+    (myB ? '<p class="help" style="margin-top:8px">ℹ️ Tu as déjà parié ' + cn(myB.amount) + ' sur l\'équipe ' + myB.side + '. Ce montant s\'ajoutera à ton pari !</p>' : '') +
+    '<p class="err" role="alert"></p>' +
+    '<div class="actions" style="margin-top:18px"><button class="btn primary lg" type="submit">Confirmer le pari</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
+}
 function playerOptions(sel){
   return Object.keys(S.players).filter(function(k){ return k !== S.me; }).sort(function(x, y){ return P(x).pseudo.localeCompare(P(y).pseudo); })
     .map(function(k){ return '<option value="' + esc(k) + '"' + (k === sel ? ' selected' : '') + '>' + esc(P(k).pseudo) + ' · ' + fmt(avail(k)) + ' coins</option>'; }).join('');
@@ -1483,7 +1630,7 @@ function bannedHTML(){
 function renderDialog(){
   var L = $('#layer');
   if (!dlg) { L.innerHTML = ''; return; }
-  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
+  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'bet' ? betDialog(dlg.mid, dlg.side) : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
   var f = L.querySelector('input,select,button.btn.primary,.x'); if (f) f.focus();
 }
 function openDialog(d){ lastFocus = document.activeElement; dlg = d; renderDialog(); }
@@ -1549,6 +1696,8 @@ function act(name, el){
     case 'open-match': openMatch(d.id); break;
     case 'back': location.hash = '#arene'; break;
     case 'new-match': openDialog({kind: 'new'}); break;
+    case 'bet-dialog': openDialog({kind: 'bet', mid: d.id, side: d.side || 'A'}); break;
+    case 'shop-vip': shopTab = 'vip'; location.hash = '#boutique'; render(); break;
     case 'discord-open': var cb = document.getElementById('dc-ok'); if (cb) cb.disabled = false; break;
     case 'sanction': openDialog({kind: 'sanction', pid: d.pid, mode: d.mode}); break;
     case 'friend-add': doRpc('send_friend_request', {p_to: d.pid}, function(r){ return r.data === 'accepted' ? 'Vous êtes maintenant amis !' : 'Demande d\'ami envoyée à ' + P(d.pid).pseudo + '.'; }); break;
@@ -1717,6 +1866,12 @@ document.addEventListener('change', function(e){
   }
 });
 document.addEventListener('input', function(e){
+  if (e.target.id === 'b-amount') {
+    var bv = num(e.target.value) || 0;
+    var calc = document.getElementById('bet-win-calc');
+    if (calc) calc.textContent = fmt(bv * 2) + ' coins (x2)';
+    return;
+  }
   if (e.target.id === 'search-q') { searchQ = e.target.value; var sl = document.getElementById('search-list'); if (sl) sl.innerHTML = searchListHTML(); return; }
   if (e.target.id === 'pick-q') { pickQ = e.target.value; var pl = document.getElementById('pick-list'); if (pl) pl.innerHTML = pickListHTML(); return; }
   if (e.target.id === 'friend-q') { friendQ = e.target.value; var fr = document.getElementById('friend-results'); if (fr) fr.innerHTML = searchResultsHTML(); }
@@ -1770,6 +1925,19 @@ document.addEventListener('submit', function(e){
       toast(r.data === 'done' ? (x && teamOf(x, S.me) === x.winner ? 'Victoire ' + my + '–' + opp + ' ! Tu récupères ' + cn(rm.stake * 2) + '.' : 'Défaite ' + my + '–' + opp + ' : ta mise de ' + cn(rm.stake) + ' est perdue.') : r.data === 'dispute' ? 'Les deux déclarations ne concordent pas : litige, un admin va trancher.' : 'Score envoyé. En attente de l\'autre capitaine.');
       render();
     }, function(e){ fail(e.message); });
+    return;
+  }
+  if (kind === 'place-bet') {
+    var bmid = f.dataset.id, bamt = num(d.amount), bside = d.side;
+    if (!bside || (bside !== 'A' && bside !== 'B')) return fail('Choisis l\'équipe A ou l\'équipe B.');
+    if (isNaN(bamt) || bamt < 0.5) return fail('Mise invalide (minimum 0,5 coin).');
+    if (bamt > avail(S.me)) return fail('Solde insuffisant (tu as ' + cn(Math.max(avail(S.me), 0)) + ').');
+    rpc('place_bet', {mid: bmid, p_side: bside, p_amount: bamt}).then(function(r){
+      if (!r.ok) return fail(r.msg);
+      closeDialog();
+      toast('🎲 Pari de ' + cn(bamt) + ' placé sur l\'équipe ' + bside + ' (gain x2) !');
+      return refresh().then(render);
+    });
     return;
   }
   if (kind === 'admin-score') {
