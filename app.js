@@ -589,7 +589,7 @@ function boardHTML(){
   return html + '</tbody></table></div>';
 }
 
-var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', bet: 'Pari sur match (gain x2 potentiel)', bet_win: 'Pari gagné (gain x2)', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', admin: 'Ajustement admin'};
+var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', bet: 'Pari sur match (gain x2 potentiel)', bet_win: 'Pari gagné (gain x2)', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', gift_out: 'Cadeau offert à ', gift_in: 'Cadeau reçu de ', admin: 'Ajustement admin'};
 function profileHTML(){
   var pid = S.players[viewPid] ? viewPid : S.me, p = P(pid), own = pid === S.me, s = stats(pid), bal = avail(pid), lk = locked(pid);
   var html = '';
@@ -633,11 +633,12 @@ function profileHTML(){
   else {
     html += '<ul class="hist">';
     tx.forEach(function(e){
-      var d = Number(e.delta), cls = d > 0 ? 'pos' : 'neg', m = e.match_id ? S.matches[e.match_id] : null;
-      var title = esc(TX_LABEL[e.kind] || e.kind) + (e.kind === 'tip_in' || e.kind === 'tip_out' ? esc(P(e.other).pseudo) : '');
+      var d = Number(e.delta), cls = d > 0 ? 'pos' : d < 0 ? 'neg' : 'gift-cls', m = e.match_id ? S.matches[e.match_id] : null;
+      var title = esc(TX_LABEL[e.kind] || e.kind) + (e.kind === 'tip_in' || e.kind === 'tip_out' || e.kind === 'gift_in' || e.kind === 'gift_out' ? esc(P(e.other).pseudo) : '');
       var sub = (m ? esc(m.mode) + ' · ' + esc(m.format) + (m.status === 'done' && m.scoreA != null && (e.kind === 'win' || e.kind === 'stake') ? ' · ' + (teamOf(m, pid) === 'B' ? m.scoreB + '–' + m.scoreA : m.scoreA + '–' + m.scoreB) : '') + ' · ' : '') + (e.note ? '« ' + esc(e.note) + ' » · ' : '') + ago(Date.parse(e.at));
       var inner = '<b>' + title + '</b><small>' + sub + '</small>';
-      html += '<li>' + (m ? '<button class="t" data-act="open-match" data-id="' + esc(m.id) + '">' + inner + '</button>' : '<div class="t">' + inner + '</div>') + '<span class="amt ' + cls + '">' + (d > 0 ? '+' : '−') + fmt(Math.abs(d)) + ' ' + COIN + '</span></li>';
+      var amtTxt = d === 0 ? '🎁 Cadeau' : (d > 0 ? '+' : '−') + fmt(Math.abs(d)) + ' ' + COIN;
+      html += '<li>' + (m ? '<button class="t" data-act="open-match" data-id="' + esc(m.id) + '">' + inner + '</button>' : '<div class="t">' + inner + '</div>') + '<span class="amt ' + cls + '">' + amtTxt + '</span></li>';
     });
     html += '</ul>';
   }
@@ -1115,6 +1116,12 @@ function notifRow(n){
   else if (n.kind === 'challenge') { txt = '<b>' + a + '</b> te défie en 1v1 : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le défi</button>'; }
   else if (n.kind === 'double_req') { txt = '🔥 <b>' + a + '</b> veut faire un <b>Double</b> (' + (m ? cn(m.stake * 2) : 'mise x2') + ') ! Clique sur Double pour accepter.'; if (m) act = '<button class="btn sm win" data-act="open-match" data-id="' + esc(m.id) + '">Répondre au Double</button>'; }
   else if (n.kind === 'double_go') { txt = '🔥 <b>' + a + '</b> a accepté le <b>Double</b> ! La revanche (' + mDesc + ') est lancée.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Aller au match</button>'; }
+  else if (n.kind === 'gift') {
+    var parts = (n.note || '').split('|'), gItem = parts[0] || '', gMsg = parts[1] || '';
+    var iLabel = gItem === 'vip' ? 'le Pass VIP (1 mois)' : itemName(gItem);
+    txt = '🎁 <b>' + a + '</b> t\'a offert <b>' + esc(iLabel) + '</b> en cadeau !' + (gMsg ? '<br><small style="color:var(--accent);font-style:italic">« ' + esc(gMsg) + ' »</small>' : '');
+    act = '<button class="btn sm primary" data-act="shop-tab" data-tab="profil">Voir dans la boutique</button>';
+  }
   else txt = 'Notification.';
   return '<li class="notif' + (n.read ? '' : ' new') + '">' + av(P(n.actor), 'sm') + '<div class="nt"><p>' + txt + '</p><small>' + ago(Date.parse(n.created_at)) + '</small>' + (act ? '<div class="actions">' + act + '</div>' : '') + '</div></li>';
 }
@@ -1160,7 +1167,7 @@ var LIMITED_UNTIL = Date.parse('2027-01-01T00:00:00+01:00');
 var CATALOG = {
   'frame:neon': ['Cadre néon', 4], 'frame:fire': ['Cadre flammes', 6], 'frame:lightning': ['Cadre éclair', 6], 'frame:diamond': ['Cadre diamant', 8], 'frame:winter': ['Cadre Hiver 2026', 5],
   'banner:galaxy': ['Bannière galaxie', 5], 'banner:sunset': ['Bannière coucher de soleil', 5], 'banner:matrix': ['Bannière matrix', 5],
-  'fx:glitch': ['Pseudo glitch', 8], 'fx:sparkle': ['Pseudo scintillant', 6], 'fx:wave': ['Pseudo vague', 6],
+  'fx:galaxy': ['Pseudo galaxie', 5], 'fx:glitch': ['Pseudo glitch', 8], 'fx:sparkle': ['Pseudo scintillant', 6], 'fx:wave': ['Pseudo vague', 6],
   'emoji:fire': ['🔥', 2], 'emoji:crown': ['👑', 2], 'emoji:bolt': ['⚡', 2], 'emoji:gem': ['💎', 2], 'emoji:goat': ['🐐', 2], 'emoji:target': ['🎯', 2],
   'poster:lava': ['Affiche lave', 5], 'poster:ice': ['Affiche glace', 5], 'poster:galaxy': ['Affiche galaxie', 5], 'poster:gold': ['Affiche or', 6],
   'win:confetti': ['Victoire confettis', 6], 'win:lightning': ['Victoire éclairs', 8],
@@ -1205,10 +1212,24 @@ function buyBtn(i){
   return '<button class="btn sm primary" data-act="buy-item" data-item="' + i + '"' + (avail(S.me) < pr ? ' disabled' : '') + '>' + COIN + ' ' + pr + '</button>';
 }
 function slotOf(i){ return i.split(':')[0]; }
+function isGiftable(i){
+  if (i === 'banner:tera' || i === 'banner:shxwn' || i === 'banner:new_polska') return false;
+  if (RESERVED[i]) return false;
+  if (i === 'frame:winter' && Date.now() >= LIMITED_UNTIL) return false;
+  if (i === 'neon' || i === 'gif') return false;
+  return true;
+}
+function giftPrice(i){ return i === 'vip' ? 20 : itemPrice(i); }
+function giftItemName(i){ return i === 'vip' ? 'Pass VIP (1 mois)' : itemName(i); }
 function itemAction(i){
-  if (!hasItem(i)) return buyBtn(i);
+  var gift = isGiftable(i) ? '<button class="btn sm ghost gift-btn" title="Offrir à un joueur" data-act="gift-dialog" data-item="' + i + '">🎁 Offrir</button>' : '';
+  if (!hasItem(i)) {
+    var b = buyBtn(i);
+    return gift ? '<div class="shop-act-row">' + b + gift + '</div>' : b;
+  }
   var p = me(), slot = slotOf(i), on = p.eq && p.eq[slot] === i;
-  return on ? '<button class="btn sm ghost" data-act="equip" data-slot="' + slot + '" data-item="">Retirer</button>' : '<button class="btn sm" data-act="equip" data-slot="' + slot + '" data-item="' + i + '">Équiper</button>';
+  var eqBtn = on ? '<button class="btn sm ghost" data-act="equip" data-slot="' + slot + '" data-item="">Retirer</button>' : '<button class="btn sm" data-act="equip" data-slot="' + slot + '" data-item="' + i + '">Équiper</button>';
+  return gift ? '<div class="shop-act-row">' + eqBtn + gift + '</div>' : eqBtn;
 }
 function previewOf(i){
   var p = me(), slot = slotOf(i), key = i.split(':')[1];
@@ -1229,6 +1250,7 @@ function shopHTML(){
   var p = me();
   var tabs = [['vip', '👑 VIP'], ['profil', '✨ Profil'], ['matchs', '⚔️ Matchs'], ['titres', '🏷️ Titres'], ['limite', '⏳ Limité'], ['prestige', '💎 Prestige']];
   var html = '<section class="hero"><div><p class="eyebrow">Boutique</p><h1>Fais briller ton profil.</h1><p class="lead">Dépense tes coins pour te démarquer. Achats définitifs, aucun argent réel. Ton solde : <b>' + cn(avail(S.me)) + '</b>' + ((p.owned || []).length ? ' · ' + (p.owned || []).length + ' article' + ((p.owned || []).length > 1 ? 's' : '') + ' achetés' : '') + '.</p></div></section>';
+  html += '<div class="gift-banner"><div class="gift-banner-txt"><h3>🎁 Système de cadeaux</h3><p>Fais plaisir à n\'importe quel joueur : offre un effet de pseudo, un cadre, une bannière ou même le VIP !</p></div><button class="btn primary" data-act="gift-dialog">🎁 Offrir un cadeau</button></div>';
   html += '<div class="tabs shop-tabs" role="tablist">' + tabs.map(function(t){ return '<button role="tab" aria-selected="' + (shopTab === t[0]) + '" data-act="shop-tab" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
   if (shopTab === 'vip') return html + vipShopHTML();
   if (shopTab === 'profil') {
@@ -1241,7 +1263,7 @@ function shopHTML(){
        ['banner:volcano', 'Lave, étincelles et fumée.'], ['banner:storm_eye', 'Un vortex qui tourne et des éclairs.'], ['banner:saturn', 'Nébuleuse et planète à anneaux.'], ['banner:synthwave', 'Grille rétro et montagnes néon.'],
        ['banner:arena', 'Projecteurs, foule et logo Legacy.'], ['banner:phoenix', 'Un phénix aux ailes de feu.']].map(function(x){ return itemCard(x[0], x[1]); }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Bannières de profil</h2><div class="shop-grid">' + ['banner:galaxy', 'banner:sunset', 'banner:matrix', 'banner:ocean', 'banner:aurora', 'banner:lava', 'banner:neon_city'].map(function(i){ return itemCard(i, 'Le fond animé en haut de ton profil.'); }).join('') + '</div></section>';
-    html += '<section><h2 class="sec shop-h">Effets de pseudo</h2><div class="shop-grid">' + ['fx:glitch', 'fx:sparkle', 'fx:wave', 'fx:shadow', 'fx:fire', 'fx:ice'].map(function(i){ return itemCard(i, 'Ton pseudo s\'anime partout.'); }).join('') + itemCard('neon', 'Choisis la couleur néon de ton pseudo.') + itemCard('gif', 'Mets un GIF comme photo de profil.') + '</div></section>';
+    html += '<section><h2 class="sec shop-h">Effets de pseudo</h2><div class="shop-grid">' + ['fx:galaxy', 'fx:glitch', 'fx:sparkle', 'fx:wave', 'fx:shadow', 'fx:fire', 'fx:ice'].map(function(i){ return itemCard(i, i === 'fx:galaxy' ? 'Dégradé galaxie cosmique et étoiles animées.' : 'Ton pseudo s\'anime partout.'); }).join('') + itemCard('neon', 'Choisis la couleur néon de ton pseudo.') + itemCard('gif', 'Mets un GIF comme photo de profil.') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Emoji à côté du pseudo</h2><div class="emoji-grid">' + Object.keys(EMOJI).map(function(k){ var i = 'emoji:' + k, on = p.eq && p.eq.emoji === i; return '<div class="emoji-item' + (on ? ' on' : '') + '"><span>' + EMOJI[k] + '</span>' + itemAction(i) + '</div>'; }).join('') + '</div></section>';
     if (hasItem('neon')) html += neonPickerHTML();
   } else if (shopTab === 'matchs') {
@@ -1268,13 +1290,16 @@ function shopHTML(){
 }
 function titleCard(k){
   var p = me(), own = hasItem('title:' + k), on = p.titleKey === k, rare = RARE_TITLES[k], tier = titleTier(k);
-  return '<div class="title-item' + (on ? ' on' : '') + tier + '"><span class="ptitle' + tier + '">' + esc(TITLES[k]) + '</span>' +
-    (own ? (on ? '<button class="btn sm ghost" data-act="equip-title" data-key="">Retirer</button>' : '<button class="btn sm" data-act="equip-title" data-key="' + k + '">Équiper</button>') : buyBtn('title:' + k)) + '</div>';
+  var gift = '<button class="btn sm ghost gift-btn" title="Offrir ce titre" data-act="gift-dialog" data-item="title:' + k + '">🎁</button>';
+  var main = own ? (on ? '<button class="btn sm ghost" data-act="equip-title" data-key="">Retirer</button>' : '<button class="btn sm" data-act="equip-title" data-key="' + k + '">Équiper</button>') : buyBtn('title:' + k);
+  return '<div class="title-item' + (on ? ' on' : '') + tier + '"><span class="ptitle' + tier + '">' + esc(TITLES[k]) + '</span><div class="shop-act-row">' + main + gift + '</div></div>';
 }
 function prestigeCard(i, desc){
   var key = i.split(':')[1], isTitle = i.indexOf('title:') === 0, n = ownersOf(i);
   var prev = isTitle ? '<span class="ptitle big' + titleTier(key) + '">' + esc(TITLES[key]) + '</span>' : previewOf(i);
+  var gift = isGiftable(i) ? '<button class="btn sm ghost gift-btn" title="Offrir à un joueur" data-act="gift-dialog" data-item="' + i + '">🎁 Offrir</button>' : '';
   var act = isTitle ? (hasItem(i) ? (me().titleKey === key ? '<button class="btn sm ghost" data-act="equip-title" data-key="">Retirer</button>' : '<button class="btn sm" data-act="equip-title" data-key="' + key + '">Équiper</button>') : buyBtn(i)) : itemAction(i);
+  if (isTitle && gift) act = '<div class="shop-act-row">' + act + gift + '</div>';
   return '<div class="prestige-item"><div class="pi-prev">' + prev + '</div><div class="pi-txt"><b>' + esc(itemName(i)) + '</b><small>' + desc + '</small><span class="pi-own">' + (n ? '👥 ' + n + ' joueur' + (n > 1 ? 's' : '') + ' l\'ont' : '🔒 Personne ne l\'a encore') + '</span></div><div class="pi-buy">' + act + '</div></div>';
 }
 function prestigeHTML(){
@@ -1305,8 +1330,8 @@ function vipShopHTML(){
     '<li><span>🎞️</span><div><b>Photo animée</b><small>Un GIF comme photo de profil.</small></div></li>' +
     '<li><span>🏷️</span><div><b>12 titres</b><small>Tous les titres classiques débloqués.</small></div></li>' +
     '</ul>' +
-    (p.vip ? '<p class="vip-owned">✓ Tu es VIP jusqu’au ' + dateTxt(p.vipUntil) + ' (encore ' + daysLeft(p.vipUntil) + ').</p><div class="actions"><button class="btn lg" data-act="buy-vip"' + (avail(S.me) < 20 ? ' disabled' : '') + '>Prolonger d’un mois · ' + cn(20) + '</button></div>'
-           : '<div class="actions"><button class="btn primary lg" data-act="buy-vip"' + (avail(S.me) < 20 ? ' disabled' : '') + '>Devenir VIP · ' + cn(20) + '</button></div>' + (avail(S.me) < 20 ? '<p class="help">Il te faut 20 coins disponibles.</p>' : '')) +
+    (p.vip ? '<p class="vip-owned">✓ Tu es VIP jusqu’au ' + dateTxt(p.vipUntil) + ' (encore ' + daysLeft(p.vipUntil) + ').</p><div class="actions"><button class="btn lg" data-act="buy-vip"' + (avail(S.me) < 20 ? ' disabled' : '') + '>Prolonger d’un mois · ' + cn(20) + '</button><button class="btn lg ghost gift-btn" data-act="gift-dialog" data-item="vip">🎁 Offrir le VIP</button></div>'
+           : '<div class="actions"><button class="btn primary lg" data-act="buy-vip"' + (avail(S.me) < 20 ? ' disabled' : '') + '>Devenir VIP · ' + cn(20) + '</button><button class="btn lg ghost gift-btn" data-act="gift-dialog" data-item="vip">🎁 Offrir le VIP</button></div>' + (avail(S.me) < 20 ? '<p class="help">Il te faut 20 coins disponibles.</p>' : '')) +
     '<p class="help">Les cadres, bannières, effets, thèmes, titres rares et éditions limitées s\'achètent à part.</p></section>' + (hasItem('neon') ? neonPickerHTML() : '');
 }
 
@@ -1382,7 +1407,7 @@ function oldShopHTML2(){
   return html;
 }
 var VIP_PRICE = 20;
-var NEON = [['gold', 'Or'], ['violet', 'Violet'], ['cyan', 'Cyan'], ['rose', 'Rose'], ['green', 'Vert'], ['red', 'Rouge'], ['rainbow', 'Arc-en-ciel'], ['', 'Aucun']];
+var NEON = [['gold', 'Or'], ['violet', 'Violet'], ['cyan', 'Cyan'], ['rose', 'Rose'], ['green', 'Vert'], ['red', 'Rouge'], ['rainbow', 'Arc-en-ciel'], ['galaxy', 'Galaxie 🌌'], ['', 'Aucun']];
 function oldShopHTML(){
   var p = me(), html = '<section class="hero"><div><p class="eyebrow">Boutique</p><h1>Fais briller ton profil.</h1><p class="lead">Dépense tes coins pour te démarquer dans l\'arène. Achats définitifs, aucun argent réel.</p></div></section>';
   html += '<section class="vip-card' + (p.vip ? ' owned' : '') + '"><div class="vip-head"><em class="beta vip big">VIP</em><div><h2>Pass VIP</h2><p class="help">À vie · achat unique</p></div><div class="vip-price">' + COIN + '<b>' + VIP_PRICE + '</b></div></div>' +
@@ -1584,6 +1609,114 @@ function tipDialog(pid){
     '<label for="t-note">Message (facultatif)</label><input id="t-note" name="note" maxlength="60" autocomplete="off" placeholder="Pour ton prochain défi">' +
     '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Envoyer</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
 }
+function giftPlayerOptions(sel){
+  return Object.keys(S.players).filter(function(k){ return k !== S.me && S.players[k].status !== 'banned'; })
+    .sort(function(x, y){ return P(x).pseudo.localeCompare(P(y).pseudo); })
+    .map(function(k){ return '<option value="' + esc(k) + '"' + (k === sel ? ' selected' : '') + '>' + esc(P(k).pseudo) + '</option>'; }).join('');
+}
+function giftItemOptions(sel){
+  var groups = [
+    { label: '👑 Pass VIP', items: [['vip', 'Pass VIP 1 mois', 20]] },
+    { label: '✨ Effets de pseudo', items: [
+      ['fx:galaxy', 'Pseudo galaxie 🌌', 5],
+      ['fx:sparkle', 'Pseudo scintillant', 6],
+      ['fx:wave', 'Pseudo vague', 6],
+      ['fx:glitch', 'Pseudo glitch', 8],
+      ['fx:shadow', 'Pseudo ombre', 8],
+      ['fx:fire', 'Pseudo en feu', 10],
+      ['fx:ice', 'Pseudo givré', 10],
+      ['fx:gold', 'Pseudo or massif', 30],
+      ['fx:holo', 'Pseudo holographique', 80]
+    ]},
+    { label: '🖼️ Cadres de photo', items: [
+      ['frame:neon', 'Cadre néon', 4],
+      ['frame:fire', 'Cadre flammes', 6],
+      ['frame:lightning', 'Cadre éclair', 6],
+      ['frame:diamond', 'Cadre diamant', 8],
+      ['frame:gold', 'Cadre or', 10],
+      ['frame:toxic', 'Cadre toxique', 10],
+      ['frame:galaxy', 'Cadre galaxie', 12],
+      ['frame:blood', 'Cadre sang', 12],
+      ['frame:rainbow', 'Cadre arc-en-ciel', 15],
+      ['frame:plasma', 'Cadre plasma', 40],
+      ['frame:crown', 'Cadre royal', 75],
+      ['frame:legacy', 'Cadre Legacy holographique', 150]
+    ]},
+    { label: '🌄 Bannières de profil & signatures', items: [
+      ['banner:galaxy', 'Bannière galaxie', 5],
+      ['banner:sunset', 'Bannière coucher de soleil', 5],
+      ['banner:matrix', 'Bannière matrix', 5],
+      ['banner:ocean', 'Bannière océan', 5],
+      ['banner:aurora', 'Bannière aurore boréale', 8],
+      ['banner:lava', 'Bannière lave', 8],
+      ['banner:neon_city', 'Bannière ville néon', 10],
+      ['banner:peaks', 'Sommets au crépuscule', 12],
+      ['banner:night_sea', 'Mer de nuit', 12],
+      ['banner:forest', 'Forêt enchantée', 12],
+      ['banner:cyber_city', 'Ville cyber', 15],
+      ['banner:volcano', 'Volcan en éruption', 15],
+      ['banner:storm_eye', 'Œil de la tempête', 15],
+      ['banner:saturn', 'Planète aux anneaux', 18],
+      ['banner:synthwave', 'Synthwave', 20],
+      ['banner:arena', 'Arène Legacy', 25],
+      ['banner:sig_ice', 'Signature Glace', 30],
+      ['banner:sig_fire', 'Signature Feu', 30],
+      ['banner:sig_toxic', 'Signature Toxique', 30],
+      ['banner:sig_void', 'Signature Néant', 32],
+      ['banner:sig_gold', 'Signature Or', 35],
+      ['banner:phoenix', 'Phénix', 35],
+      ['banner:gold_rush', 'Bannière ruée vers l\'or', 40],
+      ['banner:throne', 'Salle du trône', 90],
+      ['banner:legacy', 'Bannière Legacy mythique', 120]
+    ]},
+    { label: '🎉 Animations de victoire', items: [
+      ['win:confetti', 'Victoire confettis', 6],
+      ['win:lightning', 'Victoire éclairs', 8],
+      ['win:fireworks', 'Victoire feu d\'artifice', 12],
+      ['win:money', 'Victoire pluie de billets', 15],
+      ['win:crown', 'Victoire couronne royale', 50]
+    ]},
+    { label: '🎭 Affiches de match', items: [
+      ['poster:lava', 'Affiche lave', 5],
+      ['poster:ice', 'Affiche glace', 5],
+      ['poster:galaxy', 'Affiche galaxie', 5],
+      ['poster:neon', 'Affiche néon', 6],
+      ['poster:gold', 'Affiche or', 6],
+      ['poster:toxic', 'Affiche toxique', 6],
+      ['poster:storm', 'Affiche tempête', 8],
+      ['poster:legacy', 'Affiche Legacy mythique', 60]
+    ]},
+    { label: '🏷️ Titres', items: Object.keys(TITLES).filter(function(k){ return !WHEEL_TITLES[k]; }).map(function(k){
+      return ['title:' + k, 'Titre « ' + TITLES[k] + ' »', itemPrice('title:' + k)];
+    })}
+  ];
+  return groups.map(function(g){
+    var opts = g.items.map(function(it){
+      var isSel = it[0] === sel;
+      return '<option value="' + esc(it[0]) + '" data-price="' + it[2] + '"' + (isSel ? ' selected' : '') + '>' + esc(it[1]) + ' · ' + it[2] + ' coins</option>';
+    }).join('');
+    return '<optgroup label="' + esc(g.label) + '">' + opts + '</optgroup>';
+  }).join('');
+}
+function giftDialog(defaultItem){
+  var a = Math.max(avail(S.me), 0);
+  var otherPlayers = Object.keys(S.players).filter(function(k){ return k !== S.me && S.players[k].status !== 'banned'; });
+  if (!otherPlayers.length) return dialogShell('<h2 id="dt">🎁 Offrir un cadeau</h2><p style="margin-top:14px">Il n\'y a pas encore d\'autre joueur inscrit à qui offrir un cadeau.</p><div class="actions" style="margin-top:16px"><button class="btn ghost" data-act="close">Fermer</button></div>');
+  var selItem = defaultItem || 'fx:galaxy';
+  var pr = giftPrice(selItem);
+  return dialogShell('<h2 id="dt">🎁 Offrir un cadeau de la boutique</h2>' +
+    '<p class="help" style="margin-top:6px">Fais plaisir à un joueur en lui offrant un cosmétique ou le VIP ! Les coins seront débités de ton solde.</p>' +
+    '<form data-form="gift-item" novalidate style="margin-top:14px">' +
+    '<label for="g-to">Destinataire</label>' +
+    '<select id="g-to" name="to" required>' + giftPlayerOptions() + '</select>' +
+    '<label for="g-item">Article à offrir</label>' +
+    '<select id="g-item" name="item" required>' + giftItemOptions(selItem) + '</select>' +
+    '<div id="g-price-box" style="margin-top:8px;font-size:0.92rem;color:var(--fg-2)">Coût : <b id="g-price-val" style="color:var(--accent)">' + cn(pr) + '</b> (disponible : <b>' + cn(a) + '</b>)</div>' +
+    '<label for="g-msg" style="margin-top:12px">Mot doux / Message (facultatif)</label>' +
+    '<input id="g-msg" name="message" maxlength="120" autocomplete="off" placeholder="Ex. Pour ton beau clutch hier soir ! GG">' +
+    '<p class="err" role="alert" style="margin-top:10px"></p>' +
+    '<div class="actions" style="margin-top:18px"><button class="btn primary lg" type="submit"' + (a < pr ? ' disabled' : '') + '>🎁 Confirmer et offrir</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
+}
 function adminDialog(pid, mode){
   var remove = mode === 'remove' && isOwner();
   var all = Object.keys(S.players).filter(function(k){ return isOwner() || (k !== S.me && !P(k).owner); }).sort(function(x, y){ return P(x).pseudo.localeCompare(P(y).pseudo); });
@@ -1630,7 +1763,7 @@ function bannedHTML(){
 function renderDialog(){
   var L = $('#layer');
   if (!dlg) { L.innerHTML = ''; return; }
-  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'bet' ? betDialog(dlg.mid, dlg.side) : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
+  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'bet' ? betDialog(dlg.mid, dlg.side) : dlg.kind === 'gift' ? giftDialog(dlg.item) : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
   var f = L.querySelector('input,select,button.btn.primary,.x'); if (f) f.focus();
 }
 function openDialog(d){ lastFocus = document.activeElement; dlg = d; renderDialog(); }
@@ -1762,6 +1895,7 @@ function act(name, el){
       rpc('confirm_discord_join', {}).then(function(r){ busy = false; if (!r.ok) { toast(r.msg); return; } closeDialog(); toast('Bienvenue dans la commu ! Tu peux jouer.'); document.getElementById('app').innerHTML = ''; location.hash = '#arene'; render(); });
       break;
     case 'tip-dialog': openDialog({kind: 'tip', pid: d.pid || null}); break;
+    case 'gift-dialog': openDialog({kind: 'gift', item: d.item || 'fx:galaxy'}); break;
     case 'admin-dialog': openDialog({kind: 'admin', pid: d.pid || null, mode: d.mode || 'give'}); break;
     case 'close': closeDialog(); break;
     case 'myprofile': viewPid = S.me; editing = false; break;
@@ -1852,6 +1986,15 @@ document.addEventListener('change', function(e){
   if (el.id === 'avatar-file' && el.files && el.files[0]) { uploadAvatar(el.files[0]); el.value = ''; return; }
   if (el.classList && el.classList.contains('proof-file') && el.files && el.files[0]) { var pmid = el.dataset.id, pf = el.files[0]; el.value = ''; toast('Envoi de la capture…'); uploadProof(pmid, pf).then(function(){ toast('Capture ajoutée !'); }, function(e){ toast(e.message); }); return; }
   if (el.name === 'shot' && el.files && el.files[0]) { var st2 = el.parentNode.querySelector('.shot-txt'); if (st2) st2.innerHTML = '✓ ' + esc(el.files[0].name) + ' <small>(cliquer pour changer)</small>'; el.parentNode.classList.add('ok'); return; }
+  if (el.id === 'g-item') {
+    var val = el.value;
+    var pr = giftPrice(val);
+    var pVal = document.getElementById('g-price-val');
+    if (pVal) pVal.textContent = fmt(pr) + ' ' + (pr > 1 ? 'coins' : 'coin');
+    var sbtn = el.form && el.form.querySelector('button[type=submit]');
+    if (sbtn) sbtn.disabled = avail(S.me) < pr;
+    return;
+  }
   if (el.id === 'rules-ok') { var rb = document.getElementById('rules-btn'); if (rb) rb.disabled = !el.checked; return; }
   if (el.id === 'c-format') {
     var t = $('#c-target'); if (t) { t.disabled = el.value !== '1v1'; if (t.disabled) t.value = ''; }
@@ -1936,6 +2079,26 @@ document.addEventListener('submit', function(e){
       if (!r.ok) return fail(r.msg);
       closeDialog();
       toast('🎲 Pari de ' + cn(bamt) + ' placé sur l\'équipe ' + bside + ' (gain x2) !');
+      return refresh().then(render);
+    });
+    return;
+  }
+  if (kind === 'gift-item') {
+    var toPid = d.to, gitm = d.item, gmsg = String(d.message || '').trim();
+    if (!toPid) return fail('Choisis un destinataire.');
+    if (!gitm) return fail('Choisis un article.');
+    var cost = giftPrice(gitm);
+    if (cost > avail(S.me)) return fail('Solde insuffisant (il te faut ' + cn(cost) + ', tu as ' + cn(Math.max(avail(S.me), 0)) + ').');
+    var dest = P(toPid);
+    var destName = dest ? dest.pseudo : 'ce joueur';
+    if (!confirm('Offrir « ' + giftItemName(gitm) + ' » à ' + destName + ' pour ' + cn(cost) + ' ?')) {
+      if (btn) btn.disabled = false;
+      return;
+    }
+    rpc('gift_item', {p_to: toPid, p_item: gitm, p_message: gmsg}).then(function(r){
+      if (!r.ok) return fail(r.msg);
+      closeDialog();
+      toast('🎁 Cadeau envoyé avec succès à ' + destName + ' !');
       return refresh().then(render);
     });
     return;
