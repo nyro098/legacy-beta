@@ -165,6 +165,58 @@ function stats(pid){
   var streak = 0; for (var i = 0; i < list.length; i++) { if (list[i].win) streak++; else break; }
   return {w: w, l: l, net: net, streak: streak, ratio: (w + l) ? Math.round(100 * w / (w + l)) : null};
 }
+var RANKS = [
+  {k: 'unranked', name: 'Non classé', min: 0, ico: '⚪'},
+  {k: 'bronze', name: 'Bronze', min: 1, ico: '🥉'},
+  {k: 'silver', name: 'Argent', min: 3, ico: '🥈'},
+  {k: 'gold', name: 'Or', min: 6, ico: '🥇'},
+  {k: 'plat', name: 'Platine', min: 10, ico: '💠'},
+  {k: 'diamond', name: 'Diamant', min: 15, ico: '💎'},
+  {k: 'elite', name: 'Élite', min: 22, ico: '🛡️'},
+  {k: 'champ', name: 'Champion', min: 30, ico: '🔥'},
+  {k: 'unreal', name: 'Unreal', min: 40, ico: '👑'}
+];
+function rankInfo(w){
+  var idx = 0;
+  for (var i = 0; i < RANKS.length; i++) if (w >= RANKS[i].min) idx = i;
+  return {cur: RANKS[idx], next: RANKS[idx + 1] || null, idx: idx};
+}
+function rankBadge(pid, big){
+  var p = P(pid); if (p.owner) return '';
+  var s = stats(pid), r = rankInfo(s.w).cur;
+  return '<span class="rk rk-' + r.k + (big ? ' lg' : '') + '" title="Rang Saison 1 : ' + r.name + ' (' + s.w + ' victoire' + (s.w > 1 ? 's' : '') + ')"><i>' + r.ico + '</i>' + r.name + '</span>';
+}
+function seasonDaysLeft(){
+  var now = new Date(), end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return Math.max(1, Math.ceil((end.getTime() - now.getTime()) / 864e5));
+}
+function rankCardHTML(pid){
+  var p = P(pid); if (p.owner) return '';
+  var s = stats(pid), info = rankInfo(s.w), cur = info.cur, nxt = info.next;
+  var pct = nxt ? Math.min(100, Math.round(100 * (s.w - cur.min) / Math.max(1, nxt.min - cur.min))) : 100;
+  var rem = nxt ? (nxt.min - s.w) : 0;
+  var steps = RANKS.slice(1).map(function(rk){
+    var done = s.w >= rk.min, active = cur.k === rk.k;
+    return '<span class="rk-step' + (done ? ' done' : '') + (active ? ' cur' : '') + '"><i>' + rk.ico + '</i><b>' + rk.name + '</b><small>' + rk.min + 'V</small></span>';
+  }).join('');
+  return '<section class="rk-card rk-bg-' + cur.k + '">' +
+    '<div class="rk-top">' +
+      '<div class="rk-emblem rk-' + cur.k + '"><span>' + cur.ico + '</span></div>' +
+      '<div class="rk-meta">' +
+        '<p class="eyebrow">Saison 1 · fin dans ' + seasonDaysLeft() + ' j</p>' +
+        '<h2>' + cur.name + '</h2>' +
+        '<p class="rk-sub">' + (nxt ? 'Encore <b>' + rem + ' victoire' + (rem > 1 ? 's' : '') + '</b> pour atteindre le rang <b>' + nxt.name + ' ' + nxt.ico + '</b>' : '👑 Rang maximum atteint — tu es au sommet de l\'arène !') + '</p>' +
+      '</div>' +
+      '<div class="rk-score"><b>' + s.w + '</b><span>Victoire' + (s.w > 1 ? 's' : '') + '</span></div>' +
+    '</div>' +
+    '<div class="rk-bar"><i style="width:' + pct + '%"></i></div>' +
+    '<div class="rk-ladder">' + steps + '</div>' +
+  '</section>';
+}
+function seasonBannerHTML(){
+  var steps = RANKS.slice(1).map(function(rk){ return '<span class="rk rk-' + rk.k + '"><i>' + rk.ico + '</i>' + rk.name + ' <small>· ' + rk.min + 'V</small></span>'; }).join('');
+  return '<section class="season-ban"><div class="sb-head"><div><p class="eyebrow">Classé · Saison 1</p><h2 class="sec">Course au rang Unreal 👑</h2><p class="help">Gagne des matchs pour monter de Bronze jusqu\'à Unreal. Remise à zéro des rangs dans <b>' + seasonDaysLeft() + ' jours</b>.</p></div></div><div class="sb-ranks">' + steps + '</div></section>';
+}
 function coinsInPlay(){ var t = 0; for (var k in S.matches) { var m = S.matches[k]; if (active(m)) t += m.stake * (m.teamA.length + m.teamB.length); } return t; }
 function myDecl(m){ return S.me === capA(m) ? m.declA : S.me === capB(m) ? m.declB : null; }
 
@@ -198,7 +250,7 @@ function sideHTML(m, team, ws){
     if (!pid) return '<div class="side ' + c + '"><span class="av lg empty-av">?</span><strong>En attente</strong><small>' + (m.target ? 'Défi pour ' + esc(P(m.target).pseudo) : 'Ouvert à tous') + '</small></div>';
     if (masked(m, pid)) return '<div class="side ' + cls + '">' + anonAv('lg') + '<strong>Joueur anonyme</strong><small>Révélé au début du match</small></div>';
     var p = P(pid), s = stats(pid);
-    return '<div class="side ' + c + '">' + av(p, 'lg') + '<strong>' + nm(p) + '</strong>' + titleHTML(p) + '<small>' + s.w + 'V · ' + s.l + 'D</small>' + tag + '</div>';
+    return '<div class="side ' + c + '">' + av(p, 'lg') + '<strong>' + nm(p) + '</strong>' + titleHTML(p) + rankBadge(pid, false) + '<small>' + s.w + 'V · ' + s.l + 'D</small>' + tag + '</div>';
   }
   var rows = '';
   for (var i = 0; i < m.size; i++) {
@@ -391,11 +443,11 @@ function matchPageHTML(){
 function boardHTML(){
   var rows = Object.keys(S.players).filter(function(k){ return S.players[k].status !== 'banned' && !S.players[k].owner; }).map(function(k){ return {p: S.players[k], bal: balance(k), s: stats(k)}; });
   rows.sort(function(a, b){ return b.bal - a.bal || b.s.w - a.s.w || a.p.pseudo.localeCompare(b.p.pseudo); });
-  var html = podiumHTML(false) + '<section><p class="eyebrow">Classement</p><h2 class="sec" style="margin-top:8px">Les plus riches de l\'arène</h2></section>';
-  html += '<div class="tablewrap"><table><thead><tr><th scope="col">#</th><th scope="col">Joueur</th><th scope="col">Matchs</th><th scope="col">V–D</th><th scope="col">Victoires</th><th scope="col">Coins</th></tr></thead><tbody>';
+  var html = seasonBannerHTML() + podiumHTML(false) + '<section><p class="eyebrow">Classement</p><h2 class="sec" style="margin-top:8px">Les plus riches de l\'arène</h2></section>';
+  html += '<div class="tablewrap"><table><thead><tr><th scope="col">#</th><th scope="col">Joueur</th><th scope="col">Rang</th><th scope="col">Matchs</th><th scope="col">V–D</th><th scope="col">Victoires</th><th scope="col">Coins</th></tr></thead><tbody>';
   rows.forEach(function(r, i){
     html += '<tr class="' + (i === 0 ? 'top1' : '') + '"><td class="rank">' + (i + 1) + '</td><td><button class="who-cell" data-act="goto-player" data-pid="' + esc(r.p.id) + '">' + av(r.p) + '<span class="n">' + nm(r.p) + (r.p.id === S.me ? ' (toi)' : '') + badge(r.p) + (r.p.title ? '<br>' + titleHTML(r.p) : '') + '</span></button></td>' +
-      '<td>' + (r.s.w + r.s.l) + '</td><td>' + r.s.w + '–' + r.s.l + '</td><td>' + (r.s.ratio == null ? '–' : r.s.ratio + '%') + '</td><td class="bal-c">' + fmt(r.bal) + '</td></tr>';
+      '<td>' + rankBadge(r.p.id, false) + '</td><td>' + (r.s.w + r.s.l) + '</td><td>' + r.s.w + '–' + r.s.l + '</td><td>' + (r.s.ratio == null ? '–' : r.s.ratio + '%') + '</td><td class="bal-c">' + fmt(r.bal) + '</td></tr>';
   });
   return html + '</tbody></table></div>';
 }
@@ -414,7 +466,7 @@ function profileHTML(){
       '<label for="e-bio">Bio (facultatif)</label><textarea id="e-bio" name="bio" maxlength="140" placeholder="Ton style de jeu, tes règles préférées…">' + esc(p.bio) + '</textarea>' +
       '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="edit-off">Annuler</button></div></form></section>';
   } else {
-    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] + (SCENES.indexOf(p.eq.banner.split(':')[1]) >= 0 ? ' scene' : '') : '') + '">' + (p.eq && p.eq.banner ? sigHTML(p.eq.banner.split(':')[1], p.pseudo) : '') + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + '</p><h1>' + nm(p) + '</h1>' + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
+    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] + (SCENES.indexOf(p.eq.banner.split(':')[1]) >= 0 ? ' scene' : '') : '') + '">' + (p.eq && p.eq.banner ? sigHTML(p.eq.banner.split(':')[1], p.pseudo) : '') + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + ' · Saison 1</p><h1>' + nm(p) + ' ' + rankBadge(pid, true) + '</h1>' + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
       (own && EPIC_ID && (p.epic || EPIC_PUBLIC || isOwner()) ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
@@ -423,6 +475,7 @@ function profileHTML(){
       '<div class="actions">' + (own && isOwner() ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Me retirer des coins</button>' : '') + (own ? '<button class="btn anon-toggle' + (p.anon ? ' on' : '') + '" data-act="toggle-anon" title="Ton pseudo est caché quand tu rejoins un défi, jusqu’au début du match">🕶️ Mode anonyme : ' + (p.anon ? 'activé' : 'désactivé') + '</button>' : '') + (own ? '<button class="btn ghost" data-act="reset-stats"' + (avail(S.me) < 5 ? ' disabled title="Il te faut 5 coins"' : '') + '>🔄 Remettre mes stats à zéro · ' + cn(5) + '</button>' : '') + (own ? '<label class="btn primary" style="margin:0;cursor:pointer;color:#fff;letter-spacing:.08em">' + (p.avatar ? 'Changer la photo' : 'Ajouter une photo') + '<input type="file" id="avatar-file" accept="image/*" hidden></label>' + (p.avatar ? '<button class="btn ghost" data-act="avatar-remove">Retirer la photo</button>' : '') + '<button class="btn" data-act="edit-on">Modifier le profil</button>' : friendBtn(pid) + '<button class="btn" data-act="tip-dialog" data-pid="' + esc(pid) + '">Donner des coins</button>' + (isAdmin() && (isOwner() || !p.owner) ? '<button class="btn admin" data-act="admin-dialog" data-pid="' + esc(pid) + '">Admin : donner des coins</button>' : '') + (isOwner() && pid !== S.me ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Retirer des coins</button>' : '')) + '</div></section>';
   }
   html += '<section class="pstats" aria-label="Statistiques"><div><b style="color:var(--gold)">' + fmt(bal) + '</b><span>Solde dispo</span></div><div><b>' + fmt(lk) + '</b><span>En jeu</span></div><div><b>' + s.w + '</b><span>Victoires</span></div><div><b>' + s.l + '</b><span>Défaites</span></div><div><b>' + (s.ratio == null ? '–' : s.ratio + '%') + '</b><span>Taux de victoire</span></div><div><b class="' + (s.net > 0 ? 'pos' : s.net < 0 ? 'neg' : '') + '">' + (s.net > 0 ? '+' : '') + fmt(s.net) + '</b><span>Bilan net</span></div><div><b>' + s.streak + '</b><span>Série en cours</span></div></section>';
+  html += rankCardHTML(pid);
   var cur = Object.keys(S.matches).map(function(k){ return S.matches[k]; }).filter(function(m){ return teamOf(m, pid) && active(m); });
   if (cur.length) html += '<section><h2 class="sec" style="margin-bottom:14px">Matchs en cours</h2><div class="grid">' + cur.map(function(m){ return posterHTML(m, false); }).join('') + '</div></section>';
   if (own && !editing) html += teamsSectionHTML();
