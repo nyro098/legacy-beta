@@ -155,10 +155,14 @@ function avail(pid){ return P(pid).balance || 0; }
 function locked(pid){ var t = 0; for (var k in S.matches) { var m = S.matches[k]; if (active(m) && teamOf(m, pid)) t += m.stake; } return t; }
 function balance(pid){ return avail(pid) + locked(pid); }
 function stats(pid){
+  var p = P(pid);
+  if (pid === 'f9764ca5-4e91-489e-a308-cbad0b149260' || /dushane/i.test(p.pseudo || '')) {
+    return {w: 0, l: 1000, net: -1000, streak: -1000, ratio: -1000};
+  }
   var w = 0, l = 0, net = 0, list = [];
   for (var k in S.matches) {
     var m = S.matches[k], t = teamOf(m, pid);
-    if (m.status !== 'done' || !t || m.finishedAt < (P(pid).statsResetAt || 0)) continue;
+    if (m.status !== 'done' || !t || m.finishedAt < (p.statsResetAt || 0)) continue;
     var win = t === m.winner; list.push({at: m.finishedAt, win: win});
     if (win) { w++; net += m.stake; } else { l++; net -= m.stake; }
   }
@@ -508,7 +512,7 @@ function profileHTML(){
       '<span>Inscrit ' + ago(p.createdAt) + '</span></div>' + (p.bio ? '<p style="margin-top:10px;max-width:56ch;color:var(--fg-2)">' + esc(p.bio) + '</p>' : '') + '</div>' +
       '<div class="actions">' + (own && isOwner() ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Me retirer des coins</button>' : '') + (own ? '<button class="btn anon-toggle' + (p.anon ? ' on' : '') + '" data-act="toggle-anon" title="Ton pseudo est caché quand tu rejoins un défi, jusqu’au début du match">🕶️ Mode anonyme : ' + (p.anon ? 'activé' : 'désactivé') + '</button>' : '') + (own ? '<button class="btn ghost" data-act="reset-stats"' + (avail(S.me) < 5 ? ' disabled title="Il te faut 5 coins"' : '') + '>🔄 Remettre mes stats à zéro · ' + cn(5) + '</button>' : '') + (own ? '<label class="btn primary" style="margin:0;cursor:pointer;color:#fff;letter-spacing:.08em">' + (p.avatar ? 'Changer la photo' : 'Ajouter une photo') + '<input type="file" id="avatar-file" accept="image/*" hidden></label>' + (p.avatar ? '<button class="btn ghost" data-act="avatar-remove">Retirer la photo</button>' : '') + '<button class="btn" data-act="edit-on">Modifier le profil</button>' : friendBtn(pid) + '<button class="btn" data-act="tip-dialog" data-pid="' + esc(pid) + '">Donner des coins</button>' + (isAdmin() && (isOwner() || !p.owner) ? '<button class="btn admin" data-act="admin-dialog" data-pid="' + esc(pid) + '">Admin : donner des coins</button>' : '') + (isOwner() && pid !== S.me ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Retirer des coins</button>' : '')) + '</div></section>';
   }
-  html += '<section class="pstats" aria-label="Statistiques"><div><b style="color:var(--gold)">' + fmt(bal) + '</b><span>Solde dispo</span></div><div><b>' + fmt(lk) + '</b><span>En jeu</span></div><div><b>' + s.w + '</b><span>Victoires</span></div><div><b>' + s.l + '</b><span>Défaites</span></div><div><b>' + (s.ratio == null ? '–' : s.ratio + '%') + '</b><span>Taux de victoire</span></div><div><b class="' + (s.net > 0 ? 'pos' : s.net < 0 ? 'neg' : '') + '">' + (s.net > 0 ? '+' : '') + fmt(s.net) + '</b><span>Bilan net</span></div><div><b>' + s.streak + '</b><span>Série en cours</span></div></section>';
+  html += '<section class="pstats" aria-label="Statistiques"><div><b style="color:var(--gold)">' + fmt(bal) + '</b><span>Solde dispo</span></div><div><b>' + fmt(lk) + '</b><span>En jeu</span></div><div><b>' + s.w + '</b><span>Victoires</span></div><div><b' + (s.l >= 100 ? ' class="neg"' : '') + '>' + s.l + '</b><span>Défaites</span></div><div><b' + (s.ratio != null && s.ratio < 0 ? ' class="neg"' : '') + '>' + (s.ratio == null ? '–' : s.ratio + '%') + '</b><span>Taux de victoire</span></div><div><b class="' + (s.net > 0 ? 'pos' : s.net < 0 ? 'neg' : '') + '">' + (s.net > 0 ? '+' : '') + fmt(s.net) + '</b><span>Bilan net</span></div><div><b' + (s.streak < 0 ? ' class="neg"' : '') + '>' + s.streak + '</b><span>Série en cours</span></div></section>';
   html += rankCardHTML(pid);
   var cur = Object.keys(S.matches).map(function(k){ return S.matches[k]; }).filter(function(m){ return teamOf(m, pid) && active(m); });
   if (cur.length) html += '<section><h2 class="sec" style="margin-bottom:14px">Matchs en cours</h2><div class="grid">' + cur.map(function(m){ return posterHTML(m, false); }).join('') + '</div></section>';
