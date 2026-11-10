@@ -355,7 +355,7 @@ function arenaHTML(){
   html += '<div><div class="tabs" role="tablist">' + t('ouverts', 'Défis ouverts', open.length) + t('mes', 'Mes matchs', mineM.length) + t('termines', 'Terminés', doneM.length) + '</div></div>';
   if (!list.length) {
     var msg = tab === 'mes' ? ['Aucun match en cours', 'Lance un défi ou accepte-en un depuis l\'onglet Défis ouverts.'] : tab === 'termines' ? ['Rien de joué pour l\'instant', 'Les matchs terminés apparaîtront ici.'] : tab === 'litiges' ? ['Aucun litige', 'Tout le monde est d\'accord, pour l\'instant.'] : ['Aucun défi ouvert', 'Lance le premier défi de l\'arène.'];
-    html += '<div class="empty"><b>' + msg[0] + '</b>' + msg[1] + '</div>';
+    html += '<div class="empty"><b>' + msg[0] + '</b>' + msg[1] + (tab === 'ouverts' ? '<div style="margin-top:14px"><button class="btn primary sm" data-act="new-match">Lancer un défi</button></div>' : '') + '</div>';
   } else html += '<div class="grid">' + list.map(function(m){ return posterHTML(m, false); }).join('') + '</div>';
   return html;
 }
@@ -1552,16 +1552,17 @@ function welcomeHTML(){
 /* ---------- fenêtres ---------- */
 function dialogShell(inner){ return '<div class="overlay"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dt"><button class="x" data-act="close" aria-label="Fermer">×</button>' + inner + '</div></div>'; }
 function newMatchDialog(){
-  var a = avail(S.me);
-  if (a < 1) return dialogShell('<h2 id="dt">Lancer un défi</h2><p style="margin-top:14px">Tu n\'as plus de coins disponibles pour miser. Demande un pourboire à un autre joueur.</p><div class="actions" style="margin-top:18px"><button class="btn" data-act="copy-pseudo">Copier mon pseudo</button><button class="btn ghost" data-act="close">Fermer</button></div>');
+  var a = Math.max(avail(S.me), 0);
+  if (a < 0.5) return dialogShell('<h2 id="dt">Lancer un défi</h2><p style="margin-top:14px">Il te faut au moins 0,5 coin disponible pour miser (tu en as ' + cn(a) + '). Demande un pourboire à un autre joueur.</p><div class="actions" style="margin-top:18px"><button class="btn" data-act="copy-pseudo">Copier mon pseudo</button><button class="btn ghost" data-act="close">Fermer</button></div>');
   var others = Object.keys(S.players).filter(function(k){ return k !== S.me; }).sort(function(x, y){ return P(x).pseudo.localeCompare(P(y).pseudo); });
+  var initStake = a >= 1 ? 1 : 0.5;
   return dialogShell('<h2 id="dt">Lancer un défi</h2><form data-form="match" novalidate>' +
     '<label for="c-mode">Mode</label><select id="c-mode" name="mode">' + MODES.map(function(x){ return '<option>' + x + '</option>'; }).join('') + '</select>' +
     '<div class="row"><div><label for="c-format">Équipes</label><select id="c-format" name="format"><option value="1v1">1v1</option><option value="2v2">2v2</option><option value="3v3">3v3</option></select></div>' +
     '<div><label for="c-bo">Format</label><select id="c-bo" name="bo">' + BOS.map(function(x, i){ return '<option value="' + x + '"' + (i === 1 ? ' selected' : '') + '>' + BO_LABEL[x] + '</option>'; }).join('') + '</select></div></div>' +
     '<label for="c-kl">Kill lead</label><select id="c-kl" name="kill_lead"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>' +
     '<label class="rules-check pp-check"><input type="checkbox" name="pingpong" value="1"> Ping-pong <small>(il faut gagner avec 2 points d\'écart)</small></label>' +
-    '<label for="c-stake">Mise par joueur (coins)</label><input id="c-stake" name="stake" type="number" inputmode="decimal" min="0.5" max="' + a + '" step="0.5" value="1" required><p class="hint">Disponible : ' + cn(a) + '. Mise par tranches de 0,5 (ex. 0,5 · 1 · 1,5). Ta mise sort de ton solde tout de suite.</p>' +
+    '<label for="c-stake">Mise par joueur (coins)</label><input id="c-stake" name="stake" type="number" inputmode="decimal" min="0.5" max="' + a + '" step="0.5" value="' + initStake + '" required><p class="hint">Disponible : ' + cn(a) + '. Mise par tranches de 0,5 (ex. 0,5 · 1 · 1,5). Ta mise sort de ton solde tout de suite.</p>' +
     '<label for="c-target">Adversaire (1v1 uniquement)</label><select id="c-target" name="target"><option value="">Ouvert à tous</option>' + others.map(function(k){ return '<option value="' + esc(k) + '">' + esc(P(k).pseudo) + '</option>'; }).join('') + '</select>' +
     '<label for="c-team">Ton équipe (2v2 / 3v3)</label><select id="c-team" name="team" disabled><option value="">Aucune : places libres pour n\'importe qui</option>' + myTeams().filter(function(x){ return teamComplete(x); }).map(function(x){ return '<option value="' + esc(x.id) + '" data-size="' + x.size + '" hidden>' + esc(x.name) + ' (' + x.size + 'v' + x.size + ')</option>'; }).join('') + '</select><p class="hint" id="c-team-hint">Pas d\'équipe en 1v1.</p>' +
     '<label for="c-rules">Règles, code île (facultatif)</label><input id="c-rules" name="rules" maxlength="120" autocomplete="off" placeholder="Ex. île 1v1, premier à 3 rounds">' +
@@ -2121,6 +2122,11 @@ document.addEventListener('submit', function(e){
   if (kind === 'team-create') {
     rpc('create_team', {p_name: d.name, p_size: parseInt(d.size, 10)}).then(function(r){ if (btn) btn.disabled = false; if (!r.ok) { var er = f.parentNode.querySelector('.err'); if (er) er.textContent = r.msg; return; } toast('Équipe créée ! Invite tes coéquipiers.'); render(); });
     return;
+  }
+  if (kind === 'match') {
+    var stkW = num(d.stake);
+    if (isNaN(stkW) || stkW < 0.5) return fail('Mise invalide (minimum 0,5 coin).');
+    if (stkW > avail(S.me)) return fail('Solde insuffisant (tu as ' + cn(Math.max(avail(S.me), 0)) + ').');
   }
   var map = {
     edit: ['update_profile', {p_pseudo: d.pseudo, p_twitter: String(d.twitter || '').trim().replace(/^@/, ''), p_bio: d.bio}, 'Profil mis à jour.'],
