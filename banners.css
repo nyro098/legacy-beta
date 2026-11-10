@@ -65,6 +65,15 @@
 .sig-grid .shop-item.war-card{border-color:#e0c46a;box-shadow:0 0 22px rgba(224,196,106,.3);background:linear-gradient(160deg,rgba(224,196,106,.14),var(--surface))}
 @media (prefers-reduced-motion:reduce){.phead.bn.scene.bn-tera_warrior{animation:none !important}}
 
+/* Exclusivité New Polska : avalanche et bonhomme de neige (vrai GIF) */
+.bn-new_polska{background-image:url("img/new-polska.gif?v=1") !important;background-size:cover !important;background-position:center !important;animation:none !important}
+.phead.bn.scene.bn-new_polska{background:url("img/new-polska.gif?v=1") top center/100% auto no-repeat,linear-gradient(180deg,#1c2838 0%,#0e141d 60%,#06080c 100%) !important;padding-top:calc(56.22% + 6px) !important}
+.phead.bn.scene.bn-new_polska::before{background:linear-gradient(180deg,transparent 0,transparent calc(100% - 50px),rgba(6,8,12,.55) 100%)}
+.bn-prev.bn-new_polska{background-image:url("img/new-polska.gif?v=1") !important;background-size:cover !important;background-position:center !important}
+.fr-tag.excl-ice{color:#d4f1ff;border-color:rgba(120,200,255,.6);background:rgba(80,180,255,.15);white-space:nowrap}
+.sig-grid .shop-item.polska-card{border-color:#78c8ff;box-shadow:0 0 22px rgba(120,200,255,.35);background:linear-gradient(160deg,rgba(100,190,255,.16),var(--surface))}
+
+
 .promo{display:block;margin-top:8px;padding:8px 10px;border-radius:10px;font:800 13px/1.35 var(--f-body);color:#fff4c2;background:linear-gradient(90deg,rgba(255,201,60,.22),rgba(139,92,255,.22));border:1px solid rgba(255,201,60,.6);box-shadow:0 0 14px rgba(255,201,60,.25);animation:promo 2.4s ease-in-out infinite}
 .promo.done{color:var(--fg-2);background:var(--surface-2);border-color:var(--line);box-shadow:none;animation:none}
 @keyframes promo{50%{box-shadow:0 0 22px rgba(255,201,60,.5)}}
