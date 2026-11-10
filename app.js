@@ -45,6 +45,7 @@ function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, 
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, killLead: m.kill_lead || 1, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
+    doubleA: !!m.double_a, doubleB: !!m.double_b, doubleMatchId: m.double_match_id || null,
     teamATeam: m.team_a_team || null,
     aSA: m.a_decl_sa, aSB: m.a_decl_sb, bSA: m.b_decl_sa, bSB: m.b_decl_sb,
     scoreA: m.score_a, scoreB: m.score_b, scoreOk: !!m.score_confirmed,
@@ -282,8 +283,16 @@ function posterHTML(m, big){
   else if (st === 'dispute') f = '<small>Déclarations contradictoires</small>' + (tm || isAdmin() ? '<button class="btn sm" data-act="open-match" data-id="' + id + '">Ouvrir</button>' : '');
   else if (st === 'done') {
     var wl = ws === 'A' ? m.teamA : m.teamB, dbl = m.stake * 2;
-    f = '<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '</small>' +
-      (tm ? '<button class="btn primary sm" data-act="double" data-id="' + id + '"' + (avail(S.me) < dbl ? ' disabled title="Il te faut ' + cn(dbl) + ' disponible(s)"' : ' title="Revanche immédiate avec le double de la mise"') + '>🔥 Double · ' + cn(dbl) + '</button>' : '');
+    var myDbl = tm === 'A' ? m.doubleA : tm === 'B' ? m.doubleB : false;
+    var oppDbl = tm === 'A' ? m.doubleB : tm === 'B' ? m.doubleA : false;
+    var dblBtn = '';
+    if (tm) {
+      if (m.doubleMatchId) dblBtn = '<button class="btn primary sm" data-act="open-match" data-id="' + esc(m.doubleMatchId) + '">🔥 Voir le Double</button>';
+      else if (myDbl && !oppDbl) dblBtn = '<button class="btn sm ghost" disabled>⏳ Double (1/2) · En attente</button>';
+      else if (!myDbl && oppDbl) dblBtn = '<button class="btn win sm" data-act="double" data-id="' + id + '"' + (avail(S.me) < dbl ? ' disabled title="Il te faut ' + cn(dbl) + ' disponible(s)"' : '') + '>🔥 Accepter Double (2/2) · ' + cn(dbl) + '</button>';
+      else dblBtn = '<button class="btn primary sm" data-act="double" data-id="' + id + '"' + (avail(S.me) < dbl ? ' disabled title="Il te faut ' + cn(dbl) + ' disponible(s)"' : ' title="Les 2 doivent accepter pour lancer le Double"') + '>🔥 Double (0/2) · ' + cn(dbl) + '</button>';
+    }
+    f = '<small>' + esc(names(wl)) + (wl.length > 1 ? ' empochent ' : ' empoche ') + cn(m.stake) + (wl.length > 1 ? ' chacun' : '') + '</small>' + dblBtn;
   }
   else if (st === 'live') f = '<small>Match en cours</small>';
   else f = '<small>Défi annulé</small>';
@@ -422,8 +431,22 @@ function matchPageHTML(){
       : '<p class="help">Aucun score n\'a été déclaré pour ce match.</p>';
     if (mt) {
       var dblStake = m.stake * 2, shortDbl = avail(S.me) < dblStake, oppCapId = mt === 'A' ? cb : ca;
-      r += '<div class="actions" style="margin-top:16px"><button class="btn primary lg" data-act="double" data-id="' + id + '"' + (shortDbl ? ' disabled' : '') + '>🔥 Double · Revanche à ' + cn(dblStake) + '</button></div>' +
-        '<p class="help">' + (shortDbl ? 'Il te faut ' + cn(dblStake) + ' disponible(s) pour lancer le Double (tu en as ' + cn(Math.max(avail(S.me), 0)) + ').' : 'Lance immédiatement une revanche' + (m.size === 1 && oppCapId ? ' réservée à <b>' + esc(P(oppCapId).pseudo) + '</b>' : '') + ' avec les mêmes règles et <b>le double de la mise (' + cn(dblStake) + ')</b>.') + '</p>';
+      var myAgreed = mt === 'A' ? m.doubleA : m.doubleB;
+      var oppAgreed = mt === 'A' ? m.doubleB : m.doubleA;
+      var oppName = oppCapId ? esc(P(oppCapId).pseudo) : 'l\'adversaire';
+      if (m.doubleMatchId) {
+        r += '<div class="actions" style="margin-top:16px"><button class="btn primary lg" data-act="open-match" data-id="' + esc(m.doubleMatchId) + '">🔥 Ouvrir le match Double (' + cn(dblStake) + ')</button></div>' +
+          '<p class="help">Les deux joueurs ont accepté le Double ! Le match revanche à <b>' + cn(dblStake) + '</b> est en cours.</p>';
+      } else if (myAgreed && !oppAgreed) {
+        r += '<div class="actions" style="margin-top:16px"><button class="btn lg ghost" disabled>⏳ Double demandé (1/2) · En attente de ' + oppName + '…</button></div>' +
+          '<p class="help">Tu es d\'accord pour le Double à <b>' + cn(dblStake) + '</b>. Dès que <b>' + oppName + '</b> clique aussi sur Double, le match démarre automatiquement !</p>';
+      } else if (!myAgreed && oppAgreed) {
+        r += '<div class="actions" style="margin-top:16px"><button class="btn win lg" data-act="double" data-id="' + id + '"' + (shortDbl ? ' disabled' : '') + '>🔥 Accepter le Double (2/2) · Miser ' + cn(dblStake) + '</button></div>' +
+          '<p class="help">' + (shortDbl ? '<b>' + oppName + '</b> veut faire un Double à ' + cn(dblStake) + ', mais il te manque des coins (tu en as ' + cn(Math.max(avail(S.me), 0)) + ').' : '🔥 <b>' + oppName + '</b> est chaud pour un Double ! Clique pour accepter : vous misez chacun <b>' + cn(dblStake) + '</b> et le match se lance direct.') + '</p>';
+      } else {
+        r += '<div class="actions" style="margin-top:16px"><button class="btn primary lg" data-act="double" data-id="' + id + '"' + (shortDbl ? ' disabled' : '') + '>🔥 Double (0/2) · Revanche à ' + cn(dblStake) + '</button></div>' +
+          '<p class="help">' + (shortDbl ? 'Il te faut ' + cn(dblStake) + ' disponible(s) pour proposer un Double (tu en as ' + cn(Math.max(avail(S.me), 0)) + ').' : 'Propose une revanche avec <b>le double de la mise (' + cn(dblStake) + ')</b>. Les deux joueurs doivent cliquer sur Double pour que le match se lance.') + '</p>';
+      }
     }
     if (isAdmin()) r += '<form data-form="admin-score" data-id="' + id + '" class="adminbox admin-score" novalidate><p class="help"><b>Admin</b> : corriger le score final.</p><div class="score-entry"><label><span>Équipe A</span><input name="a" type="number" min="0" max="99" value="' + (m.scoreA != null ? m.scoreA : '') + '"></label><b>–</b><label><span>Équipe B</span><input name="b" type="number" min="0" max="99" value="' + (m.scoreB != null ? m.scoreB : '') + '"></label><button class="btn sm" type="submit">Enregistrer</button></div><p class="err" role="alert"></p></form>';
   } else r += '<p>Ce défi a été annulé. Les mises ont été rendues.</p>';
@@ -967,6 +990,8 @@ function notifRow(n){
   else if (n.kind === 'result_claim') { txt = '<b>' + a + '</b> a déclaré le résultat de votre match (' + mDesc + '). Tu as <b>10 minutes</b> pour contester.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le match</button>'; }
   else if (n.kind === 'tournament_win') { txt = '🏆 Tu as <b>gagné un tournoi</b> ! Tes gains ont été ajoutés à ton solde.'; act = '<button class="btn sm primary" data-act="goto-tours">Voir les tournois</button>'; }
   else if (n.kind === 'challenge') { txt = '<b>' + a + '</b> te défie en 1v1 : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le défi</button>'; }
+  else if (n.kind === 'double_req') { txt = '🔥 <b>' + a + '</b> veut faire un <b>Double</b> (' + (m ? cn(m.stake * 2) : 'mise x2') + ') ! Clique sur Double pour accepter.'; if (m) act = '<button class="btn sm win" data-act="open-match" data-id="' + esc(m.id) + '">Répondre au Double</button>'; }
+  else if (n.kind === 'double_go') { txt = '🔥 <b>' + a + '</b> a accepté le <b>Double</b> ! La revanche (' + mDesc + ') est lancée.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Aller au match</button>'; }
   else txt = 'Notification.';
   return '<li class="notif' + (n.read ? '' : ' new') + '">' + av(P(n.actor), 'sm') + '<div class="nt"><p>' + txt + '</p><small>' + ago(Date.parse(n.created_at)) + '</small>' + (act ? '<div class="actions">' + act + '</div>' : '') + '</div></li>';
 }
@@ -1266,10 +1291,11 @@ function rel(pid){
   if (f.status === 'accepted') return 'friend';
   return f.requester === S.me ? 'sent' : 'received';
 }
+var onlinePeers = {};
 function presence(pid){
   var p = P(pid);
   for (var k in S.matches) { var m = S.matches[k]; if ((m.status === 'live' || m.status === 'dispute') && teamOf(m, pid)) return {k: 'match', label: 'En match', mid: m.id}; }
-  if (p.lastSeen && Date.now() - p.lastSeen < 150000) return {k: 'online', label: 'En ligne'};
+  if (pid === S.me || onlinePeers[pid] || (p.lastSeen && Date.now() - p.lastSeen < 300000)) return {k: 'online', label: 'En ligne'};
   return {k: 'off', label: p.lastSeen ? 'Hors ligne · vu ' + ago(p.lastSeen) : 'Hors ligne'};
 }
 function pendingIn(){ return (S.friends || []).filter(function(x){ return x.addressee === S.me && x.status === 'pending'; }).length; }
@@ -1602,24 +1628,24 @@ function act(name, el){
     case 'double': {
       var dm = S.matches[d.id];
       if (!dm) break;
+      if (dm.doubleMatchId) { openMatch(dm.doubleMatchId); break; }
       var dStake = dm.stake * 2, dSide = teamOf(dm, S.me);
       if (!dSide) break;
       if (avail(S.me) < dStake) { toast('Il te faut ' + cn(dStake) + ' disponibles pour faire un Double.'); break; }
+      var oppAlready = dSide === 'A' ? dm.doubleB : dm.doubleA;
       var dOpp = dSide === 'A' ? capB(dm) : capA(dm);
-      var dTarget = dm.size === 1 && dOpp ? dOpp : null;
-      if (!confirm('Lancer une revanche « Double » (' + dm.mode + ' ' + dm.format + ') en misant le double soit ' + cn(dStake) + (dTarget ? ' contre ' + P(dTarget).pseudo : '') + ' ?')) break;
-      doRpc('create_match', {
-        p_mode: dm.mode,
-        p_format: dm.format,
-        p_bo: dm.bo,
-        p_stake: dStake,
-        p_rules: dm.rules || '',
-        p_target: dTarget,
-        p_team: null,
-        p_pingpong: !!dm.pingpong,
-        p_kill_lead: dm.killLead || 1
-      }, '🔥 Revanche Double lancée (' + cn(dStake) + ' mis en jeu) !', function(r){
-        if (r && r.data) openMatch(r.data);
+      var msgConfirm = oppAlready
+        ? 'Ton adversaire est déjà prêt ! Confirmer le Double et lancer le match maintenant pour ' + cn(dStake) + ' ?'
+        : 'Proposer le Double (' + cn(dStake) + ') à ' + (dOpp ? P(dOpp).pseudo : 'ton adversaire') + ' ? Le match se lancera dès que vous aurez tous les deux cliqué sur Double.';
+      if (!confirm(msgConfirm)) break;
+      doRpc('request_double', {mid: d.id}, function(r){
+        var res = r && r.data;
+        if (res && res.status === 'started') return '🔥 Les deux ont accepté ! Le match Double (' + cn(dStake) + ') est lancé !';
+        return '🔥 Demande de Double envoyée (1/2) ! En attente de l\'accord de ton adversaire.';
+      }, function(r){
+        var res = r && r.data;
+        if (res && res.status === 'started' && res.match_id) openMatch(res.match_id);
+        else openMatch(d.id);
       });
       break;
     }
@@ -1810,13 +1836,44 @@ function epicReturn(){
 /* ---------- démarrage ---------- */
 render();
 if (sb) {
+  var liveChan = null;
+  function trackPresence(){
+    if (liveChan && S.me) {
+      try { liveChan.track({user_id: S.me, at: Date.now()}); } catch(e){}
+    }
+  }
+  function beat(){
+    if (!S.me || document.visibilityState === 'hidden') return;
+    trackPresence();
+    if (S.players[S.me]) S.players[S.me].lastSeen = Date.now();
+    sb.rpc('heartbeat').then(function(){
+      if (S.players[S.me]) S.players[S.me].lastSeen = Date.now();
+    });
+  }
   sb.auth.getSession().then(function(s){
     S.me = s.data.session ? s.data.session.user.id : null;
+    if (S.me) beat();
     return refresh();
-  }).then(function(){ render(); epicReturn(); });
-  sb.auth.onAuthStateChange(function(ev, session){ S.me = session ? session.user.id : null; });
+  }).then(function(){ render(); epicReturn(); beat(); });
+  sb.auth.onAuthStateChange(function(ev, session){
+    S.me = session ? session.user.id : null;
+    if (S.me) beat();
+  });
   try {
-    sb.channel('legacy-live')
+    liveChan = sb.channel('legacy-live')
+      .on('presence', {event: 'sync'}, function(){
+        var st = liveChan.presenceState(), map = {};
+        Object.keys(st || {}).forEach(function(k){
+          (st[k] || []).forEach(function(x){
+            if (x && x.user_id) {
+              map[x.user_id] = true;
+              if (S.players[x.user_id]) S.players[x.user_id].lastSeen = Date.now();
+            }
+          });
+        });
+        onlinePeers = map;
+        if (!typing() && viewName() === 'amis') render();
+      })
       .on('postgres_changes', {event: '*', schema: 'public', table: 'matches'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'profiles'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'friendships'}, passiveRefresh)
@@ -1830,11 +1887,13 @@ if (sb) {
         var mid = p && p.new && p.new.match_id;
         if (mid && chatCache[mid]) { delete chatCache[mid]; loadChat(mid); }
       })
-      .subscribe();
+      .subscribe(function(status){
+        if (status === 'SUBSCRIBED') beat();
+      });
   } catch(e){}
   setInterval(passiveRefresh, 30000);
-  function beat(){ if (S.me && document.visibilityState !== 'hidden') sb.rpc('heartbeat'); }
-  setTimeout(beat, 1500); setInterval(beat, 60000);
+  setTimeout(beat, 1000); setInterval(beat, 30000);
   document.addEventListener('visibilitychange', beat);
+  window.addEventListener('focus', beat);
 }
 })();
