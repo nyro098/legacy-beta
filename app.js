@@ -6,7 +6,7 @@ var START = 10;
 var MODES = ['Box fight','Build fight','Zone wars','Realistic 1v1','Pickaxe fight'];
 var BOS = ['FT3','FT5','FT7'];
 var BO_LABEL = {FT3: 'Premier à 3', FT5: 'Premier à 5', FT7: 'Premier à 7'};
-function boLabel(m){ return esc(BO_LABEL[m.bo] || m.bo) + (m.pingpong ? ' · ping-pong' : ''); }
+function boLabel(m){ return esc(BO_LABEL[m.bo] || m.bo) + (m.killLead ? ' · Kill lead ' + m.killLead : '') + (m.pingpong ? ' · ping-pong' : ''); }
 var COIN = '<svg class="coin" viewBox="0 0 20 20" aria-hidden="true"><circle class="c1" cx="10" cy="10" r="9"/><circle class="c2" cx="10" cy="10" r="6.5"/><path class="c3" d="M8.2 6.2v7.4h4"/></svg>';
 var EMAIL_DOMAIN = 'legacy-beta.app';
 var DISCORD_URL = 'https://discord.gg/EpNWaAscD';
@@ -44,7 +44,7 @@ var loaded = false, loadErr = '';
 function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
-    stake: Number(m.stake), pingpong: !!m.pingpong, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
+    stake: Number(m.stake), pingpong: !!m.pingpong, killLead: m.kill_lead || 1, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
     teamATeam: m.team_a_team || null,
     aSA: m.a_decl_sa, aSB: m.a_decl_sb, bSA: m.b_decl_sa, bSB: m.b_decl_sb,
     scoreA: m.score_a, scoreB: m.score_b, scoreOk: !!m.score_confirmed,
@@ -268,7 +268,7 @@ function posterHTML(m, big){
     sideHTML(m, 'A', ws) + sideHTML(m, 'B', ws) + (m.status === 'done' && m.scoreA != null ? '<div class="vs score" aria-label="Score ' + m.scoreA + ' à ' + m.scoreB + '">' + m.scoreA + '<i>–</i>' + m.scoreB + '</div>' : '<div class="vs" aria-hidden="true">VS</div>') + '</div>';
   var pot = '<div class="p-pot"><span>Mise de chaque joueur</span><b>' + COIN + fmt(m.stake) + '</b></div>';
   var liveTag = matchLive(m) ? '<span class="live-tag">🔴 LIVE</span>' : '';
-  var top = '<div class="p-top">' + liveTag + '<span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(BO_LABEL[m.bo] || m.bo) + '</span>' + (m.pingpong ? '<span class="bo pp">Ping-pong</span>' : '') + (st === 'open' && m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé</span>' : '') + '<span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
+  var top = '<div class="p-top">' + liveTag + '<span class="mode">' + esc(m.mode) + '</span><span class="fmt">' + esc(m.format) + '</span><span class="bo">' + esc(BO_LABEL[m.bo] || m.bo) + '</span><span class="bo">Kill lead ' + (m.killLead || 1) + '</span>' + (m.pingpong ? '<span class="bo pp">Ping-pong</span>' : '') + (st === 'open' && m.pinnedUntil > Date.now() ? '<span class="pin-tag">📌 Épinglé</span>' : '') + '<span class="chip ' + st + '">' + STATE_LABEL[st] + '</span></div>';
   if (big) return '<div class="poster big">' + top + face + pot + '</div>';
   var f = '', needs = m.size * 2 - m.teamA.length - m.teamB.length;
   if (st === 'open') {
@@ -433,7 +433,9 @@ function matchPageHTML(){
       '<form data-form="chat" data-id="' + id + '" class="chat-form" novalidate><input name="body" maxlength="300" autocomplete="off" placeholder="Écris un message… (ex. ajoute-moi : MonPseudo)" aria-label="Message"><button class="btn primary" type="submit">Envoyer</button></form></section>';
   }
   html += '<section><h2 class="sec" style="margin-bottom:14px">Détails</h2><dl class="facts"><dt>Lancé par</dt><dd>' + esc(P(m.creator).pseudo) + '</dd>' +
-    '<dt>Format</dt><dd>' + esc(m.mode) + ' · ' + esc(m.format) + ' · ' + boLabel(m) + '</dd>' + (m.pingpong ? '<dt>Ping-pong</dt><dd>Oui : il faut gagner avec 2 points d\'écart (ex. 7-5, pas 7-6).</dd>' : '') +
+    '<dt>Format</dt><dd>' + esc(m.mode) + ' · ' + esc(m.format) + ' · ' + boLabel(m) + '</dd>' +
+    '<dt>Kill lead</dt><dd>' + (m.killLead || 1) + '</dd>' +
+    (m.pingpong ? '<dt>Ping-pong</dt><dd>Oui : il faut gagner avec 2 points d\'écart (ex. 7-5, pas 7-6).</dd>' : '') +
     '<dt>Mise</dt><dd>' + cn(m.stake) + ' par joueur</dd><dt>Pot total</dt><dd>' + cn(m.stake * m.size * 2) + '</dd>' +
     (m.target ? '<dt>Réservé à</dt><dd>' + esc(P(m.target).pseudo) + '</dd>' : '') +
     (m.rules ? '<dt>Règles</dt><dd>' + esc(m.rules) + '</dd>' : '') + '</dl></section>';
@@ -1374,6 +1376,7 @@ function newMatchDialog(){
     '<label for="c-mode">Mode</label><select id="c-mode" name="mode">' + MODES.map(function(x){ return '<option>' + x + '</option>'; }).join('') + '</select>' +
     '<div class="row"><div><label for="c-format">Équipes</label><select id="c-format" name="format"><option value="1v1">1v1</option><option value="2v2">2v2</option><option value="3v3">3v3</option></select></div>' +
     '<div><label for="c-bo">Format</label><select id="c-bo" name="bo">' + BOS.map(function(x, i){ return '<option value="' + x + '"' + (i === 1 ? ' selected' : '') + '>' + BO_LABEL[x] + '</option>'; }).join('') + '</select></div></div>' +
+    '<label for="c-kl">Kill lead</label><select id="c-kl" name="kill_lead"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>' +
     '<label class="rules-check pp-check"><input type="checkbox" name="pingpong" value="1"> Ping-pong <small>(il faut gagner avec 2 points d\'écart)</small></label>' +
     '<label for="c-stake">Mise par joueur (coins)</label><input id="c-stake" name="stake" type="number" inputmode="decimal" min="0.5" max="' + a + '" step="0.5" value="1" required><p class="hint">Disponible : ' + cn(a) + '. Mise par tranches de 0,5 (ex. 0,5 · 1 · 1,5). Ta mise sort de ton solde tout de suite.</p>' +
     '<label for="c-target">Adversaire (1v1 uniquement)</label><select id="c-target" name="target"><option value="">Ouvert à tous</option>' + others.map(function(k){ return '<option value="' + esc(k) + '">' + esc(P(k).pseudo) + '</option>'; }).join('') + '</select>' +
@@ -1727,7 +1730,7 @@ document.addEventListener('submit', function(e){
   }
   var map = {
     edit: ['update_profile', {p_pseudo: d.pseudo, p_twitter: String(d.twitter || '').trim().replace(/^@/, ''), p_bio: d.bio}, 'Profil mis à jour.'],
-    match: ['create_match', {p_mode: d.mode, p_format: d.format, p_bo: d.bo, p_stake: num(d.stake), p_rules: d.rules, p_target: d.target || null, p_team: d.team || null, p_pingpong: !!d.pingpong}, 'Défi publié. ' + cn(num(d.stake) || 0) + ' mis en jeu.'],
+    match: ['create_match', {p_mode: d.mode, p_format: d.format, p_bo: d.bo, p_stake: num(d.stake), p_rules: d.rules, p_target: d.target || null, p_team: d.team || null, p_pingpong: !!d.pingpong, p_kill_lead: parseInt(d.kill_lead, 10) || 1}, 'Défi publié. ' + cn(num(d.stake) || 0) + ' mis en jeu.'],
     tip: ['send_tip', {p_to: d.to, p_amount: num(d.amount), p_note: d.note}, cn(num(d.amount) || 0) + ' envoyé(s).'],
     sanction: ['set_player_status', {p_player: f.dataset.pid, p_status: f.dataset.mode, p_reason: d.reason || '', p_hours: f.dataset.mode === 'restricted' ? parseInt(d.hours, 10) : null}, f.dataset.mode === 'ok' ? 'Sanction levée.' : f.dataset.mode === 'banned' ? 'Joueur banni.' : 'Joueur restreint.'],
     'admin-give': ['admin_give', {p_player: d.to, p_amount: (f.dataset.mode === 'remove' ? -1 : 1) * Math.abs(num(d.amount)), p_note: d.note}, f.dataset.mode === 'remove' ? cn(Math.abs(num(d.amount)) || 0) + ' retiré(s).' : cn(Math.abs(num(d.amount)) || 0) + ' donné(s).']
