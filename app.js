@@ -1776,6 +1776,10 @@ function render(){
   var app = $('#app');
   if (!configured) { app.innerHTML = betaBar() + '<div class="wrap welcome"><div class="card"><h2 class="sec">Site pas encore relié</h2><p style="margin-top:12px">Il manque l\'adresse et la clé Supabase dans <code>config.js</code>.</p></div></div>'; return; }
   if (!loaded) { app.innerHTML = betaBar() + '<div class="wrap welcome"><p class="eyebrow">Chargement de l\'arène…</p></div>'; return; }
+  if (loadErr && S.me && !me()) {
+    app.innerHTML = betaBar() + '<div class="wrap welcome"><div class="card"><h2 class="sec">Erreur de chargement</h2><p style="margin-top:12px">Impossible de charger les données : ' + esc(loadErr) + '</p><div style="margin-top:16px"><button class="btn primary" onclick="location.reload()">Réessayer</button></div></div></div>';
+    return;
+  }
   if (S.me && !me()) S.me = null;
   if (!me() || me().status === 'banned' || !me().rulesAt || !me().joined) { updateStreamsHost(false); var f0 = document.getElementById('foot'); if (f0) f0.innerHTML = ''; }
   if (!me()) { app.innerHTML = welcomeHTML(); return; }
@@ -2052,6 +2056,8 @@ document.addEventListener('submit', function(e){
         toast(kind === 'signup' ? 'Bienvenue sur Legacy. ' + cn(START) + ' t\'attendent dans ton solde.' : 'Content de te revoir, ' + (me() ? me().pseudo : '') + '.');
         location.hash = '#arene'; render();
       });
+    }).catch(function(e){
+      fail((e && e.message) || 'Erreur lors de la connexion. Réessaie.');
     });
     return;
   }
