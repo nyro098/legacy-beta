@@ -348,9 +348,12 @@ function headerHTML(v){
 }
 function footerHTML(){ return '<footer class="foot"><div class="wrap"><span><a href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer">Serveur Discord Legacy</a> · Legacy bêta · les coins n\'ont aucune valeur réelle, pas d\'achat ni de retrait.</span><span><a href="confidentialite.html">Confidentialité</a> · Non affilié à Epic Games.</span></div></footer>'; }
 
+var ORIONG_DISCORD = 'https://discord.gg/5D4Yp7ns4', ORIONG_TIKTOK = 'https://www.tiktok.com/@ppysildur';
 function collabBadgeHTML(){
   return '<div class="collab" role="note" aria-label="Legacy en collaboration avec ORIONG Esport"><span class="cb-logo"><img src="img/oriong-logo.webp" alt="" width="44" height="44" decoding="async"><video autoplay muted loop playsinline preload="metadata" poster="img/oriong-logo.webp" src="img/oriong-logo.mp4" aria-hidden="true" tabindex="-1"></video></span>' +
-    '<span class="cb-txt"><small>En collab avec</small><b>ORIONG <em>Esport</em></b></span><span class="cb-new">Nouvelle team</span></div>';
+    '<span class="cb-txt"><small>En collab avec</small><b>ORIONG <em>Esport</em></b></span><span class="cb-new">Nouvelle team</span>' +
+    '<span class="cb-links"><a href="' + ORIONG_DISCORD + '" target="_blank" rel="noopener noreferrer" title="Discord ORIONG Esport" aria-label="Discord ORIONG Esport">' + DC_ICON + '</a>' +
+    '<a href="' + ORIONG_TIKTOK + '" target="_blank" rel="noopener noreferrer" title="TikTok ORIONG Esport" aria-label="TikTok ORIONG Esport"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/></svg></a></span></div>';
 }
 function arenaHTML(){
   var all = Object.keys(S.matches).map(function(k){ return S.matches[k]; });
