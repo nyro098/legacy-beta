@@ -624,6 +624,7 @@ function profileHTML(){
       (p.title ? '<button class="btn ghost" data-act="clear-title" data-pid="' + esc(pid) + '">Effacer son titre</button>' : '') +
       '</div><p class="help">Restreint : peut regarder le site mais ne peut plus jouer, écrire dans les chats ni envoyer de coins. Banni : ne voit plus qu\'un écran « compte banni ».</p></section>';
   }
+  if (isOwner()) html += ownerPanelHTML(pid);
   if (!own && !isOwner()) return html;
   html += '<section><h2 class="sec" style="margin-bottom:14px">Historique des coins</h2>' + (own ? '<p class="help" style="margin:-6px 0 12px">Privé : toi seul vois ton historique.</p>' : '');
   var tx = txCache[pid];
@@ -1882,6 +1883,10 @@ function act(name, el){
       doRpc('buy_item', {p_item: d.item}, 'Achat réussi : ' + itemName(d.item) + ' !');
       break;
     case 'spin': spinWheel(); break;
+    case 'own-vip-give': { var mo = parseInt(prompt('Combien de mois de VIP offrir à ' + P(d.pid).pseudo + ' ? (1 à 24)', '1'), 10); if (!mo) break; doRpc('owner_give_vip', {p_player: d.pid, p_months: mo}, mo + ' mois de VIP offerts à ' + P(d.pid).pseudo + '.'); break; }
+    case 'own-vip-remove': { var rf = Number(d.refund) || 0; if (!confirm('Retirer le VIP de ' + P(d.pid).pseudo + (rf ? ' et lui rembourser ' + rf + ' coins' : '') + ' ?')) break; doRpc('owner_remove_vip', {p_player: d.pid, p_refund: rf}, 'VIP retiré' + (rf ? ', ' + rf + ' coins remboursés.' : '.')); break; }
+    case 'own-item-remove': { var rb = d.refund === '1'; if (!confirm('Retirer « ' + ownerItemName(d.item) + ' » à ' + P(d.pid).pseudo + (rb ? ' et le rembourser' : '') + ' ?')) break; doRpc('owner_remove_item', {p_player: d.pid, p_item: d.item, p_refund: rb}, function(r){ return 'Article retiré' + (rb ? (Number(r.data) > 0 ? ', ' + cn(Number(r.data)) + ' remboursé(s).' : ' (article gratuit, rien à rembourser).') : '.'); }); break; }
+    case 'own-item-give': { var gs = document.getElementById('own-give-sel'); if (!gs || !gs.value) break; var gi = gs.value; if (!confirm('Offrir « ' + ownerItemName(gi) + ' » à ' + P(d.pid).pseudo + ' gratuitement ?')) break; doRpc('owner_give_item', {p_player: d.pid, p_item: gi}, 'Cadeau envoyé à ' + P(d.pid).pseudo + ' !'); break; }
     case 'ticket-open': openTicket(d.id); break;
     case 'wheel-sound': wheelSound = !wheelSound; try { localStorage.setItem('legacy-wheel-sound', wheelSound ? '1' : '0'); } catch (e) {} el.textContent = wheelSound ? '🔊 Son activé' : '🔇 Son coupé'; if (wheelSound) tickSound(); break;
     case 'equip-title': doRpc('set_cosmetics', {p_style: me().nameStyle, p_title: d.key}, d.key ? 'Titre équipé !' : 'Titre retiré.'); break;
@@ -2156,6 +2161,37 @@ document.addEventListener('submit', function(e){
   });
 });
 window.addEventListener('hashchange', function(){ if (viewName() === 'profil' && !S.players[viewPid]) viewPid = S.me; render(); window.scrollTo(0, 0); });
+
+
+/* ---------- panneau fondateur : VIP et articles des joueurs ---------- */
+function allShopItems(){
+  var list = ['neon', 'gif'].concat(Object.keys(CATALOG));
+  Object.keys(TITLES).forEach(function(k){ list.push('title:' + k); });
+  Object.keys(WHEEL_TITLES).forEach(function(k){ list.push('title:' + k); });
+  return list.filter(function(i, n){ return list.indexOf(i) === n; });
+}
+function ownerItemName(i){ return i.indexOf('title:') === 0 && WHEEL_TITLES[i.slice(6)] ? 'Titre « ' + WHEEL_TITLES[i.slice(6)] + ' »' : itemName(i); }
+function ownerPanelHTML(pid){
+  var p = P(pid), owned = (p.owned || []).slice(), id = esc(pid);
+  var vip = p.vip ? '<b style="color:var(--gold)">VIP jusqu’au ' + dateTxt(p.vipUntil) + '</b>' : '<b>Pas VIP</b>';
+  var html = '<section class="panel owner-panel"><h2>👑 Fondateur · achats et VIP de ' + esc(p.pseudo) + '</h2>';
+  html += '<div class="op-row"><p>Statut : ' + vip + '</p><div class="actions">' +
+    '<button class="btn sm" data-act="own-vip-give" data-pid="' + id + '">Offrir du VIP</button>' +
+    (p.vip ? '<button class="btn sm ghost" data-act="own-vip-remove" data-pid="' + id + '" data-refund="0">Retirer le VIP</button><button class="btn sm danger" data-act="own-vip-remove" data-pid="' + id + '" data-refund="20">Retirer le VIP + rembourser 20</button>' : '') +
+    '</div></div>';
+  html += '<h3 class="op-h">Articles possédés (' + owned.length + ')</h3>';
+  html += owned.length ? '<ul class="op-items">' + owned.map(function(i){
+    return '<li><span>' + esc(ownerItemName(i)) + '<small>' + esc(i) + '</small></span><div class="actions">' +
+      '<button class="btn sm ghost" data-act="own-item-remove" data-pid="' + id + '" data-item="' + esc(i) + '" data-refund="0">Retirer</button>' +
+      '<button class="btn sm danger" data-act="own-item-remove" data-pid="' + id + '" data-item="' + esc(i) + '" data-refund="1">Retirer + rembourser</button></div></li>';
+  }).join('') + '</ul>' : '<p class="help">Aucun article.</p>';
+  var dispo = allShopItems().filter(function(i){ return owned.indexOf(i) < 0; });
+  html += '<h3 class="op-h">Offrir un article gratuitement</h3><div class="op-give"><select id="own-give-sel">' +
+    dispo.map(function(i){ return '<option value="' + esc(i) + '">' + esc(ownerItemName(i)) + '</option>'; }).join('') +
+    '</select><button class="btn sm primary" data-act="own-item-give" data-pid="' + id + '">🎁 Offrir</button></div>';
+  html += '<p class="help">« Rembourser » rend au joueur le prix boutique de l’article. Un article retiré est aussi déséquipé tout seul.</p></section>';
+  return html;
+}
 
 /* ---------- connexion Epic Games ---------- */
 var EPIC_ID = (window.LEGACY_CONFIG && window.LEGACY_CONFIG.epicClientId) || '';

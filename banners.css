@@ -140,3 +140,14 @@
 
 
 
+
+.owner-panel{border-color:rgba(255,201,60,.55) !important;background:linear-gradient(160deg,rgba(255,201,60,.08),var(--surface)) !important}
+.owner-panel h2{margin-bottom:10px}
+.op-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.op-h{font:800 13px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-2);margin:16px 0 8px}
+.op-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
+.op-items li{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.op-items li span{min-width:0}
+.op-items li small{display:block;color:var(--fg-2);font:12px var(--f-mono)}
+.op-give{display:flex;gap:8px;flex-wrap:wrap}
+.op-give select{flex:1 1 220px;min-width:0}
