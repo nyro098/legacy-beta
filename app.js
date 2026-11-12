@@ -328,7 +328,7 @@ function posterHTML(m, big){
   return '<article class="poster" data-open="' + id + '" tabindex="0" role="button" aria-label="' + esc(m.mode + ' ' + m.format + ' : équipe de ' + a.pseudo + ', mise ' + cn(m.stake)) + '">' + top + face + pot + '<div class="p-foot">' + f + '</div></article>';
 }
 
-function betaBar(){ return '<div class="betabar"><b>LEGACY BÊTA</b> · Version de test : les coins n\'ont aucune valeur réelle et les données peuvent être remises à zéro.</div>' + collabFloatHTML(); }
+function betaBar(){ return '<div class="betabar"><b>LEGACY BÊTA</b> · Version de test : les coins n\'ont aucune valeur réelle et les données peuvent être remises à zéro.</div>'; }
 
 function headerHTML(v){
   var p = me(), bal = avail(p.id), lk = locked(p.id);
@@ -350,13 +350,32 @@ function footerHTML(){ return '<footer class="foot"><div class="wrap"><span><a h
 
 var ORIONG_DISCORD = 'https://discord.gg/5D4Yp7ns4', ORIONG_TIKTOK = 'https://www.tiktok.com/@ppysildur';
 function collabFloatHTML(){
-  return '<aside class="cfl" aria-label="Collaboration avec ORIONG Esport"><div class="cfl-card">' +
+  return '<aside class="cfl s-a" aria-label="Collaboration avec ORIONG Esport"><i class="cfl-handle" aria-hidden="true"></i>' +
     '<div class="cfl-face cfl-a"><span class="cfl-logo"><img src="img/oriong-logo.webp" alt="" width="40" height="40" decoding="async"><video autoplay muted loop playsinline preload="metadata" poster="img/oriong-logo.webp" src="img/oriong-logo.mp4" aria-hidden="true" tabindex="-1"></video></span>' +
     '<span class="cfl-t"><small>En collab avec</small><b>ORIONG <em>Esport</em></b></span><i class="cfl-new">Nouvelle team</i></div>' +
-    '<div class="cfl-face cfl-b"><span class="cfl-t"><small>Rejoins</small><b>ORIONG <em>Esport</em></b></span>' +
+    '<div class="cfl-face cfl-b"><span class="cfl-t"><small>Rejoins</small><b><span class="cfl-w">ORIONG <em>Esport</em></span></b></span>' +
     '<a href="' + ORIONG_DISCORD + '" target="_blank" rel="noopener noreferrer" title="Discord ORIONG Esport" aria-label="Discord ORIONG Esport">' + DC_ICON + '<span>Discord</span></a>' +
     '<a href="' + ORIONG_TIKTOK + '" target="_blank" rel="noopener noreferrer" title="TikTok ORIONG Esport" aria-label="TikTok ORIONG Esport"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/></svg><span>TikTok</span></a></div>' +
-    '</div></aside>';
+    '</aside>';
+}
+// L'onglet est créé UNE fois, hors de #app : il n'est jamais redessiné quand le site se rafraîchit, l'animation ne se coupe donc jamais.
+function collabInit(){
+  if (document.querySelector('.cfl')) return;
+  document.body.insertAdjacentHTML('beforeend', collabFloatHTML());
+  var el = document.querySelector('.cfl'), timer = null, hold = false, TIMES = {a: 5200, b: 6800, h: 16000}, narrow = window.matchMedia('(max-width:1250px)');
+  function show(st){ el.classList.remove('s-a', 's-b'); if (st === 'b') el.classList.add('s-b'); else if (st === 'a') el.classList.add('s-a'); }
+  function next(st){ if (!narrow.matches) return st === 'a' ? 'b' : 'a'; return st === 'h' ? 'a' : st === 'a' ? 'b' : 'h'; }
+  function rest(){ return narrow.matches ? 'h' : 'a'; }
+  function cycle(st){ clearTimeout(timer); show(st); if (hold) return; timer = setTimeout(function(){ cycle(next(st)); }, TIMES[st] || TIMES.a); }
+  function grab(){ if (hold && el.classList.contains('s-b')) return; hold = true; clearTimeout(timer); show('b'); }
+  function release(){ if (!hold) return; hold = false; clearTimeout(timer); timer = setTimeout(function(){ cycle(rest()); }, 3500); }
+  el.addEventListener('mouseenter', grab); el.addEventListener('mouseleave', release);
+  el.addEventListener('focusin', grab); el.addEventListener('focusout', function(){ setTimeout(function(){ if (!el.contains(document.activeElement)) release(); }, 0); });
+  el.addEventListener('click', function(e){ if (e.target.closest('a')) return; if (hold && el.classList.contains('s-b') && !el.matches(':hover')) release(); else grab(); });
+  document.addEventListener('click', function(e){ if (hold && !el.contains(e.target)) release(); });
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden && !hold) cycle(el.classList.contains('s-b') ? 'b' : el.classList.contains('s-a') ? 'a' : rest()); });
+  if (narrow.matches) cycle('h'); else setTimeout(function(){ cycle('a'); }, 1200);
+  if (narrow.matches) setTimeout(function(){ if (!hold) cycle('a'); }, 3000);
 }
 function arenaHTML(){
   var all = Object.keys(S.matches).map(function(k){ return S.matches[k]; });
@@ -2510,4 +2529,5 @@ if (sb) {
   document.addEventListener('visibilitychange', beat);
   window.addEventListener('focus', beat);
 }
+collabInit();
 })();
