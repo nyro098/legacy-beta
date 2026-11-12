@@ -1734,7 +1734,7 @@ function discordGateHTML(){
     '<div class="card"><h2 class="sec">Rejoins le Discord</h2>' +
     '<ol class="dc-steps"><li>Clique sur le bouton bleu et rejoins le serveur.</li><li>Reviens ici et clique sur « J\'ai rejoint le serveur ».</li></ol>' +
     '<div class="actions" style="margin-top:18px"><a class="btn lg discord-btn" href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer" data-act="discord-open">' + DC_ICON + '<span>Ouvrir le serveur Discord</span></a></div>' +
-    '<div class="actions" style="margin-top:12px"><button class="btn win lg" id="dc-ok" data-act="discord-confirm" disabled>J\'ai rejoint le serveur</button></div>' +
+    '<div class="actions" style="margin-top:12px"><button class="btn win lg" id="dc-ok" data-act="discord-confirm">J\'ai rejoint le serveur</button></div>' +
     '<p class="hint" style="margin-top:14px">Pas le bon compte ? <button class="linkbtn" data-act="logout">Se déconnecter</button></p></div></div>';
 }
 function discordDialog(){ return ''; }
