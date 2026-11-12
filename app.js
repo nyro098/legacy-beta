@@ -41,7 +41,7 @@ var S = {players: {}, matches: {}, bets: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, esport: !!p.is_esport, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, killLead: m.kill_lead != null ? Number(m.kill_lead) : 1, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -53,7 +53,7 @@ function mapMatch(m){
 }
 function refresh(){
   return Promise.all([
-    sb.from('profiles').select('id,pseudo,' + (S.me ? 'discord,' : '') + 'twitter,bio,balance,is_admin,is_owner,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
+    sb.from('profiles').select('id,pseudo,' + (S.me ? 'discord,' : '') + 'twitter,bio,balance,is_admin,is_owner,is_esport,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
     sb.from('matches').select('*').order('created_at', {ascending: false}).limit(400),
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
@@ -68,12 +68,14 @@ function refresh(){
     sb.from('match_bets').select('*').order('created_at', {ascending: false}).limit(400),
     sb.from('customs').select('*').order('created_at', {ascending: false}).limit(60),
     sb.from('custom_entries').select('*').order('joined_at'),
-    S.me ? sb.from('custom_codes').select('*') : Promise.resolve({data: []})
+    S.me ? sb.from('custom_codes').select('*') : Promise.resolve({data: []}),
+    sb.from('tour_bans').select('*')
   ]).then(function(r){
     var CU = {}; ((r[13] && r[13].data) || []).forEach(function(x){ x.entries = []; x.code = null; CU[x.id] = x; });
     ((r[14] && r[14].data) || []).forEach(function(e){ if (CU[e.custom_id]) CU[e.custom_id].entries.push(e); });
     ((r[15] && r[15].data) || []).forEach(function(c){ if (CU[c.custom_id]) CU[c.custom_id].code = c; });
     S.customs = CU;
+    S.tourBans = {}; ((r[16] && r[16].data) || []).forEach(function(b){ S.tourBans[b.player] = Date.parse(b.until); });
     S.lastSpin = r[9] && r[9].data && r[9].data[0] ? Date.parse(r[9].data[0].at) : 0;
     S.tickets = {}; ((r[10] && r[10].data) || []).forEach(function(t){ S.tickets[t.match_id] = t; });
     S.spinFeed = (r[11] && r[11].data) || [];
@@ -155,8 +157,10 @@ function P(id){ return S.players[id] || {id: id, pseudo: 'Joueur inconnu', disco
 function me(){ return S.me ? S.players[S.me] : null; }
 function isAdmin(){ var p = me(); return !!(p && p.admin); }
 function isOwner(){ var p = me(); return !!(p && p.owner); }
+function canTourney(){ var p = me(); return !!(p && (p.owner || p.esport)); }
+var ESPORT_TITLE = 'ORIONG Esport';
 function nm(p){ var fx = p.eq && p.eq.fx ? ' fx-' + p.eq.fx.split(':')[1] : '', em = p.eq && p.eq.emoji ? ' <span class="emo">' + (EMOJI[p.eq.emoji.split(':')[1]] || '') + '</span>' : ''; var cls = (p.nameStyle ? 'neon neon-' + p.nameStyle : '') + fx; return (cls ? '<span class="' + cls.trim() + '" data-t="' + esc(p.pseudo) + '">' + esc(p.pseudo) + '</span>' : esc(p.pseudo)) + em; }
-function titleHTML(p){ return p.title ? '<span class="ptitle' + titleTier(p.titleKey) + '">' + esc(p.title) + '</span>' : ''; }
+function titleHTML(p){ return (p.esport ? '<span class="ptitle esport">⭐ ' + ESPORT_TITLE + '</span> ' : '') + (p.title ? '<span class="ptitle' + titleTier(p.titleKey) + '">' + esc(p.title) + '</span>' : ''); }
 function badge(p){ return (p.vip ? ' <em class="beta vip">VIP</em>' : '') + ((p.owned || []).length >= 10 ? ' <em class="beta col" title="Collectionneur : 10 articles">🏅</em>' : '') + (p.owner ? ' <em class="beta owner">FONDATEUR</em>' : p.admin ? ' <em class="beta">ADMIN</em>' : '') + (isAdmin() && p.status === 'banned' ? ' <em class="beta ban">BANNI</em>' : isAdmin() && p.status === 'restricted' ? ' <em class="beta ban">RESTREINT</em>' : ''); }
 function names(ids){ return ids.map(function(i){ return P(i).pseudo; }).join(', '); }
 function capA(m){ return m.teamA[0] || null; }
@@ -610,7 +614,7 @@ function profileHTML(){
       '<label for="e-bio">Bio (facultatif)</label><textarea id="e-bio" name="bio" maxlength="140" placeholder="Ton style de jeu, tes règles préférées…">' + esc(p.bio) + '</textarea>' +
       '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" data-act="edit-off">Annuler</button></div></form></section>';
   } else {
-    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] + (SCENES.indexOf(p.eq.banner.split(':')[1]) >= 0 ? ' scene' : '') : '') + '">' + (p.eq && p.eq.banner ? sigHTML(p.eq.banner.split(':')[1], p.pseudo) : '') + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + ' · Saison 1</p><h1>' + nm(p) + ' ' + rankBadge(pid, true) + '</h1>' + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
+    html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] + (SCENES.indexOf(p.eq.banner.split(':')[1]) >= 0 ? ' scene' : '') : '') + '">' + (p.eq && p.eq.banner ? sigHTML(p.eq.banner.split(':')[1], p.pseudo) : '') + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + ' · Saison 1</p><h1>' + nm(p) + ' ' + rankBadge(pid, true) + '</h1>' + (p.esport ? '<p class="ptitle big esport">⭐ ' + ESPORT_TITLE + '</p>' : '') + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
       (own && EPIC_ID && (p.epic || EPIC_PUBLIC || isOwner()) ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
       (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
@@ -623,6 +627,7 @@ function profileHTML(){
   var cur = Object.keys(S.matches).map(function(k){ return S.matches[k]; }).filter(function(m){ return teamOf(m, pid) && active(m); });
   if (cur.length) html += '<section><h2 class="sec" style="margin-bottom:14px">Matchs en cours</h2><div class="grid">' + cur.map(function(m){ return posterHTML(m, false); }).join('') + '</div></section>';
   if (own && !editing) html += teamsSectionHTML();
+  if (own && canTourney()) html += tourRestrictPanelHTML();
   if (isAdmin() && !own && !p.owner && (isOwner() || !p.admin)) {
     html += '<section class="panel sanction"><h2>Modération</h2><p>Statut actuel : <b>' + (p.status === 'banned' ? 'Banni' : p.status === 'restricted' ? 'Restreint jusqu\'à ' + untilTxt(p.restrictedUntil) : 'Normal') + '</b>' + (p.statusReason ? ' · raison : « ' + esc(p.statusReason) + ' »' : '') + '</p><div class="actions">' +
       (p.status !== 'restricted' ? '<button class="btn" data-act="sanction" data-mode="restricted" data-pid="' + esc(pid) + '">Restreindre</button>' : '') +
@@ -854,9 +859,9 @@ function tourPot(x){ return Number(x.entry_fee) * x.players.length + Number(x.pr
 function tournamentsHTML(){
   if (customId && S.customs && S.customs[customId]) return customDetailHTML(S.customs[customId]);
   if (tourId && S.tours && S.tours[tourId]) return tourDetailHTML(S.tours[tourId]);
-  var list = Object.keys(S.tours || {}).map(function(k){ return S.tours[k]; }).filter(function(x){ return x.status !== 'cancelled' || isOwner(); });
+  var list = Object.keys(S.tours || {}).map(function(k){ return S.tours[k]; }).filter(function(x){ return x.status !== 'cancelled' || canTourney(); });
   var html = '<section class="hero"><div><p class="eyebrow">Tournois</p><h1>Les tournois Legacy.</h1><p class="lead">Parties perso jusqu\'à 100 joueurs en Battle Royale ou Recharge, et tournois 1v1 à élimination directe.</p></div>' +
-    '</section>' + customsSectionHTML() + '<section class="cs-head"><div><p class="eyebrow">⚔️ Élimination directe</p><h2 class="sec">Tournois 1v1</h2></div>' + (isOwner() ? '<button class="btn primary" data-act="tour-new">+ Créer un tournoi 1v1</button>' : '') + '</section>';
+    '</section>' + customsSectionHTML() + '<section class="cs-head"><div><p class="eyebrow">⚔️ Élimination directe</p><h2 class="sec">Tournois 1v1</h2></div>' + (canTourney() ? '<button class="btn primary" data-act="tour-new">+ Créer un tournoi 1v1</button>' : '') + '</section>';
   if (!list.length) return html + '<div class="empty tour-empty"><b>🏆 Aucun tournoi 1v1 pour l\'instant</b>Les prochains tournois seront annoncés ici et sur le Discord. Reste connecté !' + (S.players && me() ? '<div style="margin-top:14px">' + dcBtn('Suivre les annonces sur le Discord') + '</div>' : '') + '</div>';
   var order = {registration: 0, running: 1, done: 2, cancelled: 3};
   list.sort(function(a, b){ return order[a.status] - order[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
@@ -890,8 +895,8 @@ function tourDetailHTML(x){
   // inscrits
   html += '<section class="panel"><h2>Joueurs inscrits (' + x.players.length + '/' + x.max_players + ')</h2>' + (x.players.length ? '<div class="tour-players">' + x.players.map(function(p){ return '<button class="tp" data-act="goto-player" data-pid="' + esc(p.player) + '">' + av(P(p.player), 'sm') + '<span>' + nm(P(p.player)) + '</span></button>'; }).join('') + '</div>' : '<p class="help">Personne pour l\'instant. Sois le premier !</p>') + '</section>';
   // fondateur
-  if (isOwner() && (x.status === 'registration' || x.status === 'running')) {
-    html += '<section class="adminbox"><p class="help"><b>Fondateur</b> : gestion du tournoi.' + (x.status === 'running' ? ' Clique sur le gagnant de chaque match dans l\'arbre pour le faire avancer.' : '') + '</p><div class="actions">' +
+  if (canTourney() && (x.status === 'registration' || x.status === 'running')) {
+    html += '<section class="adminbox"><p class="help"><b>Organisation</b> : gestion du tournoi.' + (x.status === 'running' ? ' Clique sur le gagnant de chaque match dans l\'arbre pour le faire avancer.' : '') + '</p><div class="actions">' +
       (x.status === 'registration' ? '<button class="btn primary" data-act="tour-start" data-id="' + id + '"' + (x.players.length < 2 ? ' disabled' : '') + '>Lancer le tournoi (tirage au sort)</button>' : '') +
       '<button class="btn danger" data-act="tour-cancel" data-id="' + id + '">Annuler et rembourser</button></div></section>';
   }
@@ -904,7 +909,7 @@ function bracketHTML(x){
   function slotHTML(m, pid){
     if (!pid) return '<div class="bp empty">' + (m.round === 1 ? 'Qualifié d\'office' : 'À déterminer') + '</div>';
     var win = m.winner === pid, lose = m.winner && m.winner !== pid;
-    var pick = isOwner() && x.status === 'running' && !m.winner && m.p1 && m.p2;
+    var pick = canTourney() && x.status === 'running' && !m.winner && m.p1 && m.p2;
     return '<div class="bp' + (win ? ' win' : '') + (lose ? ' lose' : '') + (pid === S.me ? ' me' : '') + '">' + av(P(pid), 'sm') + '<span>' + nm(P(pid)) + '</span>' +
       (pick ? '<button class="btn sm win" data-act="tour-win" data-id="' + esc(x.id) + '" data-round="' + m.round + '" data-slot="' + m.slot + '" data-pid="' + esc(pid) + '">Gagnant</button>' : win ? '<b class="bw">✓</b>' : '') + '</div>';
   }
@@ -946,11 +951,11 @@ function customTeams(x){
 }
 function customDate(x, long){ return x.starts_at ? new Date(x.starts_at).toLocaleString('fr-FR', long ? {weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'} : {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : ''; }
 function customsSectionHTML(){
-  var list = Object.keys(S.customs || {}).map(function(k){ return S.customs[k]; }).filter(function(x){ return x.status !== 'cancelled' || isOwner(); });
+  var list = Object.keys(S.customs || {}).map(function(k){ return S.customs[k]; }).filter(function(x){ return x.status !== 'cancelled' || canTourney(); });
   var order = {live: 0, registration: 1, done: 2, cancelled: 3};
   list.sort(function(a, b){ return order[a.status] - order[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
   var html = '<section class="cs-head"><div><p class="eyebrow">🎮 Parties perso</p><h2 class="sec">Battle Royale & Recharge</h2><p class="help">Des lobbys jusqu\'à 100 joueurs. Inscris-toi : le code de la partie perso t\'est envoyé au lancement.</p></div>' +
-    (isOwner() ? '<button class="btn primary" data-act="custom-new">+ Créer une partie perso</button>' : '') + '</section>';
+    (canTourney() ? '<button class="btn primary" data-act="custom-new">+ Créer une partie perso</button>' : '') + '</section>';
   if (!list.length) return html + '<div class="empty tour-empty"><b>🎮 Aucune partie perso prévue</b>Les prochaines seront annoncées ici et sur le Discord.</div>';
   return html + '<div class="tour-grid">' + list.map(customCardHTML).join('') + '</div>';
 }
@@ -974,7 +979,7 @@ function customDetailHTML(x){
     (x.starts_at ? '<div><b>' + customDate(x) + '</b><span>Début</span></div>' : '') +
     (x.map_name ? '<div><b>' + esc(x.map_name) + '</b><span>Map</span></div>' : '') + '</section>';
   // code de la partie perso
-  if (me0 || isOwner()) {
+  if (me0 || canTourney()) {
     if (x.code) html += '<section class="code-box"><p class="eyebrow">🎮 Code de la partie perso · partie ' + x.code.game_no + (x.games > 1 ? '/' + x.games : '') + '</p><div class="code-row"><b class="code-val">' + esc(x.code.code) + '</b><button class="btn primary" data-act="copy-code" data-code="' + esc(x.code.code) + '">Copier</button></div><p class="help">Dans Fortnite : <b>Partie personnalisée</b> → entre ce code → prêt. Envoyé ' + ago(Date.parse(x.code.sent_at)) + '.</p></section>';
     else if (me0) html += '<section class="code-box wait"><p class="eyebrow">🎮 Code de la partie perso</p><p>Le code apparaîtra ici et dans tes notifications 🔔 dès que le fondateur lance la partie.</p></section>';
   }
@@ -1001,9 +1006,9 @@ function customDetailHTML(x){
   else if (x.team_size > 1) html += '<div class="cust-teams">' + teams.map(function(t){ return '<div class="cust-team"><p><b>' + esc(t.tag || '—') + '</b> <span class="fr-tag' + (t.players.length >= x.team_size ? ' ok' : '') + '">' + t.players.length + '/' + x.team_size + '</span></p><div class="tour-players">' + t.players.map(function(pid){ return customPlayerHTML(x, pid); }).join('') + '</div></div>'; }).join('') + '</div>';
   else html += '<div class="tour-players">' + x.entries.map(function(e){ return customPlayerHTML(x, e.player); }).join('') + '</div>';
   html += '</section>';
-  // fondateur
-  if (isOwner()) {
-    html += '<section class="adminbox owner-panel"><h2>👑 Fondateur · gestion de la partie</h2>';
+  // organisation
+  if (canTourney()) {
+    html += '<section class="adminbox owner-panel"><h2>👑 Organisation · gestion de la partie</h2>';
     if (x.status !== 'done' && x.status !== 'cancelled') html += '<form data-form="custom-code" data-id="' + id + '" class="code-send" novalidate><label for="cc-code">Code de la partie perso' + (x.code ? ' (partie ' + (x.code.game_no + 1) + ')' : '') + '</label><div class="code-row"><input id="cc-code" name="code" maxlength="40" autocomplete="off" placeholder="Ex. LEGACY1234"><button class="btn primary" type="submit">📨 Envoyer aux ' + x.entries.length + ' inscrits</button></div><p class="err" role="alert"></p><p class="help">Chaque inscrit reçoit le code en notification et le voit sur cette page. Pour la partie suivante, envoie simplement le nouveau code.</p></form>';
     html += '<div class="actions">' +
       '<button class="btn" data-act="custom-edit" data-id="' + id + '">✏️ Modifier (mode, règles…)</button>' +
@@ -1017,7 +1022,7 @@ function customDetailHTML(x){
 }
 function customPlayerHTML(x, pid){
   return '<span class="tp-wrap"><button class="tp" data-act="goto-player" data-pid="' + esc(pid) + '">' + av(P(pid), 'sm') + '<span>' + nm(P(pid)) + (P(pid).fortnite ? ' <small>🎮 ' + esc(P(pid).fortnite) + '</small>' : '') + '</span></button>' +
-    (isOwner() ? '<button class="btn sm ghost" title="Retirer de la partie" data-act="custom-kick" data-id="' + esc(x.id) + '" data-pid="' + esc(pid) + '">✕</button>' : '') + '</span>';
+    (canTourney() ? '<button class="btn sm ghost" title="Retirer de la partie" data-act="custom-kick" data-id="' + esc(x.id) + '" data-pid="' + esc(pid) + '">✕</button>' : '') + '</span>';
 }
 function customDialog(cid){
   var x = cid && S.customs && S.customs[cid], g = x ? x.game : 'br';
@@ -1220,6 +1225,19 @@ function canJoinA(m){ if (!m.teamATeam) return true; var tm = S.teams && S.teams
 function myTeams(){ return Object.keys(S.teams || {}).map(function(k){ return S.teams[k]; }).filter(function(x){ return x.members.some(function(mb){ return mb.player === S.me && mb.status === 'accepted'; }); }).sort(function(a, b){ return a.name.localeCompare(b.name); }); }
 function teamInvites(){ return Object.keys(S.teams || {}).map(function(k){ return S.teams[k]; }).filter(function(x){ return x.members.some(function(mb){ return mb.player === S.me && mb.status === 'pending'; }); }); }
 function teamComplete(x){ return x.members.filter(function(mb){ return mb.status === 'accepted'; }).length >= x.size; }
+function tourBanRemain(until){ var ms = until - Date.now(); if (ms <= 0) return ''; var h = Math.floor(ms / 3.6e6), m = Math.ceil((ms % 3.6e6) / 6e4); return h > 0 ? h + ' h' + (m ? ' ' + (m < 10 ? '0' : '') + m : '') : m + ' min'; }
+function tourRestrictPanelHTML(){
+  var bans = Object.keys(S.tourBans || {}).filter(function(pid){ return S.tourBans[pid] > Date.now(); });
+  var opts = [[1,'1 heure'],[2,'2 heures'],[3,'3 heures'],[6,'6 heures'],[12,'12 heures'],[24,'1 jour'],[72,'3 jours'],[168,'7 jours']];
+  var dl = Object.keys(S.players).map(function(id){ return '<option value="' + esc(P(id).pseudo) + '">'; }).join('');
+  var html = '<section class="panel esport-panel"><h2>🎮 Restreindre des joueurs de tournoi</h2><p class="help">Empêche un joueur de s\'inscrire aux tournois et parties perso pendant la durée choisie. Le staff ne peut pas être restreint.</p>' +
+    '<form data-form="tour-restrict" novalidate><div class="row"><div><label for="tr-p">Joueur</label><input id="tr-p" name="pseudo" list="tr-players" autocomplete="off" required placeholder="Cherche un pseudo…"><datalist id="tr-players">' + dl + '</datalist></div>' +
+    '<div><label for="tr-h">Durée</label><select id="tr-h" name="hours">' + opts.map(function(o){ return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('') + '</select></div></div>' +
+    '<p class="err" role="alert"></p><div class="actions"><button class="btn danger" type="submit">Restreindre</button></div></form>';
+  if (bans.length) html += '<h3 style="margin:16px 0 8px">Restreints actuellement (' + bans.length + ')</h3><div class="esport-bans">' + bans.sort(function(a,b){ return S.tourBans[a] - S.tourBans[b]; }).map(function(pid){ return '<div class="eban"><button class="tp" data-act="goto-player" data-pid="' + esc(pid) + '">' + av(P(pid), 'sm') + '<span>' + nm(P(pid)) + '</span></button><span class="help">encore ' + tourBanRemain(S.tourBans[pid]) + '</span><button class="btn sm ghost" data-act="tour-unrestrict" data-pid="' + esc(pid) + '">Lever</button></div>'; }).join('') + '</div>';
+  else html += '<p class="help" style="margin-top:10px">Aucun joueur restreint pour l\'instant.</p>';
+  return html + '</section>';
+}
 function teamsSectionHTML(){
   var mine = myTeams(), inv = teamInvites();
   var html = '<section class="panel teams-panel"><h2>Mes équipes</h2><p class="help">Crée une équipe avec tes potes : quand tu lances un 2v2 ou un 3v3, tu choisis ton équipe et les places de ton côté lui sont réservées.</p>';
@@ -2022,6 +2040,7 @@ function act(name, el){
     case 'custom-status': { var cs = {live: 'Fermer les inscriptions ?', registration: 'Rouvrir les inscriptions ?', done: 'Terminer la partie perso ?', cancelled: 'Annuler la partie perso ?'}[d.s]; if (!confirm(cs)) break; doRpc('set_custom_status', {cid: d.id, p_status: d.s}, 'C\'est fait.'); break; }
     case 'copy-code': { var cc = d.code; try { navigator.clipboard.writeText(cc).then(function(){ toast('Code copié : ' + cc); }, function(){ toast('Code : ' + cc); }); } catch(e){ toast('Code : ' + cc); } break; }
     case 'goto-custom': customId = d.id; tourId = null; closeDialog(); location.hash = '#tournois'; render(); window.scrollTo(0, 0); break;
+    case 'tour-unrestrict': doRpc('tour_unrestrict', {p_player: d.pid}, 'Restriction levée.'); break;
     case 'tour-new': openDialog({kind: 'tour-new'}); break;
     case 'tour-join': { var tj = S.tours[d.id]; if (Number(tj.entry_fee) > 0 && !confirm('T\'inscrire pour ' + cn(tj.entry_fee) + ' ?')) break; doRpc('join_tournament', {tid: d.id}, 'Inscrit au tournoi ! Bonne chance.'); break; }
     case 'tour-leave': if (!confirm('Te désinscrire du tournoi ?')) break; doRpc('leave_tournament', {tid: d.id}, 'Tu t\'es désinscrit.'); break;
@@ -2274,6 +2293,13 @@ document.addEventListener('submit', function(e){
     rpc('admin_set_score', {mid: f.dataset.id, p_a: parseInt(d.a, 10), p_b: parseInt(d.b, 10)}).then(function(r){ if (!r.ok) return fail(r.msg); toast('Score mis à jour.'); render(); });
     return;
   }
+  if (kind === 'tour-restrict') {
+    var who = String(d.pseudo || '').trim().toLowerCase();
+    var hit = Object.keys(S.players).filter(function(id){ return P(id).pseudo.toLowerCase() === who; });
+    if (!hit.length) return fail('Joueur introuvable. Choisis un pseudo dans la liste.');
+    rpc('tour_restrict', {p_player: hit[0], p_hours: parseInt(d.hours, 10)}).then(function(r){ if (!r.ok) return fail(r.msg); toast('Joueur restreint de tournoi.'); render(); });
+    return;
+  }
   if (kind === 'custom-save') {
     var cp = {name: d.name, game: d.game, team_size: parseInt(d.team_size, 10), max_players: parseInt(d.max_players, 10), format: d.format, no_fight_top: d.format === 'ppstack' ? String(parseInt(d.no_fight_top, 10) || '') : '', games: parseInt(d.games, 10) || 1, rules: d.rules || '', prize: d.prize || '', map_name: d.map_name || '', map_code: d.map_code || '', starts_at: d.starts_at ? new Date(d.starts_at).toISOString() : ''};
     var cedit = f.dataset.id;
@@ -2441,6 +2467,7 @@ if (sb) {
       .on('postgres_changes', {event: '*', schema: 'public', table: 'customs'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'custom_entries'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'custom_codes'}, passiveRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'tour_bans'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'match_proofs'}, function(p){ var mid = (p.new && p.new.match_id) || (p.old && p.old.match_id); if (mid && proofsCache[mid]) { delete proofsCache[mid]; loadProofs(mid); } })
       .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'match_messages'}, function(p){
         var mid = p && p.new && p.new.match_id;
