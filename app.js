@@ -1115,14 +1115,16 @@ function customDialogChange(el){
 
 /* ---------- cadeau : bannière animée ORIONG Esport (pop-up au prochain lancement du site) ---------- */
 var OG_ITEM = 'banner:oriong', ogShowing = false, ogMem = {};
-function ogSeenKey(){ return 'lg_gift_seen_' + S.me; }
-function ogSeenGet(){ try { return JSON.parse(localStorage.getItem(ogSeenKey()) || '{}') || {}; } catch(e){ return {}; } }
-function ogSeenAdd(id){ ogMem[id] = 1; try { var s = ogSeenGet(); s[id] = 1; localStorage.setItem(ogSeenKey(), JSON.stringify(s)); } catch(e){} }
+function ogSeenKey(){ return 'lg_og_seen_v2_' + S.me; }
+function ogSeenGet(){ try { return localStorage.getItem(ogSeenKey()) === '1'; } catch(e){ return false; } }
+function ogSeenSet(){ ogMem[S.me] = 1; try { localStorage.setItem(ogSeenKey(), '1'); } catch(e){} }
 function ogCheckGift(){
-  if (ogShowing || !S.me || !S.notifs || !document.querySelector('header.top') || document.querySelector('.og-gift')) return;
-  var seen = ogSeenGet();
-  var n = (S.notifs || []).filter(function(x){ return x.kind === 'gift' && String(x.note || '').split('|')[0] === OG_ITEM && !seen[x.id] && !ogMem[x.id]; })[0];
-  if (n) ogShow(n);
+  if (ogShowing || !S.me || !S.players || !S.players[S.me] || !document.querySelector('header.top') || document.querySelector('.og-gift')) return;
+  var p = S.players[S.me];
+  if ((p.owned || []).indexOf(OG_ITEM) < 0) return;
+  if (ogMem[S.me] || ogSeenGet()) return;
+  if (p.eq && p.eq.banner === OG_ITEM) { ogSeenSet(); return; }   // déjà équipée : pas de pop-up
+  ogShow();
 }
 function ogGiftSVG(){
   return '<svg class="og-svg" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="ogg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a98bff"/><stop offset="1" stop-color="#4a35b8"/></linearGradient></defs>' +
@@ -1130,8 +1132,8 @@ function ogGiftSVG(){
     '<g class="og-lid"><rect x="14" y="38" width="92" height="20" rx="6" fill="#7b5df0"/><rect x="54" y="38" width="12" height="20" fill="#ffd76a"/>' +
     '<path d="M60 38 C44 12 22 22 36 34 C44 40 56 38 60 38 Z" fill="#ffd76a"/><path d="M60 38 C76 12 98 22 84 34 C76 40 64 38 60 38 Z" fill="#ffd76a"/></g></svg>';
 }
-function ogShow(n){
-  ogShowing = true; ogSeenAdd(n.id);
+function ogShow(){
+  ogShowing = true; ogSeenSet();
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, conf = '';
   for (var i = 0; i < 44; i++) {
     var a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 300;
