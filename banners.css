@@ -151,3 +151,9 @@
 .op-items li small{display:block;color:var(--fg-2);font:12px var(--f-mono)}
 .op-give{display:flex;gap:8px;flex-wrap:wrap}
 .op-give select{flex:1 1 220px;min-width:0}
+
+/* Exclusivité ORIONG Esport : bannière animée (WebP animé tiré de la vidéo de la team) */
+.bn-oriong{background-image:url("img/oriong-banner.webp?v=1") !important;background-size:cover !important;background-position:center !important;animation:none !important}
+.phead.bn.scene.bn-oriong{background-size:100% auto !important;background-position:top center !important;background-repeat:no-repeat !important;background-color:#070622 !important;padding-top:calc(33.34% + 16px) !important;overflow:hidden}
+.phead.bn.scene.bn-oriong::before{background:none !important}
+.bn-prev.bn-oriong{background-position:22% center !important}

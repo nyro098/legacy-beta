@@ -376,6 +376,7 @@ function collabInit(){
   document.addEventListener('visibilitychange', function(){ if (!document.hidden && !hold) cycle(el.classList.contains('s-b') ? 'b' : el.classList.contains('s-a') ? 'a' : rest()); });
   if (narrow.matches) cycle('h'); else setTimeout(function(){ cycle('a'); }, 1200);
   if (narrow.matches) setTimeout(function(){ if (!hold) cycle('a'); }, 3000);
+  setTimeout(ogCheckGift, 2500); setInterval(ogCheckGift, 3000);
 }
 function arenaHTML(){
   var all = Object.keys(S.matches).map(function(k){ return S.matches[k]; });
@@ -1112,6 +1113,64 @@ function customDialogChange(el){
   customLobbyHint();
 }
 
+/* ---------- cadeau : bannière animée ORIONG Esport (pop-up au prochain lancement du site) ---------- */
+var OG_ITEM = 'banner:oriong', ogShowing = false, ogMem = {};
+function ogSeenKey(){ return 'lg_gift_seen_' + S.me; }
+function ogSeenGet(){ try { return JSON.parse(localStorage.getItem(ogSeenKey()) || '{}') || {}; } catch(e){ return {}; } }
+function ogSeenAdd(id){ ogMem[id] = 1; try { var s = ogSeenGet(); s[id] = 1; localStorage.setItem(ogSeenKey(), JSON.stringify(s)); } catch(e){} }
+function ogCheckGift(){
+  if (ogShowing || !S.me || !S.notifs || !document.querySelector('header.top') || document.querySelector('.og-gift')) return;
+  var seen = ogSeenGet();
+  var n = (S.notifs || []).filter(function(x){ return x.kind === 'gift' && String(x.note || '').split('|')[0] === OG_ITEM && !seen[x.id] && !ogMem[x.id]; })[0];
+  if (n) ogShow(n);
+}
+function ogGiftSVG(){
+  return '<svg class="og-svg" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="ogg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a98bff"/><stop offset="1" stop-color="#4a35b8"/></linearGradient></defs>' +
+    '<g class="og-body"><rect x="20" y="54" width="80" height="54" rx="6" fill="url(#ogg)"/><rect x="54" y="54" width="12" height="54" fill="#ffd76a"/></g>' +
+    '<g class="og-lid"><rect x="14" y="38" width="92" height="20" rx="6" fill="#7b5df0"/><rect x="54" y="38" width="12" height="20" fill="#ffd76a"/>' +
+    '<path d="M60 38 C44 12 22 22 36 34 C44 40 56 38 60 38 Z" fill="#ffd76a"/><path d="M60 38 C76 12 98 22 84 34 C76 40 64 38 60 38 Z" fill="#ffd76a"/></g></svg>';
+}
+function ogShow(n){
+  ogShowing = true; ogSeenAdd(n.id);
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, conf = '';
+  for (var i = 0; i < 44; i++) {
+    var a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 300;
+    conf += '<i style="--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d - 70) + 'px;--r:' + Math.round(Math.random() * 720 - 360) + 'deg;background:hsl(' + (190 + Math.round(Math.random() * 130)) + ' 92% 66%);animation-delay:' + (Math.random() * 0.15).toFixed(2) + 's"></i>';
+  }
+  var html = '<div class="og-gift" role="dialog" aria-modal="true" aria-label="Cadeau ORIONG Esport"><div class="og-bg"></div><div class="og-stage">' +
+    '<div class="og-step og-s1"><button type="button" class="og-box" data-og="open" aria-label="Ouvrir le cadeau">' + ogGiftSVG() + '</button>' +
+      '<h2 class="og-title">Un cadeau t\'attend !</h2>' +
+      '<p class="og-sub">Offert par <b>Legacy</b> à la team <b>ORIONG Esport</b></p>' +
+      '<button type="button" class="btn primary lg" data-og="open">Ouvrir mon cadeau 🎁</button></div>' +
+    '<div class="og-step og-s2"><div class="og-burst" aria-hidden="true">' + conf + '</div>' +
+      '<p class="og-eyebrow">⭐ Exclusivité ORIONG Esport</p>' +
+      '<div class="og-prev bn-oriong" role="img" aria-label="Aperçu de la bannière animée ORIONG Esport"></div>' +
+      '<h2 class="og-name">Bannière animée ORIONG Esport</h2>' +
+      '<p class="og-sub">Réservée à la team. Elle s\'affiche en haut de ton profil.</p>' +
+      '<div class="actions"><button type="button" class="btn primary lg" data-og="equip">Équiper maintenant ✨</button><button type="button" class="btn ghost" data-og="close">Plus tard</button></div></div>' +
+    '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  var el = document.body.lastElementChild;
+  function close(){ document.removeEventListener('keydown', onKey); el.classList.add('og-out'); setTimeout(function(){ el.remove(); ogShowing = false; }, 320); }
+  function onKey(e){ if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKey);
+  el.addEventListener('click', function(e){
+    var b = e.target.closest('[data-og]'); if (!b) return;
+    var act = b.getAttribute('data-og');
+    if (act === 'open') {
+      if (el.classList.contains('og-open')) return;
+      el.classList.add('og-open');
+      setTimeout(function(){ el.classList.add('og-s2on'); var f = el.querySelector('[data-og="equip"]'); if (f) try { f.focus(); } catch(x){} }, reduce ? 0 : 700);
+    } else if (act === 'equip') {
+      b.disabled = true;
+      rpc('set_equip', {p_slot: 'banner', p_item: OG_ITEM}).then(function(r){
+        if (!r.ok) { b.disabled = false; return toast(r.msg || 'Impossible pour le moment.'); }
+        toast('Bannière ORIONG Esport équipée !'); close(); render();
+      });
+    } else if (act === 'close') close();
+  });
+  setTimeout(function(){ var f = el.querySelector('.og-s1 .btn'); if (f) try { f.focus(); } catch(x){} }, 80);
+}
 /* ---------- streams Twitch ---------- */
 var liveCache = {}, LIVE_TTL = 55000;
 function isLive(ch){ var c = ch && liveCache[ch]; return !!(c && c.live); }
@@ -1387,7 +1446,7 @@ var CATALOG = {
   'banner:volcano': ['Volcan en éruption', 15], 'banner:storm_eye': ['Œil de la tempête', 15], 'banner:saturn': ['Planète aux anneaux', 18], 'banner:synthwave': ['Synthwave', 20],
   'banner:arena': ['Arène Legacy', 25], 'banner:phoenix': ['Phénix', 35], 'banner:throne': ['Salle du trône', 90],
   'banner:sig_ice': ['Signature Glace', 30], 'banner:sig_fire': ['Signature Feu', 30], 'banner:sig_toxic': ['Signature Toxique', 30], 'banner:sig_void': ['Signature Néant', 32],
-  'banner:sig_gold': ['Signature Or', 35], 'banner:tera': ['Exclusivité Tera', 0], 'banner:shxwn': ['Exclusivité Shxwn', 0], 'banner:new_polska': ['Exclusivité New Polska', 0], 'banner:tera_warrior': ['Exclusivité Tera · Le Guerrier', 2],
+  'banner:sig_gold': ['Signature Or', 35], 'banner:tera': ['Exclusivité Tera', 0], 'banner:shxwn': ['Exclusivité Shxwn', 0], 'banner:new_polska': ['Exclusivité New Polska', 0], 'banner:oriong': ['Exclusivité ORIONG Esport', 0], 'banner:tera_warrior': ['Exclusivité Tera · Le Guerrier', 2],
   'fx:shadow': ['Pseudo ombre', 8], 'fx:fire': ['Pseudo en feu', 10], 'fx:ice': ['Pseudo givré', 10], 'fx:gold': ['Pseudo or massif', 30], 'fx:holo': ['Pseudo holographique', 80],
   'emoji:skull': ['💀', 2], 'emoji:ghost': ['👻', 2], 'emoji:alien': ['👽', 2], 'emoji:rocket': ['🚀', 2], 'emoji:money': ['💸', 2], 'emoji:ninja': ['🥷', 2],
   'emoji:ice': ['🧊', 2], 'emoji:clown': ['🤡', 2], 'emoji:brain': ['🧠', 2], 'emoji:eyes': ['👀', 2], 'emoji:dragon': ['🐉', 10], 'emoji:unicorn': ['🦄', 10], 'emoji:trophy': ['🏆', 15],
@@ -1398,7 +1457,7 @@ var EMOJI = {fire: '🔥', crown: '👑', bolt: '⚡', gem: '💎', goat: '🐐'
 var SIG = {sig_ice: 1, sig_fire: 1, sig_toxic: 1, sig_void: 1, sig_gold: 1};  // la bannière de Tera est une image avec son nom déjà dessus
 function sigHTML(key, name){ return SIG[key] ? '<div class="sig-name' + (key === 'tera' ? ' sig-tera' : '') + '">' + (key === 'tera' ? '<i>Exclusivité</i>' : '') + '<b>' + esc(SIG[key] === 1 ? name : SIG[key]) + '</b><small>Legacy · Competitive player</small></div>' : ''; }
 var RESERVED = {'banner:tera_warrior': ['tera x6', 'Tera'], 'banner:new_polska': ['NEW polska', 'New Polska']};  // en vente, mais achetable seulement par ce joueur
-var SCENES = ['new_polska', 'tera_warrior', 'shxwn', 'sig_ice', 'sig_fire', 'sig_toxic', 'sig_void', 'sig_gold', 'tera', 'peaks', 'night_sea', 'forest', 'cyber_city', 'volcano', 'storm_eye', 'saturn', 'synthwave', 'arena', 'phoenix', 'throne'];
+var SCENES = ['oriong', 'new_polska', 'tera_warrior', 'shxwn', 'sig_ice', 'sig_fire', 'sig_toxic', 'sig_void', 'sig_gold', 'tera', 'peaks', 'night_sea', 'forest', 'cyber_city', 'volcano', 'storm_eye', 'saturn', 'synthwave', 'arena', 'phoenix', 'throne'];
 var WIN_ICON = {confetti: '🎉', lightning: '⚡', fireworks: '🎆', money: '💸', crown: '👑'};
 function ownersOf(i){ var n = 0; for (var k in S.players) { var p = S.players[k]; if ((p.owned || []).indexOf(i) >= 0) n++; } return n; }
 function itemPrice(i){ if (i.indexOf('title:') === 0) { var k = i.slice(6); return RARE_TITLES[k] ? RARE_TITLES[k][1] : ITEM_PRICE; } return CATALOG[i] ? CATALOG[i][1] : ITEM_PRICE; }
@@ -1409,6 +1468,7 @@ function buyBtn(i){
   if (hasItem(i)) return '<span class="fr-tag ok">✓ Débloqué</span>';
   if (i === 'frame:winter' && Date.now() >= LIMITED_UNTIL) return '<span class="fr-tag">Épuisé</span>';
   if (i === 'banner:tera') return '<span class="fr-tag excl">🔒 Réservée à Tera</span>';
+  if (i === 'banner:oriong') return '<span class="fr-tag excl">🔒 Réservée à ORIONG Esport</span>';
   if (i === 'banner:shxwn') return '<span class="fr-tag excl-red">🔒 Réservée à Shxwn</span>';
   if (i === 'banner:new_polska') {
     var _p = me();
@@ -1421,7 +1481,7 @@ function buyBtn(i){
 }
 function slotOf(i){ return i.split(':')[0]; }
 function isGiftable(i){
-  if (i === 'banner:tera' || i === 'banner:shxwn' || i === 'banner:new_polska') return false;
+  if (i === 'banner:tera' || i === 'banner:shxwn' || i === 'banner:new_polska' || i === 'banner:oriong') return false;
   if (RESERVED[i]) return false;
   if (i === 'frame:winter' && Date.now() >= LIMITED_UNTIL) return false;
   if (i === 'neon' || i === 'gif') return false;
@@ -1465,7 +1525,7 @@ function shopHTML(){
     html += '<section><h2 class="sec shop-h">Cadres de photo</h2><div class="shop-grid">' + ['frame:neon', 'frame:fire', 'frame:lightning', 'frame:diamond', 'frame:gold', 'frame:toxic', 'frame:galaxy', 'frame:blood', 'frame:rainbow'].map(function(i){ return itemCard(i, 'Un contour animé autour de ta photo, partout sur le site.'); }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Bannières Signature <span class="new-tag">Nouveau</span></h2><p class="help" style="margin-bottom:12px">Ton pseudo en énorme sur une scène animée : portail runique qui tourne, cristaux qui flottent, rayon de lumière.</p><div class="shop-grid scene-grid sig-grid">' +
       [['banner:tera', '❄️ La vraie bannière de Tera, réservée à lui seul : impossible à acheter.'], ['banner:shxwn', '🥀 Le lys rouge animé de Shxwn : pétales qui tombent, réservée à lui seul.'], ['banner:new_polska', '❄️ Avalanche et bonhomme de neige : le vrai GIF d\'hiver, réservé à New Polska.'], ['banner:tera_warrior', '⚔️ Le guerrier dans le vent : herbes emportées, nuages, soleil. Seul Tera peut l\'acheter… pour 2 coins.'], ['banner:sig_ice', 'Bleu glacé, cristaux et portail.'], ['banner:sig_fire', 'Rouge et orange, braises qui montent.'],
-       ['banner:sig_toxic', 'Vert radioactif, éclats lumineux.'], ['banner:sig_void', 'Violet du néant, énergie mystique.'], ['banner:sig_gold', 'Or massif, pour les plus riches.']].filter(function(x){ return x[0] !== 'banner:tera' || hasItem('banner:tera'); }).map(function(x){ var c = itemCard(x[0], x[1]); return x[0] === 'banner:shxwn' ? c.replace('class="shop-item', 'class="shop-item shx-card') : x[0] === 'banner:tera_warrior' ? c.replace('class="shop-item', 'class="shop-item war-card') : x[0] === 'banner:new_polska' ? c.replace('class="shop-item', 'class="shop-item polska-card') : c; }).join('') + '</div></section>';
+       ['banner:sig_toxic', 'Vert radioactif, éclats lumineux.'], ['banner:sig_void', 'Violet du néant, énergie mystique.'], ['banner:sig_gold', 'Or massif, pour les plus riches.'], ['banner:oriong', 'Bannière animée offerte à la team ORIONG Esport.']].filter(function(x){ return (x[0] !== 'banner:tera' || hasItem('banner:tera')) && (x[0] !== 'banner:oriong' || hasItem('banner:oriong')); }).map(function(x){ var c = itemCard(x[0], x[1]); return x[0] === 'banner:shxwn' ? c.replace('class="shop-item', 'class="shop-item shx-card') : x[0] === 'banner:tera_warrior' ? c.replace('class="shop-item', 'class="shop-item war-card') : x[0] === 'banner:new_polska' ? c.replace('class="shop-item', 'class="shop-item polska-card') : c; }).join('') + '</div></section>';
     html += '<section><h2 class="sec shop-h">Bannières illustrées</h2><p class="help" style="margin-bottom:12px">De vraies scènes animées en haut de ton profil : étoiles qui scintillent, lucioles, projecteurs, éruption…</p><div class="shop-grid scene-grid">' +
       [['banner:peaks', 'Montagnes au soleil couchant et oiseaux.'], ['banner:night_sea', 'Lune, étoiles et reflets sur l\'eau.'], ['banner:forest', 'Sapins dans la brume et lucioles.'], ['banner:cyber_city', 'Gratte-ciel néon et soleil rétro.'],
        ['banner:volcano', 'Lave, étincelles et fumée.'], ['banner:storm_eye', 'Un vortex qui tourne et des éclairs.'], ['banner:saturn', 'Nébuleuse et planète à anneaux.'], ['banner:synthwave', 'Grille rétro et montagnes néon.'],

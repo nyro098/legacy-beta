@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794526371">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794527119">
 </head><body>
 <title>Legacy · Défis Fortnite gratuits (bêta)</title><link rel="icon" type="image/svg+xml" href="logo.svg"><meta name="description" content="Legacy : défis Fortnite entre joueurs, 100 % gratuits. Lance un 1v1, 2v2 ou 3v3, mise des coins sans valeur réelle et grimpe au classement."><meta property="og:title" content="Legacy · Défis Fortnite gratuits"><meta property="og:description" content="Défis Fortnite entre joueurs, 100 % gratuits. Coins sans valeur réelle, classement, chat de match."><meta property="og:image" content="https://nyro098.github.io/legacy-beta/logo.svg"><link rel="canonical" href="https://nyro098.github.io/legacy-beta/">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -831,6 +831,36 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 @media (max-width:1799px){.cfl{width:56px;height:72px;margin-top:-36px}.cfl-face{padding:0 0 0 10px;justify-content:center;gap:6px;border-radius:0 28px 28px 0}.cfl-t,.cfl-new,.cfl-b a span{display:none}.cfl-b{flex-direction:column}.cfl-b a{width:32px;height:32px;padding:0;justify-content:center}.cfl-handle{width:12px}}
 @media (max-width:1250px){.cfl{width:44px;height:66px;margin-top:-33px}.cfl-face{border-radius:0 22px 22px 0;padding-left:8px}.cfl-logo{width:30px;height:30px}.cfl-b a{width:28px;height:28px}.cfl-b a svg{width:14px;height:14px}.cfl-handle{width:10px}}
 @media (prefers-reduced-motion:reduce){.cfl .cfl-a,.cfl .cfl-b{transform:none!important;visibility:visible!important;opacity:0;transition:opacity .8s ease!important}.cfl.s-a .cfl-a,.cfl.s-b .cfl-b{opacity:1}.cfl:not(.s-a) .cfl-a,.cfl:not(.s-b) .cfl-b{pointer-events:none}.cfl .cfl-face::after{display:none}.cfl .cfl-w{clip-path:none!important}.cfl .cfl-b .cfl-t small,.cfl .cfl-b a{opacity:1!important;transform:none!important;transition:none!important}.cfl-logo video{display:none}}
+/* pop-up cadeau ORIONG Esport */
+.og-gift{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;animation:ogIn .35s ease both}
+.og-gift.og-out{opacity:0;transition:opacity .3s}
+@keyframes ogIn{from{opacity:0}to{opacity:1}}
+.og-bg{position:fixed;inset:0;background:radial-gradient(circle at 50% 42%,rgba(116,87,230,.6),rgba(4,5,26,.95) 62%)}
+.og-stage{position:relative;width:100%;max-width:580px;text-align:center;margin:auto}
+.og-step{flex-direction:column;align-items:center;gap:12px}
+.og-s1{display:flex}.og-s2{display:none;position:relative}
+.og-gift.og-s2on .og-s1{display:none}
+.og-gift.og-s2on .og-s2{display:flex;animation:ogPop .55s cubic-bezier(.2,1.3,.4,1) both}
+@keyframes ogPop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+.og-box{background:none;border:0;cursor:pointer;width:min(58vw,210px);height:min(58vw,210px);padding:0;filter:drop-shadow(0 0 36px rgba(155,123,255,.95));animation:ogBob 2.4s ease-in-out infinite}
+.og-box:focus-visible{outline:3px solid #fff;outline-offset:6px;border-radius:24px}
+.og-svg{width:100%;height:100%;overflow:visible}
+.og-lid{transform-origin:60px 46px;transition:transform .6s cubic-bezier(.3,1.5,.5,1)}
+.og-gift.og-open .og-lid{transform:translateY(-36px) rotate(-20deg)}
+.og-gift.og-open .og-box{animation:ogShake .55s ease}
+@keyframes ogBob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-14px) rotate(2deg)}}
+@keyframes ogShake{0%,100%{transform:rotate(0)}20%{transform:rotate(-7deg)}40%{transform:rotate(7deg)}60%{transform:rotate(-5deg)}80%{transform:rotate(5deg)}}
+.og-gift .btn.lg{flex:0 0 auto}
+.og-gift .actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:6px}
+.og-title{font:900 clamp(32px,7vw,52px)/1 var(--f-display);text-transform:uppercase;color:#fff;text-shadow:0 0 24px rgba(155,123,255,.95)}
+.og-name{font:900 clamp(24px,5vw,34px)/1.05 var(--f-display);text-transform:uppercase;color:#fff;text-shadow:0 0 18px rgba(155,123,255,.8)}
+.og-sub{color:#d6d0f7;max-width:44ch}
+.og-eyebrow{font:800 12px var(--f-body);letter-spacing:.2em;text-transform:uppercase;color:#bfc9ff}
+.og-prev{width:min(88vw,540px);aspect-ratio:3/1;border-radius:16px;border:1px solid rgba(190,200,255,.5);box-shadow:0 0 42px rgba(110,130,255,.6)}
+.og-burst{position:absolute;left:50%;top:34%;width:0;height:0;pointer-events:none}
+.og-burst i{position:absolute;width:9px;height:14px;border-radius:2px;opacity:0;animation:ogConf 1.7s ease-out forwards}
+@keyframes ogConf{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--r))}}
+@media (prefers-reduced-motion:reduce){.og-gift,.og-box,.og-s2,.og-burst i{animation:none!important}.og-burst{display:none}.og-lid{transition:none}}
 .pp-rule{padding:10px 14px;border-radius:12px;border:1px solid rgba(255,201,60,.5);background:rgba(255,201,60,.08);margin-bottom:10px}
 .cust-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
 .cust-team{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
@@ -856,6 +886,6 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1794526371"></script>
-<script src="app.js?v=1794526371"></script>
+<script src="config.js?v=1794527119"></script>
+<script src="app.js?v=1794527119"></script>
 </body></html>
