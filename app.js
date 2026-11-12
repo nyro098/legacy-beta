@@ -961,7 +961,7 @@ function customCardHTML(x){
     '<h3>' + esc(x.name) + '</h3>' +
     '<div class="cust-chips"><span class="cchip g-' + x.game + '">' + CGAME[x.game] + '</span><span class="cchip">' + CTEAM[x.team_size] + '</span>' + (x.format === 'ppstack' ? '<span class="cchip pp">PP Stack' + (x.no_fight_top ? ' · top ' + x.no_fight_top : '') + '</span>' : '') + (x.games > 1 ? '<span class="cchip">' + x.games + ' parties</span>' : '') + '</div>' +
     '<div class="cust-bar"><i style="width:' + pct + '%"></i></div><p class="help"><b>' + x.entries.length + '/' + x.max_players + '</b> joueurs' + (x.team_size > 1 ? ' · ' + customTeams(x).length + (customTeams(x).length > 1 ? ' équipes' : ' équipe') : '') + '</p>' +
-    (x.starts_at ? '<p class="help">📅 ' + customDate(x, true) + '</p>' : '') + (x.prize ? '<p class="help">🏆 ' + esc(x.prize) + '</p>' : '') + '</article>';
+    (x.starts_at ? '<p class="help">📅 ' + customDate(x, true) + '</p>' : '') + (x.map_name ? '<p class="help">🗺️ ' + esc(x.map_name) + '</p>' : '') + (x.prize ? '<p class="help">🏆 ' + esc(x.prize.split('\n')[0]) + (x.prize.indexOf('\n') > -1 ? ' …' : '') + '</p>' : '') + '</article>';
 }
 function customDetailHTML(x){
   var st = CSTATUS[x.status], id = esc(x.id), me0 = x.entries.find(function(e){ return e.player === S.me; }), full = x.entries.length >= x.max_players, teams = customTeams(x);
@@ -972,12 +972,15 @@ function customDetailHTML(x){
     '<div><b>' + (x.format === 'ppstack' ? 'PP Stack' : 'Classique') + '</b><span>' + (x.format === 'ppstack' ? (x.no_fight_top ? 'Pas de fight avant le top ' + x.no_fight_top : 'Type Noble') : 'Type de partie') + '</span></div>' +
     '<div><b>' + x.games + '</b><span>Partie' + (x.games > 1 ? 's' : '') + '</span></div>' +
     (x.starts_at ? '<div><b>' + customDate(x) + '</b><span>Début</span></div>' : '') +
-    (x.prize ? '<div><b class="gold">' + esc(x.prize) + '</b><span>Récompense</span></div>' : '') + '</section>';
+    (x.map_name ? '<div><b>' + esc(x.map_name) + '</b><span>Map</span></div>' : '') + '</section>';
   // code de la partie perso
   if (me0 || isOwner()) {
     if (x.code) html += '<section class="code-box"><p class="eyebrow">🎮 Code de la partie perso · partie ' + x.code.game_no + (x.games > 1 ? '/' + x.games : '') + '</p><div class="code-row"><b class="code-val">' + esc(x.code.code) + '</b><button class="btn primary" data-act="copy-code" data-code="' + esc(x.code.code) + '">Copier</button></div><p class="help">Dans Fortnite : <b>Partie personnalisée</b> → entre ce code → prêt. Envoyé ' + ago(Date.parse(x.code.sent_at)) + '.</p></section>';
     else if (me0) html += '<section class="code-box wait"><p class="eyebrow">🎮 Code de la partie perso</p><p>Le code apparaîtra ici et dans tes notifications 🔔 dès que le fondateur lance la partie.</p></section>';
   }
+  // map + récompenses
+  if (x.map_code) html += '<section class="map-box"><p class="eyebrow">🗺️ Map' + (x.map_name ? ' · ' + esc(x.map_name) : '') + '</p><div class="code-row"><b class="map-val">' + esc(x.map_code) + '</b><button class="btn" data-act="copy-code" data-code="' + esc(x.map_code) + '">Copier</button></div><p class="help">Code de l\'île à entrer dans Fortnite (Découvrir → recherche).</p></section>';
+  if (x.prize) html += '<section class="panel prize-panel"><h2>🏆 Récompenses</h2><p>' + esc(x.prize) + '</p></section>';
   if (x.rules || x.format === 'ppstack') html += '<section class="panel"><h2>Règles</h2>' + (x.format === 'ppstack' ? '<p class="pp-rule">⚠️ <b>PP Stack (type Noble)</b>' + (x.no_fight_top ? ' : interdiction de se tirer dessus avant le <b>top ' + x.no_fight_top + '</b>.' : '.') + '</p>' : '') + (x.rules ? '<p style="white-space:pre-wrap">' + esc(x.rules) + '</p>' : '') + '</section>';
   // inscription
   if (x.status === 'registration' || me0) {
@@ -1033,8 +1036,11 @@ function customDialog(cid){
     '<p class="hint" id="c-lobby"></p>' +
     '<div class="row"><div><label for="c-format">Type de partie</label><select id="c-format" name="format"><option value="classic"' + (fm === 'classic' ? ' selected' : '') + '>Classique</option><option value="ppstack"' + (fm === 'ppstack' ? ' selected' : '') + '>PP Stack (type Noble)</option></select></div>' +
     '<div id="c-nofight-wrap"' + (fm === 'ppstack' ? '' : ' hidden') + '><label for="c-nofight">Pas de fight avant le top…</label><input id="c-nofight" name="no_fight_top" type="number" inputmode="numeric" min="2" max="100" value="' + (x && x.no_fight_top ? x.no_fight_top : 80) + '"></div></div>' +
-    '<div class="row"><div><label for="c-start">Début</label><input id="c-start" name="starts_at" type="datetime-local" value="' + local + '"></div>' +
-    '<div><label for="c-prize">Récompense (facultatif)</label><input id="c-prize" name="prize" maxlength="200" value="' + (x ? esc(x.prize) : '') + '" placeholder="Ex. 50 coins au top 1"></div></div>' +
+    '<label for="c-start">Début</label><input id="c-start" name="starts_at" type="datetime-local" value="' + local + '">' +
+    '<div class="row"><div><label for="c-map">Map</label><input id="c-map" name="map_name" maxlength="60" value="' + (x ? esc(x.map_name || '') : '') + '" placeholder="Ex. Map Noble, Battle Royale…"></div>' +
+    '<div><label for="c-mapcode">Code de la map</label><input id="c-mapcode" name="map_code" maxlength="40" autocomplete="off" spellcheck="false" value="' + (x ? esc(x.map_code || '') : '') + '" placeholder="Ex. 1234-5678-9012"></div></div>' +
+    '<p class="hint">Facultatif. La map et son code s\'affichent pour tout le monde sur la page de la partie.</p>' +
+    '<label for="c-prize">Récompenses (texte libre, facultatif)</label><textarea id="c-prize" name="prize" maxlength="500" rows="3" placeholder="Ex. Top 1 : 50 coins + 1000 V-Bucks&#10;Top 2 : 20 coins">' + (x ? esc(x.prize || '') : '') + '</textarea>' +
     '<label for="c-rules">Règles</label><textarea id="c-rules" name="rules" maxlength="3000" rows="7">' + esc(rulesDefault) + '</textarea>' +
     '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">' + (x ? 'Enregistrer' : 'Créer la partie perso') + '</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
 }
@@ -2269,7 +2275,7 @@ document.addEventListener('submit', function(e){
     return;
   }
   if (kind === 'custom-save') {
-    var cp = {name: d.name, game: d.game, team_size: parseInt(d.team_size, 10), max_players: parseInt(d.max_players, 10), format: d.format, no_fight_top: d.format === 'ppstack' ? String(parseInt(d.no_fight_top, 10) || '') : '', games: parseInt(d.games, 10) || 1, rules: d.rules || '', prize: d.prize || '', starts_at: d.starts_at ? new Date(d.starts_at).toISOString() : ''};
+    var cp = {name: d.name, game: d.game, team_size: parseInt(d.team_size, 10), max_players: parseInt(d.max_players, 10), format: d.format, no_fight_top: d.format === 'ppstack' ? String(parseInt(d.no_fight_top, 10) || '') : '', games: parseInt(d.games, 10) || 1, rules: d.rules || '', prize: d.prize || '', map_name: d.map_name || '', map_code: d.map_code || '', starts_at: d.starts_at ? new Date(d.starts_at).toISOString() : ''};
     var cedit = f.dataset.id;
     rpc(cedit ? 'update_custom' : 'create_custom', cedit ? {cid: cedit, p: cp} : {p: cp}).then(function(r){
       if (!r.ok) return fail(r.msg);
