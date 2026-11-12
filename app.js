@@ -328,7 +328,7 @@ function posterHTML(m, big){
   return '<article class="poster" data-open="' + id + '" tabindex="0" role="button" aria-label="' + esc(m.mode + ' ' + m.format + ' : équipe de ' + a.pseudo + ', mise ' + cn(m.stake)) + '">' + top + face + pot + '<div class="p-foot">' + f + '</div></article>';
 }
 
-function betaBar(){ return '<div class="betabar"><b>LEGACY BÊTA</b> · Version de test : les coins n\'ont aucune valeur réelle et les données peuvent être remises à zéro.</div>'; }
+function betaBar(){ return '<div class="betabar"><b>LEGACY BÊTA</b> · Version de test : les coins n\'ont aucune valeur réelle et les données peuvent être remises à zéro.</div>' + collabStripHTML(); }
 
 function headerHTML(v){
   var p = me(), bal = avail(p.id), lk = locked(p.id);
@@ -349,11 +349,13 @@ function headerHTML(v){
 function footerHTML(){ return '<footer class="foot"><div class="wrap"><span><a href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer">Serveur Discord Legacy</a> · Legacy bêta · les coins n\'ont aucune valeur réelle, pas d\'achat ni de retrait.</span><span><a href="confidentialite.html">Confidentialité</a> · Non affilié à Epic Games.</span></div></footer>'; }
 
 var ORIONG_DISCORD = 'https://discord.gg/5D4Yp7ns4', ORIONG_TIKTOK = 'https://www.tiktok.com/@ppysildur';
-function collabBadgeHTML(){
-  return '<div class="collab" role="note" aria-label="Legacy en collaboration avec ORIONG Esport"><span class="cb-logo"><img src="img/oriong-logo.webp" alt="" width="44" height="44" decoding="async"><video autoplay muted loop playsinline preload="metadata" poster="img/oriong-logo.webp" src="img/oriong-logo.mp4" aria-hidden="true" tabindex="-1"></video></span>' +
-    '<span class="cb-txt"><small>En collab avec</small><b>ORIONG <em>Esport</em></b></span><span class="cb-new">Nouvelle team</span>' +
-    '<span class="cb-links"><a href="' + ORIONG_DISCORD + '" target="_blank" rel="noopener noreferrer" title="Discord ORIONG Esport" aria-label="Discord ORIONG Esport">' + DC_ICON + '</a>' +
-    '<a href="' + ORIONG_TIKTOK + '" target="_blank" rel="noopener noreferrer" title="TikTok ORIONG Esport" aria-label="TikTok ORIONG Esport"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/></svg></a></span></div>';
+function collabStripHTML(){
+  return '<div class="collab-strip"><div class="cf-wrap"><div class="cf">' +
+    '<div class="cface cf-a"><img src="img/oriong-logo.webp" alt="" width="22" height="22" decoding="async"><span class="cf-t"><small>En collab avec</small> <b>ORIONG <em>Esport</em></b></span><i class="cf-new">Nouvelle team</i></div>' +
+    '<div class="cface cf-b"><span class="cf-t"><small>Rejoins</small> <b>ORIONG <em>Esport</em></b></span>' +
+    '<a href="' + ORIONG_DISCORD + '" target="_blank" rel="noopener noreferrer" aria-label="Discord ORIONG Esport">' + DC_ICON + '<span>Discord</span></a>' +
+    '<a href="' + ORIONG_TIKTOK + '" target="_blank" rel="noopener noreferrer" aria-label="TikTok ORIONG Esport"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/></svg><span>TikTok</span></a></div>' +
+    '</div></div></div>';
 }
 function arenaHTML(){
   var all = Object.keys(S.matches).map(function(k){ return S.matches[k]; });
@@ -363,7 +365,7 @@ function arenaHTML(){
   var doneM = all.filter(function(m){ return m.status === 'done'; }).sort(function(a, b){ return b.finishedAt - a.finishedAt; }).slice(0, 12);
   var list = tab === 'mes' ? mineM : tab === 'termines' ? doneM : open;
   var played = all.filter(function(m){ return m.status === 'done'; }).length;
-  var html = '<section class="hero"><div>' + collabBadgeHTML() + '<p class="eyebrow">Fortnite · défis à mise</p><h1>Mets tes coins en jeu.</h1><p class="lead">Du 1v1 au 3v3 : lance un défi, mise des coins, et empoche la mise des perdants. Tout le monde démarre avec ' + cn(START) + '.</p></div>' +
+  var html = '<section class="hero"><div><p class="eyebrow">Fortnite · défis à mise</p><h1>Mets tes coins en jeu.</h1><p class="lead">Du 1v1 au 3v3 : lance un défi, mise des coins, et empoche la mise des perdants. Tout le monde démarre avec ' + cn(START) + '.</p></div>' +
     '<button class="btn primary" data-act="new-match">Lancer un défi</button></section>';
   html += podiumHTML(true);
   html += '<section class="strip" aria-label="Chiffres de Legacy"><div><b>' + Object.keys(S.players).filter(function(k){ return !S.players[k].owner; }).length + '</b><span>Joueurs</span></div><div><b>' + played + '</b><span>Matchs joués</span></div><div><b>' + fmt(coinsInPlay()) + '</b><span>Coins en jeu</span></div></section>';

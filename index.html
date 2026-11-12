@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794525538">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794525671">
 </head><body>
 <title>Legacy · Défis Fortnite gratuits (bêta)</title><link rel="icon" type="image/svg+xml" href="logo.svg"><meta name="description" content="Legacy : défis Fortnite entre joueurs, 100 % gratuits. Lance un 1v1, 2v2 ou 3v3, mise des coins sans valeur réelle et grimpe au classement."><meta property="og:title" content="Legacy · Défis Fortnite gratuits"><meta property="og:description" content="Défis Fortnite entre joueurs, 100 % gratuits. Coins sans valeur réelle, classement, chat de match."><meta property="og:image" content="https://nyro098.github.io/legacy-beta/logo.svg"><link rel="canonical" href="https://nyro098.github.io/legacy-beta/">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -800,20 +800,24 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 .tc-champ b{font:800 15px var(--f-body);color:#ffe6a0}
 .tc-champ span{display:block;font-size:12px;color:var(--fg-2)}
 .danger-zone{border-color:rgba(255,91,91,.35)}
-.collab{display:inline-flex;align-items:center;gap:11px;margin:0 0 14px;padding:6px 14px 6px 6px;border-radius:999px;border:1px solid rgba(120,140,255,.45);background:linear-gradient(100deg,rgba(60,70,200,.28),rgba(20,16,60,.55));box-shadow:0 0 22px rgba(90,110,255,.22),inset 0 0 0 1px rgba(255,255,255,.05);max-width:100%}
-.collab .cb-logo{position:relative;flex:0 0 auto;width:44px;height:44px;border-radius:50%;overflow:hidden;box-shadow:0 0 14px rgba(110,130,255,.55)}
-.collab .cb-logo img,.collab .cb-logo video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
-.collab .cb-txt{display:flex;flex-direction:column;line-height:1.1;min-width:0}
-.collab .cb-txt small{font:700 10px var(--f-body);letter-spacing:.16em;text-transform:uppercase;color:#a9b4ff}
-.collab .cb-txt b{font:900 17px var(--f-display);letter-spacing:.04em;text-transform:uppercase;color:#fff;text-shadow:0 0 12px rgba(120,140,255,.7);white-space:nowrap}
-.collab .cb-txt b em{font-style:normal;color:#b9c3ff}
-.collab .cb-new{flex:0 0 auto;margin-left:2px;padding:3px 8px;border-radius:999px;font:800 9px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:#140d33;background:linear-gradient(90deg,#8fa2ff,#c5ceff)}
-.collab .cb-links{display:flex;gap:6px;flex:0 0 auto;margin-left:2px}
-.collab .cb-links a{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;color:#dfe4ff;background:rgba(255,255,255,.08);border:1px solid rgba(160,175,255,.35);transition:transform .15s,background .15s,box-shadow .15s}
-.collab .cb-links a svg{width:16px;height:16px;fill:currentColor}
-.collab .cb-links a:hover,.collab .cb-links a:focus-visible{transform:translateY(-2px);background:rgba(120,140,255,.4);box-shadow:0 0 14px rgba(120,140,255,.6);color:#fff}
-@media (max-width:420px){.collab .cb-new{display:none}.collab .cb-txt b{font-size:15px}}
-@media (prefers-reduced-motion:reduce){.collab .cb-logo video{display:none}}
+.collab-strip{background:#04051a;border-bottom:1px solid rgba(139,92,255,.18);display:flex;justify-content:flex-start;padding:0}
+.cf-wrap{perspective:700px;width:min(100%,430px);height:34px}
+.cf{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:cfFlip 9s ease-in-out infinite;transform-origin:50% 50%}
+.cf-wrap:hover .cf,.cf-wrap:focus-within .cf{animation-play-state:paused}
+@keyframes cfFlip{0%,42%{transform:rotateX(0)}50%,92%{transform:rotateX(180deg)}100%{transform:rotateX(360deg)}}
+.cface{position:absolute;inset:0;display:flex;align-items:center;gap:9px;padding:0 14px 0 12px;border-radius:0 0 18px 0;background:linear-gradient(90deg,#8f6dff 0%,#6a4bd8 38%,rgba(70,48,170,.55) 78%,rgba(70,48,170,0) 100%);-webkit-backface-visibility:hidden;backface-visibility:hidden;box-shadow:inset 3px 0 0 #1a1140}
+.cface.cf-b{transform:rotateX(180deg)}
+.cface img{width:22px;height:22px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 10px rgba(190,200,255,.7)}
+.cface .cf-t{display:flex;align-items:baseline;gap:6px;min-width:0;white-space:nowrap}
+.cface small{font:700 9px var(--f-body);letter-spacing:.16em;text-transform:uppercase;color:#e4dcff}
+.cface b{font:900 14px var(--f-display);letter-spacing:.05em;text-transform:uppercase;color:#fff;text-shadow:0 0 10px rgba(200,210,255,.65)}
+.cface b em{font-style:normal;color:#e1e6ff}
+.cface .cf-new{margin-left:2px;padding:2px 7px;border-radius:999px;font:800 8px var(--f-body);font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:#1a1140;background:#e9edff}
+.cface a{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 7px;border-radius:999px;color:#fff;text-decoration:none;font:700 11px var(--f-body);background:rgba(10,6,40,.38);border:1px solid rgba(255,255,255,.28);transition:background .15s,transform .15s}
+.cface a svg{width:14px;height:14px;fill:currentColor;flex:0 0 auto}
+.cface a:hover,.cface a:focus-visible{background:rgba(10,6,40,.7);transform:translateY(-1px)}
+@media (max-width:420px){.cface .cf-new{display:none}.cface{gap:7px;padding:0 10px 0 10px}.cface b{font-size:13px}.cface a span{display:none}.cface a{padding:4px 7px}}
+@media (prefers-reduced-motion:reduce){.cf-wrap{height:auto;perspective:none;width:100%}.cf{animation:none;transform:none;display:flex;flex-flow:row wrap;height:auto}.cface{position:static;transform:none!important;backface-visibility:visible;-webkit-backface-visibility:visible;height:34px;border-radius:0 0 18px 0}.cface.cf-b{background:linear-gradient(90deg,rgba(70,48,170,.55),rgba(70,48,170,0))}}
 .pp-rule{padding:10px 14px;border-radius:12px;border:1px solid rgba(255,201,60,.5);background:rgba(255,201,60,.08);margin-bottom:10px}
 .cust-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
 .cust-team{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
@@ -839,6 +843,6 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1794525538"></script>
-<script src="app.js?v=1794525538"></script>
+<script src="config.js?v=1794525671"></script>
+<script src="app.js?v=1794525671"></script>
 </body></html>
