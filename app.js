@@ -65,8 +65,15 @@ function refresh(){
     S.me ? sb.from('wheel_spins').select('at').eq('player', S.me).order('at', {ascending: false}).limit(1) : Promise.resolve({data: []}),
     S.me ? sb.from('match_tickets').select('match_id,guild_id,channel_id,status,deadline_at') : Promise.resolve({data: []}),
     sb.from('wheel_spins').select('player,prize,amount,at').in('prize', ['c05', 'c1', 'c5', 'title', 'title_dup']).order('at', {ascending: false}).limit(8),
-    sb.from('match_bets').select('*').order('created_at', {ascending: false}).limit(400)
+    sb.from('match_bets').select('*').order('created_at', {ascending: false}).limit(400),
+    sb.from('customs').select('*').order('created_at', {ascending: false}).limit(60),
+    sb.from('custom_entries').select('*').order('joined_at'),
+    S.me ? sb.from('custom_codes').select('*') : Promise.resolve({data: []})
   ]).then(function(r){
+    var CU = {}; ((r[13] && r[13].data) || []).forEach(function(x){ x.entries = []; x.code = null; CU[x.id] = x; });
+    ((r[14] && r[14].data) || []).forEach(function(e){ if (CU[e.custom_id]) CU[e.custom_id].entries.push(e); });
+    ((r[15] && r[15].data) || []).forEach(function(c){ if (CU[c.custom_id]) CU[c.custom_id].code = c; });
+    S.customs = CU;
     S.lastSpin = r[9] && r[9].data && r[9].data[0] ? Date.parse(r[9].data[0].at) : 0;
     S.tickets = {}; ((r[10] && r[10].data) || []).forEach(function(t){ S.tickets[t.match_id] = t; });
     S.spinFeed = (r[11] && r[11].data) || [];
@@ -845,11 +852,12 @@ var tourId = null;
 var TOUR_STATUS = {registration: ['Inscriptions ouvertes', 'open'], running: ['En cours', 'live'], done: ['Terminé', 'done'], cancelled: ['Annulé', 'cancelled']};
 function tourPot(x){ return Number(x.entry_fee) * x.players.length + Number(x.prize_bonus); }
 function tournamentsHTML(){
+  if (customId && S.customs && S.customs[customId]) return customDetailHTML(S.customs[customId]);
   if (tourId && S.tours && S.tours[tourId]) return tourDetailHTML(S.tours[tourId]);
   var list = Object.keys(S.tours || {}).map(function(k){ return S.tours[k]; }).filter(function(x){ return x.status !== 'cancelled' || isOwner(); });
-  var html = '<section class="hero"><div><p class="eyebrow">Tournois</p><h1>Les tournois Legacy.</h1><p class="lead">Inscris-toi, affronte les meilleurs en élimination directe et repars avec toute la cagnotte.</p></div>' +
-    (isOwner() ? '<button class="btn primary" data-act="tour-new">+ Créer un tournoi</button>' : '') + '</section>';
-  if (!list.length) return html + '<div class="empty tour-empty"><b>🏆 Aucun tournoi pour l\'instant</b>Les prochains tournois seront annoncés ici et sur le Discord. Reste connecté !' + (S.players && me() ? '<div style="margin-top:14px">' + dcBtn('Suivre les annonces sur le Discord') + '</div>' : '') + '</div>';
+  var html = '<section class="hero"><div><p class="eyebrow">Tournois</p><h1>Les tournois Legacy.</h1><p class="lead">Parties perso jusqu\'à 100 joueurs en Battle Royale ou Recharge, et tournois 1v1 à élimination directe.</p></div>' +
+    '</section>' + customsSectionHTML() + '<section class="cs-head"><div><p class="eyebrow">⚔️ Élimination directe</p><h2 class="sec">Tournois 1v1</h2></div>' + (isOwner() ? '<button class="btn primary" data-act="tour-new">+ Créer un tournoi 1v1</button>' : '') + '</section>';
+  if (!list.length) return html + '<div class="empty tour-empty"><b>🏆 Aucun tournoi 1v1 pour l\'instant</b>Les prochains tournois seront annoncés ici et sur le Discord. Reste connecté !' + (S.players && me() ? '<div style="margin-top:14px">' + dcBtn('Suivre les annonces sur le Discord') + '</div>' : '') + '</div>';
   var order = {registration: 0, running: 1, done: 2, cancelled: 3};
   list.sort(function(a, b){ return order[a.status] - order[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
   return html + '<div class="tour-grid">' + list.map(tourCardHTML).join('') + '</div>';
@@ -921,6 +929,131 @@ function tourNewDialog(){
     '<p class="hint">Le gagnant remporte toutes les inscriptions + le bonus. 0 = gratuit.</p>' +
     '<label for="t-rules">Règles (facultatif)</label><textarea id="t-rules" name="rules" maxlength="300" placeholder="Île, code, règles particulières…"></textarea>' +
     '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Créer le tournoi</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
+}
+
+/* ---------- parties perso (Battle Royale / Recharge, jusqu'à 100 joueurs) ---------- */
+var customId = null;
+var CGAME = {br: 'Battle Royale', reload: 'Recharge'};
+var CTEAM = {1: 'Solo', 2: 'Duo', 3: 'Trio', 4: 'Section'};
+var CTEAMS_BY_GAME = {br: [1, 2, 3, 4], reload: [1, 2, 4]};
+var CDEFAULT_MAX = {br: 100, reload: 40};
+var CSTATUS = {registration: ['Inscriptions ouvertes', 'open'], live: ['En cours', 'live'], done: ['Terminée', 'done'], cancelled: ['Annulée', 'cancelled']};
+function customFormat(x){ return x.format === 'ppstack' ? 'PP Stack (type Noble)' + (x.no_fight_top ? ' · pas de fight avant le top ' + x.no_fight_top : '') : 'Classique'; }
+function customTeams(x){
+  var by = {};
+  x.entries.forEach(function(e){ var k = x.team_size > 1 ? (e.team_tag || '—').toLowerCase() : e.player; (by[k] = by[k] || {tag: e.team_tag, players: []}).players.push(e.player); });
+  return Object.keys(by).map(function(k){ return by[k]; });
+}
+function customDate(x, long){ return x.starts_at ? new Date(x.starts_at).toLocaleString('fr-FR', long ? {weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'} : {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : ''; }
+function customsSectionHTML(){
+  var list = Object.keys(S.customs || {}).map(function(k){ return S.customs[k]; }).filter(function(x){ return x.status !== 'cancelled' || isOwner(); });
+  var order = {live: 0, registration: 1, done: 2, cancelled: 3};
+  list.sort(function(a, b){ return order[a.status] - order[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
+  var html = '<section class="cs-head"><div><p class="eyebrow">🎮 Parties perso</p><h2 class="sec">Battle Royale & Recharge</h2><p class="help">Des lobbys jusqu\'à 100 joueurs. Inscris-toi : le code de la partie perso t\'est envoyé au lancement.</p></div>' +
+    (isOwner() ? '<button class="btn primary" data-act="custom-new">+ Créer une partie perso</button>' : '') + '</section>';
+  if (!list.length) return html + '<div class="empty tour-empty"><b>🎮 Aucune partie perso prévue</b>Les prochaines seront annoncées ici et sur le Discord.</div>';
+  return html + '<div class="tour-grid">' + list.map(customCardHTML).join('') + '</div>';
+}
+function customCardHTML(x){
+  var st = CSTATUS[x.status], inC = x.entries.some(function(e){ return e.player === S.me; }), pct = Math.round(x.entries.length / x.max_players * 100);
+  return '<article class="tour-card cust-card ' + x.game + '" data-act="open-custom" data-id="' + esc(x.id) + '" tabindex="0" role="button">' +
+    '<div class="tc-top"><span class="chip ' + st[1] + '">' + st[0] + '</span>' + (inC ? '<span class="fr-tag ok">✓ Inscrit</span>' : '') + '</div>' +
+    '<h3>' + esc(x.name) + '</h3>' +
+    '<div class="cust-chips"><span class="cchip g-' + x.game + '">' + CGAME[x.game] + '</span><span class="cchip">' + CTEAM[x.team_size] + '</span>' + (x.format === 'ppstack' ? '<span class="cchip pp">PP Stack' + (x.no_fight_top ? ' · top ' + x.no_fight_top : '') + '</span>' : '') + (x.games > 1 ? '<span class="cchip">' + x.games + ' parties</span>' : '') + '</div>' +
+    '<div class="cust-bar"><i style="width:' + pct + '%"></i></div><p class="help"><b>' + x.entries.length + '/' + x.max_players + '</b> joueurs' + (x.team_size > 1 ? ' · ' + customTeams(x).length + (customTeams(x).length > 1 ? ' équipes' : ' équipe') : '') + '</p>' +
+    (x.starts_at ? '<p class="help">📅 ' + customDate(x, true) + '</p>' : '') + (x.prize ? '<p class="help">🏆 ' + esc(x.prize) + '</p>' : '') + '</article>';
+}
+function customDetailHTML(x){
+  var st = CSTATUS[x.status], id = esc(x.id), me0 = x.entries.find(function(e){ return e.player === S.me; }), full = x.entries.length >= x.max_players, teams = customTeams(x);
+  var html = '<button class="btn sm ghost back" data-act="custom-back">← Tous les tournois</button>';
+  html += '<section class="mhead"><div><p class="eyebrow">Partie perso · <span class="chip ' + st[1] + '" style="margin:0">' + st[0] + '</span></p><h1>' + esc(x.name) + '</h1></div></section>';
+  html += '<section class="tour-info"><div><b>' + CGAME[x.game] + '</b><span>Mode</span></div><div><b>' + CTEAM[x.team_size] + '</b><span>Équipes</span></div>' +
+    '<div><b>' + x.entries.length + '/' + x.max_players + '</b><span>Joueurs' + (x.team_size > 1 ? ' · ' + teams.length + (teams.length > 1 ? ' équipes' : ' équipe') : '') + '</span></div>' +
+    '<div><b>' + (x.format === 'ppstack' ? 'PP Stack' : 'Classique') + '</b><span>' + (x.format === 'ppstack' ? (x.no_fight_top ? 'Pas de fight avant le top ' + x.no_fight_top : 'Type Noble') : 'Type de partie') + '</span></div>' +
+    '<div><b>' + x.games + '</b><span>Partie' + (x.games > 1 ? 's' : '') + '</span></div>' +
+    (x.starts_at ? '<div><b>' + customDate(x) + '</b><span>Début</span></div>' : '') +
+    (x.prize ? '<div><b class="gold">' + esc(x.prize) + '</b><span>Récompense</span></div>' : '') + '</section>';
+  // code de la partie perso
+  if (me0 || isOwner()) {
+    if (x.code) html += '<section class="code-box"><p class="eyebrow">🎮 Code de la partie perso · partie ' + x.code.game_no + (x.games > 1 ? '/' + x.games : '') + '</p><div class="code-row"><b class="code-val">' + esc(x.code.code) + '</b><button class="btn primary" data-act="copy-code" data-code="' + esc(x.code.code) + '">Copier</button></div><p class="help">Dans Fortnite : <b>Partie personnalisée</b> → entre ce code → prêt. Envoyé ' + ago(Date.parse(x.code.sent_at)) + '.</p></section>';
+    else if (me0) html += '<section class="code-box wait"><p class="eyebrow">🎮 Code de la partie perso</p><p>Le code apparaîtra ici et dans tes notifications 🔔 dès que le fondateur lance la partie.</p></section>';
+  }
+  if (x.rules || x.format === 'ppstack') html += '<section class="panel"><h2>Règles</h2>' + (x.format === 'ppstack' ? '<p class="pp-rule">⚠️ <b>PP Stack (type Noble)</b>' + (x.no_fight_top ? ' : interdiction de se tirer dessus avant le <b>top ' + x.no_fight_top + '</b>.' : '.') + '</p>' : '') + (x.rules ? '<p style="white-space:pre-wrap">' + esc(x.rules) + '</p>' : '') + '</section>';
+  // inscription
+  if (x.status === 'registration' || me0) {
+    html += '<section class="panel"><h2>Inscription</h2>';
+    if (me0) html += '<p>✓ Tu es inscrit' + (me0.team_tag ? ' avec l\'équipe <b>' + esc(me0.team_tag) + '</b>' : '') + '.</p>' + (x.status === 'registration' ? '<div class="actions"><button class="btn danger" data-act="custom-leave" data-id="' + id + '">Me désinscrire</button></div>' : '');
+    else if (full) html += '<p>La partie est complète.</p>';
+    else {
+      var open = teams.filter(function(t){ return x.team_size > 1 && t.tag && t.players.length < x.team_size; });
+      html += '<form data-form="custom-join" data-id="' + id + '" novalidate>' + (x.team_size > 1
+        ? '<label for="cj-team">Nom de ton équipe (' + CTEAM[x.team_size].toLowerCase() + ')</label><input id="cj-team" name="team" maxlength="30" list="cj-teams" autocomplete="off" placeholder="Ex. Les Boss"><datalist id="cj-teams">' + open.map(function(t){ return '<option value="' + esc(t.tag) + '">'; }).join('') + '</datalist><p class="hint">Tes mates s\'inscrivent avec <b>exactement le même nom d\'équipe</b>.' + (open.length ? ' Équipes avec de la place : ' + open.map(function(t){ return '<b>' + esc(t.tag) + '</b> (' + t.players.length + '/' + x.team_size + ')'; }).join(', ') + '.' : '') + '</p>'
+        : '') + '<p class="err" role="alert"></p><div class="actions"><button class="btn primary lg" type="submit">S\'inscrire gratuitement</button></div></form>';
+    }
+    html += '</section>';
+  }
+  // inscrits
+  html += '<section class="panel"><h2>' + (x.team_size > 1 ? 'Équipes inscrites (' + teams.length + ')' : 'Joueurs inscrits (' + x.entries.length + '/' + x.max_players + ')') + '</h2>';
+  if (!x.entries.length) html += '<p class="help">Personne pour l\'instant. Sois le premier !</p>';
+  else if (x.team_size > 1) html += '<div class="cust-teams">' + teams.map(function(t){ return '<div class="cust-team"><p><b>' + esc(t.tag || '—') + '</b> <span class="fr-tag' + (t.players.length >= x.team_size ? ' ok' : '') + '">' + t.players.length + '/' + x.team_size + '</span></p><div class="tour-players">' + t.players.map(function(pid){ return customPlayerHTML(x, pid); }).join('') + '</div></div>'; }).join('') + '</div>';
+  else html += '<div class="tour-players">' + x.entries.map(function(e){ return customPlayerHTML(x, e.player); }).join('') + '</div>';
+  html += '</section>';
+  // fondateur
+  if (isOwner()) {
+    html += '<section class="adminbox owner-panel"><h2>👑 Fondateur · gestion de la partie</h2>';
+    if (x.status !== 'done' && x.status !== 'cancelled') html += '<form data-form="custom-code" data-id="' + id + '" class="code-send" novalidate><label for="cc-code">Code de la partie perso' + (x.code ? ' (partie ' + (x.code.game_no + 1) + ')' : '') + '</label><div class="code-row"><input id="cc-code" name="code" maxlength="40" autocomplete="off" placeholder="Ex. LEGACY1234"><button class="btn primary" type="submit">📨 Envoyer aux ' + x.entries.length + ' inscrits</button></div><p class="err" role="alert"></p><p class="help">Chaque inscrit reçoit le code en notification et le voit sur cette page. Pour la partie suivante, envoie simplement le nouveau code.</p></form>';
+    html += '<div class="actions">' +
+      '<button class="btn" data-act="custom-edit" data-id="' + id + '">✏️ Modifier (mode, règles…)</button>' +
+      (x.status === 'registration' ? '<button class="btn" data-act="custom-status" data-id="' + id + '" data-s="live">Fermer les inscriptions</button>' : '') +
+      (x.status === 'live' ? '<button class="btn" data-act="custom-status" data-id="' + id + '" data-s="registration">Rouvrir les inscriptions</button><button class="btn win" data-act="custom-status" data-id="' + id + '" data-s="done">Terminer la partie</button>' : '') +
+      (x.status !== 'cancelled' && x.status !== 'done' ? '<button class="btn danger" data-act="custom-status" data-id="' + id + '" data-s="cancelled">Annuler</button>' : '') +
+      (x.status === 'cancelled' || x.status === 'done' ? '<button class="btn" data-act="custom-status" data-id="' + id + '" data-s="registration">Relancer les inscriptions</button>' : '') +
+      '</div></section>';
+  }
+  return html;
+}
+function customPlayerHTML(x, pid){
+  return '<span class="tp-wrap"><button class="tp" data-act="goto-player" data-pid="' + esc(pid) + '">' + av(P(pid), 'sm') + '<span>' + nm(P(pid)) + (P(pid).fortnite ? ' <small>🎮 ' + esc(P(pid).fortnite) + '</small>' : '') + '</span></button>' +
+    (isOwner() ? '<button class="btn sm ghost" title="Retirer de la partie" data-act="custom-kick" data-id="' + esc(x.id) + '" data-pid="' + esc(pid) + '">✕</button>' : '') + '</span>';
+}
+function customDialog(cid){
+  var x = cid && S.customs && S.customs[cid], g = x ? x.game : 'br';
+  var local = '';
+  if (x && x.starts_at) { var dd = new Date(x.starts_at); local = new Date(dd.getTime() - dd.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); }
+  else { var d0 = new Date(Date.now() + 864e5); d0.setMinutes(0, 0, 0); local = new Date(d0.getTime() - d0.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); }
+  var ts = x ? x.team_size : 2, fm = x ? x.format : 'classic';
+  var teamOpts = CTEAMS_BY_GAME[g].map(function(n){ return '<option value="' + n + '"' + (n === ts ? ' selected' : '') + '>' + CTEAM[n] + '</option>'; }).join('');
+  var rulesDefault = x ? x.rules : '• Pas de teaming : on ne s\'allie pas avec une autre équipe.\n• Respect de tous les joueurs, pas d\'insultes.\n• Un joueur qui quitte ne peut pas revenir dans la partie.\n• En cas de souci, ouvre un ticket sur le Discord.';
+  return dialogShell('<h2 id="dt">' + (x ? 'Modifier la partie perso' : 'Créer une partie perso') + '</h2><form data-form="custom-save" data-id="' + (x ? esc(x.id) : '') + '" novalidate>' +
+    '<label for="c-name">Nom</label><input id="c-name" name="name" maxlength="50" required value="' + (x ? esc(x.name) : '') + '" placeholder="Ex. Legacy Cup · Battle Royale">' +
+    '<div class="row"><div><label for="c-game">Mode</label><select id="c-game" name="game"><option value="br"' + (g === 'br' ? ' selected' : '') + '>Battle Royale</option><option value="reload"' + (g === 'reload' ? ' selected' : '') + '>Recharge</option></select></div>' +
+    '<div><label for="c-team">Équipes</label><select id="c-team" name="team_size">' + teamOpts + '</select></div></div>' +
+    '<div class="row"><div><label for="c-max">Joueurs max</label><input id="c-max" name="max_players" type="number" inputmode="numeric" min="2" max="100" value="' + (x ? x.max_players : CDEFAULT_MAX[g]) + '"></div>' +
+    '<div><label for="c-games">Nombre de parties</label><input id="c-games" name="games" type="number" inputmode="numeric" min="1" max="20" value="' + (x ? x.games : 1) + '"></div></div>' +
+    '<p class="hint" id="c-lobby"></p>' +
+    '<div class="row"><div><label for="c-format">Type de partie</label><select id="c-format" name="format"><option value="classic"' + (fm === 'classic' ? ' selected' : '') + '>Classique</option><option value="ppstack"' + (fm === 'ppstack' ? ' selected' : '') + '>PP Stack (type Noble)</option></select></div>' +
+    '<div id="c-nofight-wrap"' + (fm === 'ppstack' ? '' : ' hidden') + '><label for="c-nofight">Pas de fight avant le top…</label><input id="c-nofight" name="no_fight_top" type="number" inputmode="numeric" min="2" max="100" value="' + (x && x.no_fight_top ? x.no_fight_top : 80) + '"></div></div>' +
+    '<div class="row"><div><label for="c-start">Début</label><input id="c-start" name="starts_at" type="datetime-local" value="' + local + '"></div>' +
+    '<div><label for="c-prize">Récompense (facultatif)</label><input id="c-prize" name="prize" maxlength="200" value="' + (x ? esc(x.prize) : '') + '" placeholder="Ex. 50 coins au top 1"></div></div>' +
+    '<label for="c-rules">Règles</label><textarea id="c-rules" name="rules" maxlength="3000" rows="7">' + esc(rulesDefault) + '</textarea>' +
+    '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">' + (x ? 'Enregistrer' : 'Créer la partie perso') + '</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
+}
+function customLobbyHint(){
+  var g = document.getElementById('c-game'), t = document.getElementById('c-team'), m = document.getElementById('c-max'), h = document.getElementById('c-lobby');
+  if (!g || !t || !m || !h) return;
+  var ts = parseInt(t.value, 10) || 1, mx = parseInt(m.value, 10) || 0;
+  h.textContent = 'Lobby : ' + mx + ' joueurs' + (ts > 1 ? ' = ' + Math.floor(mx / ts) + ' ' + CTEAM[ts].toLowerCase() + 's' : '') + '.';
+}
+function customDialogChange(el){
+  if (el.id === 'c-game') {
+    var t = document.getElementById('c-team'), m = document.getElementById('c-max'), cur = parseInt(t.value, 10);
+    var opts = CTEAMS_BY_GAME[el.value];
+    if (opts.indexOf(cur) < 0) cur = opts[opts.length - 1];
+    t.innerHTML = opts.map(function(n){ return '<option value="' + n + '"' + (n === cur ? ' selected' : '') + '>' + CTEAM[n] + '</option>'; }).join('');
+    m.value = CDEFAULT_MAX[el.value];
+  }
+  if (el.id === 'c-format') { var w = document.getElementById('c-nofight-wrap'); if (w) w.hidden = el.value !== 'ppstack'; }
+  customLobbyHint();
 }
 
 /* ---------- streams Twitch ---------- */
@@ -1113,6 +1246,11 @@ function notifRow(n){
   else if (n.kind === 'team_match') { txt = '<b>' + a + '</b> a lancé un match avec ton équipe ' + tn + ' : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">' + (m.status === 'open' && !teamOf(m, S.me) ? 'Rejoindre' : 'Voir') + '</button>'; }
   else if (n.kind === 'match_invite') { txt = '<b>' + a + '</b> t\'invite dans son match : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le match</button>'; }
   else if (n.kind === 'result_claim') { txt = '<b>' + a + '</b> a déclaré le résultat de votre match (' + mDesc + '). Tu as <b>10 minutes</b> pour contester.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le match</button>'; }
+  else if (n.kind === 'custom_code') {
+    var cpart = (n.note || '').split('|'), ccid = cpart[0], cno = cpart[1], ccode = cpart[2], cname = cpart.slice(3).join('|');
+    txt = '🎮 Code de la partie perso <b>« ' + esc(cname) + ' »</b>' + (Number(cno) > 1 ? ' (partie ' + esc(cno) + ')' : '') + ' : <b class="code-inline">' + esc(ccode) + '</b>';
+    act = '<button class="btn sm primary" data-act="copy-code" data-code="' + esc(ccode) + '">Copier</button><button class="btn sm" data-act="goto-custom" data-id="' + esc(ccid) + '">Voir la partie</button>';
+  }
   else if (n.kind === 'tournament_win') { txt = '🏆 Tu as <b>gagné un tournoi</b> ! Tes gains ont été ajoutés à ton solde.'; act = '<button class="btn sm primary" data-act="goto-tours">Voir les tournois</button>'; }
   else if (n.kind === 'challenge') { txt = '<b>' + a + '</b> te défie en 1v1 : ' + mDesc + '.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Voir le défi</button>'; }
   else if (n.kind === 'double_req') { txt = '🔥 <b>' + a + '</b> veut faire un <b>Double</b> (' + (m ? cn(m.stake * 2) : 'mise x2') + ') ! Clique sur Double pour accepter.'; if (m) act = '<button class="btn sm win" data-act="open-match" data-id="' + esc(m.id) + '">Répondre au Double</button>'; }
@@ -1765,7 +1903,7 @@ function bannedHTML(){
 function renderDialog(){
   var L = $('#layer');
   if (!dlg) { L.innerHTML = ''; return; }
-  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'bet' ? betDialog(dlg.mid, dlg.side) : dlg.kind === 'gift' ? giftDialog(dlg.item) : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
+  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'bet' ? betDialog(dlg.mid, dlg.side) : dlg.kind === 'custom' ? customDialog(dlg.id) : dlg.kind === 'gift' ? giftDialog(dlg.item) : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
   var f = L.querySelector('input,select,button.btn.primary,.x'); if (f) f.focus();
 }
 function openDialog(d){ lastFocus = document.activeElement; dlg = d; renderDialog(); }
@@ -1869,6 +2007,15 @@ function act(name, el){
     case 'goto-tours': tourId = null; if (dlg) closeDialog(); if (viewName() === 'tournois') render(); else location.hash = '#tournois'; break;
     case 'open-tour': tourId = d.id; if (viewName() === 'tournois') render(); else location.hash = '#tournois'; window.scrollTo(0, 0); break;
     case 'tour-back': tourId = null; render(); window.scrollTo(0, 0); break;
+    case 'open-custom': customId = d.id; tourId = null; if (viewName() === 'tournois') render(); else location.hash = '#tournois'; window.scrollTo(0, 0); break;
+    case 'custom-back': customId = null; render(); window.scrollTo(0, 0); break;
+    case 'custom-new': openDialog({kind: 'custom', id: null}); setTimeout(customLobbyHint, 0); break;
+    case 'custom-edit': openDialog({kind: 'custom', id: d.id}); setTimeout(customLobbyHint, 0); break;
+    case 'custom-leave': if (!confirm('Te désinscrire de cette partie perso ?')) break; doRpc('leave_custom', {cid: d.id}, 'Tu es désinscrit.'); break;
+    case 'custom-kick': if (!confirm('Retirer ' + P(d.pid).pseudo + ' de la partie ?')) break; doRpc('owner_kick_custom', {cid: d.id, p_player: d.pid}, P(d.pid).pseudo + ' a été retiré.'); break;
+    case 'custom-status': { var cs = {live: 'Fermer les inscriptions ?', registration: 'Rouvrir les inscriptions ?', done: 'Terminer la partie perso ?', cancelled: 'Annuler la partie perso ?'}[d.s]; if (!confirm(cs)) break; doRpc('set_custom_status', {cid: d.id, p_status: d.s}, 'C\'est fait.'); break; }
+    case 'copy-code': { var cc = d.code; try { navigator.clipboard.writeText(cc).then(function(){ toast('Code copié : ' + cc); }, function(){ toast('Code : ' + cc); }); } catch(e){ toast('Code : ' + cc); } break; }
+    case 'goto-custom': customId = d.id; tourId = null; closeDialog(); location.hash = '#tournois'; render(); window.scrollTo(0, 0); break;
     case 'tour-new': openDialog({kind: 'tour-new'}); break;
     case 'tour-join': { var tj = S.tours[d.id]; if (Number(tj.entry_fee) > 0 && !confirm('T\'inscrire pour ' + cn(tj.entry_fee) + ' ?')) break; doRpc('join_tournament', {tid: d.id}, 'Inscrit au tournoi ! Bonne chance.'); break; }
     case 'tour-leave': if (!confirm('Te désinscrire du tournoi ?')) break; doRpc('leave_tournament', {tid: d.id}, 'Tu t\'es désinscrit.'); break;
@@ -1993,6 +2140,7 @@ document.addEventListener('click', function(e){
 });
 document.addEventListener('change', function(e){
   var el = e.target;
+  if (el.id === 'c-game' || el.id === 'c-format' || el.id === 'c-team') { customDialogChange(el); return; }
   if (el.id === 'avatar-file' && el.files && el.files[0]) { uploadAvatar(el.files[0]); el.value = ''; return; }
   if (el.classList && el.classList.contains('proof-file') && el.files && el.files[0]) { var pmid = el.dataset.id, pf = el.files[0]; el.value = ''; toast('Envoi de la capture…'); uploadProof(pmid, pf).then(function(){ toast('Capture ajoutée !'); }, function(e){ toast(e.message); }); return; }
   if (el.name === 'shot' && el.files && el.files[0]) { var st2 = el.parentNode.querySelector('.shot-txt'); if (st2) st2.innerHTML = '✓ ' + esc(el.files[0].name) + ' <small>(cliquer pour changer)</small>'; el.parentNode.classList.add('ok'); return; }
@@ -2019,6 +2167,7 @@ document.addEventListener('change', function(e){
   }
 });
 document.addEventListener('input', function(e){
+  if (e.target && e.target.id === 'c-max') customLobbyHint();
   if (e.target.id === 'b-amount') {
     var bv = num(e.target.value) || 0;
     var calc = document.getElementById('bet-win-calc');
@@ -2117,6 +2266,24 @@ document.addEventListener('submit', function(e){
   }
   if (kind === 'admin-score') {
     rpc('admin_set_score', {mid: f.dataset.id, p_a: parseInt(d.a, 10), p_b: parseInt(d.b, 10)}).then(function(r){ if (!r.ok) return fail(r.msg); toast('Score mis à jour.'); render(); });
+    return;
+  }
+  if (kind === 'custom-save') {
+    var cp = {name: d.name, game: d.game, team_size: parseInt(d.team_size, 10), max_players: parseInt(d.max_players, 10), format: d.format, no_fight_top: d.format === 'ppstack' ? String(parseInt(d.no_fight_top, 10) || '') : '', games: parseInt(d.games, 10) || 1, rules: d.rules || '', prize: d.prize || '', starts_at: d.starts_at ? new Date(d.starts_at).toISOString() : ''};
+    var cedit = f.dataset.id;
+    rpc(cedit ? 'update_custom' : 'create_custom', cedit ? {cid: cedit, p: cp} : {p: cp}).then(function(r){
+      if (!r.ok) return fail(r.msg);
+      closeDialog(); customId = cedit || r.data; tourId = null; toast(cedit ? 'Partie perso mise à jour.' : 'Partie perso créée ! Les inscriptions sont ouvertes.'); if (viewName() !== 'tournois') location.hash = '#tournois'; else render();
+    });
+    return;
+  }
+  if (kind === 'custom-join') {
+    rpc('join_custom', {cid: f.dataset.id, p_team: d.team || ''}).then(function(r){ if (!r.ok) return fail(r.msg); toast('Inscrit ! Tu recevras le code de la partie perso au lancement.'); render(); });
+    return;
+  }
+  if (kind === 'custom-code') {
+    if (!confirm('Envoyer le code « ' + String(d.code || '').trim() + ' » à tous les inscrits ?')) { if (btn) btn.disabled = false; return; }
+    rpc('send_custom_code', {cid: f.dataset.id, p_code: d.code || ''}).then(function(r){ if (!r.ok) return fail(r.msg); toast('Code envoyé à ' + r.data + ' joueur' + (r.data > 1 ? 's' : '') + ' !'); render(); });
     return;
   }
   if (kind === 'tour-create') {
@@ -2265,6 +2432,9 @@ if (sb) {
       .on('postgres_changes', {event: '*', schema: 'public', table: 'tournaments'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'tournament_players'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'tournament_matches'}, passiveRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'customs'}, passiveRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'custom_entries'}, passiveRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'custom_codes'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'match_proofs'}, function(p){ var mid = (p.new && p.new.match_id) || (p.old && p.old.match_id); if (mid && proofsCache[mid]) { delete proofsCache[mid]; loadProofs(mid); } })
       .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'match_messages'}, function(p){
         var mid = p && p.new && p.new.match_id;
