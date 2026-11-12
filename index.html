@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794523160">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794524121">
 </head><body>
 <title>Legacy · Défis Fortnite gratuits (bêta)</title><link rel="icon" type="image/svg+xml" href="logo.svg"><meta name="description" content="Legacy : défis Fortnite entre joueurs, 100 % gratuits. Lance un 1v1, 2v2 ou 3v3, mise des coins sans valeur réelle et grimpe au classement."><meta property="og:title" content="Legacy · Défis Fortnite gratuits"><meta property="og:description" content="Défis Fortnite entre joueurs, 100 % gratuits. Coins sans valeur réelle, classement, chat de match."><meta property="og:image" content="https://nyro098.github.io/legacy-beta/logo.svg"><link rel="canonical" href="https://nyro098.github.io/legacy-beta/">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -775,6 +775,31 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 .esport-panel .esport-bans{margin-top:4px}
 .esport-panel .eban{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line)}
 .esport-panel .eban .tp{flex:1 1 160px}
+.fmt-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:30px 0 14px;padding:16px 18px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(130deg,rgba(139,92,255,.12),var(--surface) 62%)}
+.fmt-head.g-1v1{background:linear-gradient(130deg,rgba(255,215,106,.13),var(--surface) 62%)}
+.fmt-head .fmt-ic{font-size:28px;width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:rgba(7,8,26,.5);border:1px solid var(--line);flex:0 0 auto}
+.fmt-head .fmt-txt{flex:1 1 220px;min-width:0}
+.fmt-head .fmt-txt .sec{margin:0}
+.fmt-head .fmt-txt .help{margin:4px 0 0}
+.fmt-head>.btn{flex:0 0 auto;align-self:center}
+.done-wrap{margin-top:14px;border:1px solid var(--line);border-radius:14px;background:rgba(7,8,26,.3)}
+.done-wrap>summary{cursor:pointer;padding:12px 16px;font-weight:700;letter-spacing:.03em;color:var(--fg-2);list-style:none}
+.done-wrap>summary::-webkit-details-marker{display:none}
+.done-wrap>summary::before{content:'\25B8  ';color:var(--accent-text)}
+.done-wrap[open]>summary::before{content:'\25BE  '}
+.done-wrap .tour-grid{padding:0 14px 14px}
+.muted-line{color:var(--fg-2);padding:8px 2px}
+.tour-card{position:relative;overflow:hidden}
+.tour-card.t-registration{background:linear-gradient(160deg,rgba(139,92,255,.14),var(--surface) 45%)}
+.tour-card.t-running{background:linear-gradient(160deg,rgba(0,212,255,.14),var(--surface) 45%);border-color:rgba(0,212,255,.4)}
+.tour-card.t-done{background:linear-gradient(160deg,rgba(255,215,106,.16),var(--surface) 50%);border-color:rgba(255,215,106,.4)}
+.tour-card.t-cancelled{opacity:.55}
+.tour-card.t-done::after{content:'\1F3C6';position:absolute;right:-8px;bottom:-20px;font-size:92px;opacity:.07;pointer-events:none}
+.cchip.c-1v1{border-color:#ffd76a;color:#ffe6a0}
+.tc-champ{display:flex;align-items:center;gap:10px;margin-top:2px;padding:9px 12px;border-radius:14px;background:linear-gradient(90deg,rgba(255,215,106,.18),rgba(255,215,106,.03));border:1px solid rgba(255,215,106,.4)}
+.tc-champ b{font:800 15px var(--f-body);color:#ffe6a0}
+.tc-champ span{display:block;font-size:12px;color:var(--fg-2)}
+.danger-zone{border-color:rgba(255,91,91,.35)}
 .pp-rule{padding:10px 14px;border-radius:12px;border:1px solid rgba(255,201,60,.5);background:rgba(255,201,60,.08);margin-bottom:10px}
 .cust-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
 .cust-team{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
@@ -800,6 +825,6 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1794523160"></script>
-<script src="app.js?v=1794523160"></script>
+<script src="config.js?v=1794524121"></script>
+<script src="app.js?v=1794524121"></script>
 </body></html>

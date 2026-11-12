@@ -859,21 +859,32 @@ function tourPot(x){ return Number(x.entry_fee) * x.players.length + Number(x.pr
 function tournamentsHTML(){
   if (customId && S.customs && S.customs[customId]) return customDetailHTML(S.customs[customId]);
   if (tourId && S.tours && S.tours[tourId]) return tourDetailHTML(S.tours[tourId]);
-  var list = Object.keys(S.tours || {}).map(function(k){ return S.tours[k]; }).filter(function(x){ return x.status !== 'cancelled' || canTourney(); });
-  var html = '<section class="hero"><div><p class="eyebrow">Tournois</p><h1>Les tournois Legacy.</h1><p class="lead">Parties perso jusqu\'à 100 joueurs en Battle Royale ou Recharge, et tournois 1v1 à élimination directe.</p></div>' +
-    '</section>' + customsSectionHTML() + '<section class="cs-head"><div><p class="eyebrow">⚔️ Élimination directe</p><h2 class="sec">Tournois 1v1</h2></div>' + (canTourney() ? '<button class="btn primary" data-act="tour-new">+ Créer un tournoi 1v1</button>' : '') + '</section>';
-  if (!list.length) return html + '<div class="empty tour-empty"><b>🏆 Aucun tournoi 1v1 pour l\'instant</b>Les prochains tournois seront annoncés ici et sur le Discord. Reste connecté !' + (S.players && me() ? '<div style="margin-top:14px">' + dcBtn('Suivre les annonces sur le Discord') + '</div>' : '') + '</div>';
-  var order = {registration: 0, running: 1, done: 2, cancelled: 3};
-  list.sort(function(a, b){ return order[a.status] - order[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
-  return html + '<div class="tour-grid">' + list.map(tourCardHTML).join('') + '</div>';
+  return '<section class="hero"><div><p class="eyebrow">Compétition</p><h1>Les tournois Legacy.</h1><p class="lead">Deux façons de t\'affronter : des <b>parties perso</b> en gros lobby, ou des <b>tournois 1v1</b> en élimination directe. Choisis ton format ci-dessous.</p></div></section>' + customsSectionHTML() + toursSectionHTML();
+}
+function tourEmptyHTML(ic, label){
+  return '<div class="empty tour-empty"><b>' + ic + ' ' + label + '</b>Les prochains seront annoncés ici et sur le Discord.' + (S.players && me() ? '<div style="margin-top:14px">' + dcBtn('Suivre les annonces sur le Discord') + '</div>' : '') + '</div>';
+}
+function toursSectionHTML(){
+  var all = Object.keys(S.tours || {}).map(function(k){ return S.tours[k]; });
+  var active = all.filter(function(x){ return x.status === 'registration' || x.status === 'running'; });
+  var done = all.filter(function(x){ return x.status === 'done' || (x.status === 'cancelled' && canTourney()); });
+  active.sort(function(a, b){ return ({running:0,registration:1})[a.status] - ({running:0,registration:1})[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
+  done.sort(function(a, b){ return Date.parse(b.created_at) - Date.parse(a.created_at); });
+  var html = '<section class="fmt-head g-1v1"><div class="fmt-ic">⚔️</div><div class="fmt-txt"><h2 class="sec">Tournois 1v1</h2><p class="help">Des duels en élimination directe jusqu\'à la finale. Le gagnant rafle toute la cagnotte.</p></div>' + (canTourney() ? '<button class="btn primary" data-act="tour-new">+ Créer</button>' : '') + '</section>';
+  if (!active.length && !done.length) return html + tourEmptyHTML('🏆', 'Aucun tournoi 1v1 pour l\'instant');
+  html += active.length ? '<div class="tour-grid">' + active.map(tourCardHTML).join('') + '</div>' : '<p class="muted-line">Aucun tournoi 1v1 en ce moment.</p>';
+  if (done.length) html += '<details class="done-wrap"' + (active.length ? '' : ' open') + '><summary>🏁 Tournois terminés (' + done.length + ')</summary><div class="tour-grid">' + done.map(tourCardHTML).join('') + '</div></details>';
+  return html;
 }
 function tourCardHTML(x){
-  var st = TOUR_STATUS[x.status], inT = x.players.some(function(p){ return p.player === S.me; });
-  return '<article class="tour-card" data-act="open-tour" data-id="' + esc(x.id) + '" tabindex="0" role="button"><div class="tc-top"><span class="chip ' + st[1] + '">' + st[0] + '</span>' + (inT ? '<span class="fr-tag ok">✓ Inscrit</span>' : '') + '</div>' +
-    '<h3>' + esc(x.name) + '</h3><p class="help">' + esc(x.mode) + ' · 1v1 · ' + esc(BO_LABEL[x.bo] || x.bo) + (x.pingpong ? ' · ping-pong' : '') + '</p>' +
+  var st = TOUR_STATUS[x.status], inT = x.players.some(function(p){ return p.player === S.me; }), pct = Math.round(x.players.length / x.max_players * 100);
+  return '<article class="tour-card t-' + x.status + '" data-act="open-tour" data-id="' + esc(x.id) + '" tabindex="0" role="button"><div class="tc-top"><span class="chip ' + st[1] + '">' + st[0] + '</span>' + (inT ? '<span class="fr-tag ok">✓ Inscrit</span>' : '') + '</div>' +
+    '<h3>' + esc(x.name) + '</h3>' +
+    '<div class="cust-chips"><span class="cchip c-1v1">⚔️ 1v1</span><span class="cchip">' + esc(x.mode) + '</span><span class="cchip">' + esc(BO_LABEL[x.bo] || x.bo) + '</span>' + (x.pingpong ? '<span class="cchip">ping-pong</span>' : '') + '</div>' +
+    (x.status === 'registration' ? '<div class="cust-bar"><i style="width:' + pct + '%"></i></div>' : '') +
     '<div class="tc-facts"><div><b>' + x.players.length + '/' + x.max_players + '</b><span>Joueurs</span></div><div><b>' + (Number(x.entry_fee) > 0 ? fmt(x.entry_fee) : 'Gratuit') + '</b><span>Inscription</span></div><div><b class="gold">' + fmt(tourPot(x)) + '</b><span>Cagnotte</span></div></div>' +
-    (x.starts_at ? '<p class="help">📅 ' + new Date(x.starts_at).toLocaleString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'}) + '</p>' : '') +
-    (x.status === 'done' && x.winner ? '<p class="tc-winner">🏆 ' + nm(P(x.winner)) + '</p>' : '') + '</article>';
+    (x.starts_at && x.status !== 'done' ? '<p class="help">📅 ' + new Date(x.starts_at).toLocaleString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'}) + '</p>' : '') +
+    (x.status === 'done' && x.winner ? '<div class="tc-champ">' + av(P(x.winner), 'sm') + '<div><b>🏆 ' + nm(P(x.winner)) + '</b><span>Champion · ' + cn(tourPot(x)) + '</span></div></div>' : '') + '</article>';
 }
 function tourDetailHTML(x){
   var st = TOUR_STATUS[x.status], inT = x.players.some(function(p){ return p.player === S.me; }), full = x.players.length >= x.max_players, id = esc(x.id);
@@ -900,6 +911,7 @@ function tourDetailHTML(x){
       (x.status === 'registration' ? '<button class="btn primary" data-act="tour-start" data-id="' + id + '"' + (x.players.length < 2 ? ' disabled' : '') + '>Lancer le tournoi (tirage au sort)</button>' : '') +
       '<button class="btn danger" data-act="tour-cancel" data-id="' + id + '">Annuler et rembourser</button></div></section>';
   }
+  if (isOwner()) html += '<section class="adminbox danger-zone"><p class="help">🗑️ Suppression définitive : le tournoi disparaît complètement, pour tout le monde. Impossible à récupérer.</p><div class="actions"><button class="btn danger" data-act="tour-delete" data-id="' + id + '">Supprimer définitivement</button></div></section>';
   return html;
 }
 function bracketHTML(x){
@@ -951,13 +963,16 @@ function customTeams(x){
 }
 function customDate(x, long){ return x.starts_at ? new Date(x.starts_at).toLocaleString('fr-FR', long ? {weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'} : {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : ''; }
 function customsSectionHTML(){
-  var list = Object.keys(S.customs || {}).map(function(k){ return S.customs[k]; }).filter(function(x){ return x.status !== 'cancelled' || canTourney(); });
-  var order = {live: 0, registration: 1, done: 2, cancelled: 3};
-  list.sort(function(a, b){ return order[a.status] - order[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
-  var html = '<section class="cs-head"><div><p class="eyebrow">🎮 Parties perso</p><h2 class="sec">Battle Royale & Recharge</h2><p class="help">Des lobbys jusqu\'à 100 joueurs. Inscris-toi : le code de la partie perso t\'est envoyé au lancement.</p></div>' +
-    (canTourney() ? '<button class="btn primary" data-act="custom-new">+ Créer une partie perso</button>' : '') + '</section>';
-  if (!list.length) return html + '<div class="empty tour-empty"><b>🎮 Aucune partie perso prévue</b>Les prochaines seront annoncées ici et sur le Discord.</div>';
-  return html + '<div class="tour-grid">' + list.map(customCardHTML).join('') + '</div>';
+  var all = Object.keys(S.customs || {}).map(function(k){ return S.customs[k]; });
+  var active = all.filter(function(x){ return x.status === 'registration' || x.status === 'live'; });
+  var done = all.filter(function(x){ return x.status === 'done' || (x.status === 'cancelled' && canTourney()); });
+  active.sort(function(a, b){ return ({live:0,registration:1})[a.status] - ({live:0,registration:1})[b.status] || Date.parse(b.created_at) - Date.parse(a.created_at); });
+  done.sort(function(a, b){ return Date.parse(b.created_at) - Date.parse(a.created_at); });
+  var html = '<section class="fmt-head g-br"><div class="fmt-ic">🎮</div><div class="fmt-txt"><h2 class="sec">Parties perso</h2><p class="help">Gros lobby jusqu\'à 100 joueurs (Battle Royale ou Recharge). Tu t\'inscris, et le code de la partie t\'arrive au lancement.</p></div>' + (canTourney() ? '<button class="btn primary" data-act="custom-new">+ Créer</button>' : '') + '</section>';
+  if (!active.length && !done.length) return html + tourEmptyHTML('🎮', 'Aucune partie perso prévue');
+  html += active.length ? '<div class="tour-grid">' + active.map(customCardHTML).join('') + '</div>' : '<p class="muted-line">Aucune partie perso en ce moment.</p>';
+  if (done.length) html += '<details class="done-wrap"' + (active.length ? '' : ' open') + '><summary>🏁 Parties perso terminées (' + done.length + ')</summary><div class="tour-grid">' + done.map(customCardHTML).join('') + '</div></details>';
+  return html;
 }
 function customCardHTML(x){
   var st = CSTATUS[x.status], inC = x.entries.some(function(e){ return e.player === S.me; }), pct = Math.round(x.entries.length / x.max_players * 100);
@@ -1016,6 +1031,7 @@ function customDetailHTML(x){
       (x.status === 'live' ? '<button class="btn" data-act="custom-status" data-id="' + id + '" data-s="registration">Rouvrir les inscriptions</button><button class="btn win" data-act="custom-status" data-id="' + id + '" data-s="done">Terminer la partie</button>' : '') +
       (x.status !== 'cancelled' && x.status !== 'done' ? '<button class="btn danger" data-act="custom-status" data-id="' + id + '" data-s="cancelled">Annuler</button>' : '') +
       (x.status === 'cancelled' || x.status === 'done' ? '<button class="btn" data-act="custom-status" data-id="' + id + '" data-s="registration">Relancer les inscriptions</button>' : '') +
+      (isOwner() ? '<button class="btn danger" data-act="custom-delete" data-id="' + id + '">🗑️ Supprimer définitivement</button>' : '') +
       '</div></section>';
   }
   return html;
@@ -2046,6 +2062,8 @@ function act(name, el){
     case 'tour-leave': if (!confirm('Te désinscrire du tournoi ?')) break; doRpc('leave_tournament', {tid: d.id}, 'Tu t\'es désinscrit.'); break;
     case 'tour-start': if (!confirm('Lancer le tournoi ? Les inscriptions seront fermées et l\'arbre tiré au sort.')) break; doRpc('start_tournament', {tid: d.id}, 'Tournoi lancé ! L\'arbre est prêt.'); break;
     case 'tour-cancel': if (!confirm('Annuler le tournoi et rembourser tous les inscrits ?')) break; doRpc('cancel_tournament', {tid: d.id}, 'Tournoi annulé, inscrits remboursés.'); break;
+    case 'tour-delete': if (!confirm('Supprimer DÉFINITIVEMENT ce tournoi ? Il disparaîtra complètement et ne pourra pas être récupéré.')) break; tourId = null; doRpc('delete_tournament', {tid: d.id}, 'Tournoi supprimé définitivement.'); break;
+    case 'custom-delete': if (!confirm('Supprimer DÉFINITIVEMENT cette partie perso ? Elle disparaîtra complètement.')) break; customId = null; doRpc('delete_custom', {cid: d.id}, 'Partie perso supprimée définitivement.'); break;
     case 'tour-win': if (!confirm(P(d.pid).pseudo + ' a gagné ce match ?')) break; doRpc('set_tournament_winner', {tid: d.id, p_round: parseInt(d.round, 10), p_slot: parseInt(d.slot, 10), p_winner: d.pid}, P(d.pid).pseudo + ' passe au tour suivant !'); break;
     case 'shop-tab': shopTab = d.tab; render(); break;
     case 'equip': doRpc('set_equip', {p_slot: d.slot, p_item: d.item || null}, d.item ? itemName(d.item) + ' équipé !' : 'Retiré.'); break;
