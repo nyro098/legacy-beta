@@ -348,6 +348,10 @@ function headerHTML(v){
 }
 function footerHTML(){ return '<footer class="foot"><div class="wrap"><span><a href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer">Serveur Discord Legacy</a> · Legacy bêta · les coins n\'ont aucune valeur réelle, pas d\'achat ni de retrait.</span><span><a href="confidentialite.html">Confidentialité</a> · Non affilié à Epic Games.</span></div></footer>'; }
 
+function collabBadgeHTML(){
+  return '<div class="collab" role="note" aria-label="Legacy en collaboration avec ORIONG Esport"><span class="cb-logo"><img src="img/oriong-logo.webp" alt="" width="44" height="44" decoding="async"><video autoplay muted loop playsinline preload="metadata" poster="img/oriong-logo.webp" src="img/oriong-logo.mp4" aria-hidden="true" tabindex="-1"></video></span>' +
+    '<span class="cb-txt"><small>En collab avec</small><b>ORIONG <em>Esport</em></b></span><span class="cb-new">Nouvelle team</span></div>';
+}
 function arenaHTML(){
   var all = Object.keys(S.matches).map(function(k){ return S.matches[k]; });
   var open = all.filter(function(m){ return m.status === 'open'; }).sort(function(a, b){ return (b.pinnedUntil > Date.now()) - (a.pinnedUntil > Date.now()) || b.createdAt - a.createdAt; });
@@ -356,7 +360,7 @@ function arenaHTML(){
   var doneM = all.filter(function(m){ return m.status === 'done'; }).sort(function(a, b){ return b.finishedAt - a.finishedAt; }).slice(0, 12);
   var list = tab === 'mes' ? mineM : tab === 'termines' ? doneM : open;
   var played = all.filter(function(m){ return m.status === 'done'; }).length;
-  var html = '<section class="hero"><div><p class="eyebrow">Fortnite · défis à mise</p><h1>Mets tes coins en jeu.</h1><p class="lead">Du 1v1 au 3v3 : lance un défi, mise des coins, et empoche la mise des perdants. Tout le monde démarre avec ' + cn(START) + '.</p></div>' +
+  var html = '<section class="hero"><div>' + collabBadgeHTML() + '<p class="eyebrow">Fortnite · défis à mise</p><h1>Mets tes coins en jeu.</h1><p class="lead">Du 1v1 au 3v3 : lance un défi, mise des coins, et empoche la mise des perdants. Tout le monde démarre avec ' + cn(START) + '.</p></div>' +
     '<button class="btn primary" data-act="new-match">Lancer un défi</button></section>';
   html += podiumHTML(true);
   html += '<section class="strip" aria-label="Chiffres de Legacy"><div><b>' + Object.keys(S.players).filter(function(k){ return !S.players[k].owner; }).length + '</b><span>Joueurs</span></div><div><b>' + played + '</b><span>Matchs joués</span></div><div><b>' + fmt(coinsInPlay()) + '</b><span>Coins en jeu</span></div></section>';
