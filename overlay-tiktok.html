@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Legacy × ORIONG Esport · Overlay live TikTok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Figtree:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Overlay de live TikTok : Legacy × ORIONG Esport. Fond transparent.
+     Horizontal 1920x1080 (par défaut) ou vertical 1080x1920 : ?format=vertical
+     Autres options : ?demo=1 (fond sombre pour prévisualiser) */
+  :root{--grad:linear-gradient(90deg,#8b5cff 0%,#4f7bff 50%,#00d4ff 100%);--gold:#ffd76a;--fg:#f5f6ff;--fg2:#c2c7ee;--ori:#9fb0ff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-family:Figtree,system-ui,sans-serif;color:var(--fg)}
+  body.demo{background:radial-gradient(1400px 800px at 30% 25%,#2a1f5c,#07081a)}
+  #stage{position:absolute;left:0;top:0;transform-origin:0 0}
+  #stage.h{width:1920px;height:1080px}
+  #stage.v{width:1080px;height:1920px}
+
+  /* ---------- badge collab (haut gauche) ---------- */
+  .collab{position:absolute;display:flex;align-items:center;gap:16px;padding:12px 26px 12px 14px;border-radius:26px;background:rgba(7,8,26,.78);border:2px solid rgba(139,92,255,.6);box-shadow:0 0 34px rgba(110,130,255,.45);animation:enter .9s cubic-bezier(.2,1.2,.3,1) both}
+  .h .collab{top:30px;left:32px}
+  .v .collab{top:205px;left:36px}
+  .lg-logo{width:66px;height:66px;filter:drop-shadow(0 0 12px rgba(139,92,255,.9))}
+  .x{font:900 34px/1 'Big Shoulders Display';color:var(--gold)}
+  .ori{position:relative;width:70px;height:70px;border-radius:50%;overflow:hidden;box-shadow:0 0 22px rgba(170,185,255,.85);animation:glow 3s ease-in-out infinite}
+  .ori img,.ori video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+  .names{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .names b{font:900 42px/1 'Big Shoulders Display';letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;text-shadow:0 0 16px rgba(120,140,255,.7)}
+  .names b em{font-style:normal;color:var(--ori)}
+  .sub{position:relative;height:22px;min-width:0;width:100%}
+  .sub span{position:absolute;left:0;top:0;white-space:nowrap;font:800 18px/22px Figtree;letter-spacing:.14em;text-transform:uppercase;color:var(--fg2);opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s}
+  .sub span.on{opacity:1;transform:none}
+  .sub .hl{color:var(--gold)}
+
+  /* ---------- bloc promo Legacy ---------- */
+  .promo{position:absolute;display:flex;align-items:stretch;background:rgba(7,8,26,.88);border:2px solid transparent;border-image:var(--grad) 1;box-shadow:0 0 40px rgba(79,123,255,.35);animation:enter 1s .25s cubic-bezier(.2,1.2,.3,1) both}
+  .h .promo{left:0;right:0;bottom:0;height:128px;border-width:2px 0 0}
+  .v .promo{left:36px;width:790px;bottom:430px;height:320px;border-radius:26px;border-image:none;border:2px solid rgba(139,92,255,.6);flex-direction:column;overflow:hidden}
+  .cta{flex:none;position:relative;display:flex;align-items:center;gap:16px;background:var(--grad);overflow:hidden}
+  .h .cta{padding:0 70px 0 34px;clip-path:polygon(0 0,100% 0,calc(100% - 40px) 100%,0 100%)}
+  .v .cta{padding:14px 28px;height:84px}
+  .cta img{width:54px;height:54px}
+  .cta b{font:900 44px/1 'Big Shoulders Display';text-transform:uppercase;letter-spacing:.05em;text-shadow:0 2px 10px rgba(0,0,0,.35)}
+  .cta small{display:block;font:800 17px/1 Figtree;letter-spacing:.14em;text-transform:uppercase;opacity:.9;margin-top:4px}
+  .cta::after{content:'';position:absolute;top:-20%;bottom:-20%;left:-40%;width:30%;transform:skewX(-20deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);animation:shine 4.5s ease-in-out infinite}
+  .ticker{flex:1;position:relative;overflow:hidden;min-width:0}
+  .msg{position:absolute;left:34px;right:34px;top:50%;display:flex;align-items:center;gap:18px;font:800 40px/1.12 Figtree;opacity:0;transform:translateY(-30%);transition:opacity .6s,transform .6s}
+  .v .msg{top:0;bottom:0;right:170px;transform:translateY(22px);font-size:34px;align-items:center}
+  .msg.on{opacity:1;transform:translateY(-50%)}
+  .v .msg.on{transform:none}
+  .msg .ic{font-size:50px;flex:none}
+  .msg em{font-style:normal;color:var(--gold)}
+  .msg .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .side{flex:none;display:flex;align-items:center;gap:18px;padding:0 30px 0 10px}
+  .v .side{position:absolute;right:18px;bottom:46px;padding:0}
+  .qr{width:104px;height:104px;border-radius:12px;background:#fff;padding:5px;box-shadow:0 0 22px rgba(0,212,255,.45)}
+  .v .qr{width:118px;height:118px}
+  .bio{text-align:center;font:900 24px/1.05 'Big Shoulders Display';letter-spacing:.06em;text-transform:uppercase}
+  .bio small{display:block;margin-top:6px;font:800 15px/1.2 Figtree;letter-spacing:.06em;color:var(--fg2);text-transform:none}
+  .v .bio{display:none}
+  .legal{position:absolute;left:0;right:0;bottom:4px;text-align:center;font:600 13px Figtree;color:rgba(194,199,238,.75);letter-spacing:.04em}
+  .v .legal{bottom:8px;left:0;right:170px;padding-left:34px;text-align:left}
+
+  @keyframes enter{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
+  .v .promo{animation-name:enterUp}
+  @keyframes enterUp{from{opacity:0;transform:translateY(60px)}to{opacity:1;transform:none}}
+  @keyframes glow{0%,100%{box-shadow:0 0 14px rgba(170,185,255,.6)}50%{box-shadow:0 0 30px rgba(220,230,255,1)}}
+  @keyframes shine{0%,55%{left:-40%}100%{left:140%}}
+  @media (prefers-reduced-motion:reduce){.ori,.cta::after{animation:none}}
+</style>
+</head>
+<body>
+<div id="stage" class="h">
+
+  <div class="collab">
+    <img class="lg-logo" src="logo.svg" alt="">
+    <span class="x">×</span>
+    <span class="ori"><img src="img/oriong-logo.webp" alt=""><video autoplay muted loop playsinline src="img/oriong-logo.mp4"></video></span>
+    <div class="names">
+      <b>Legacy <em>× ORIONG Esport</em></b>
+      <div class="sub" id="sub">
+        <span class="on">En collaboration · Team e-sport</span>
+        <span>TikTok <b class="hl" style="font:inherit">@ppysildur</b></span>
+        <span>Discord ORIONG · <b class="hl" style="font:inherit">discord.gg/5D4Yp7ns4</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="promo">
+    <div class="cta"><img src="logo.svg" alt=""><div><b>Joue gratuitement</b><small>Défis Fortnite entre joueurs</small></div></div>
+    <div class="ticker" id="ticker">
+      <div class="msg on"><span class="ic">⚔️</span><span>Défie les autres en <em>1v1</em>, <em>2v2</em>, <em>3v3</em></span></div>
+      <div class="msg"><span class="ic">🎁</span><span><em>10 coins</em> offerts à l'inscription · <em>100 % gratuit</em></span></div>
+      <div class="msg"><span class="ic">🎡</span><span><em>Roue gratuite</em> à tourner chaque jour</span></div>
+      <div class="msg"><span class="ic">🏆</span><span><em>Tournois</em> et parties perso jusqu'à 100 joueurs</span></div>
+      <div class="msg"><span class="ic">🛍️</span><span>Boutique de <em>bannières animées</em> et de titres</span></div>
+      <div class="msg"><span class="ic">🔗</span><span><span class="g">nyro098.github.io/legacy-beta</span></span></div>
+    </div>
+    <div class="side"><div class="bio">Lien<br>dans la bio<small>ou scanne le QR</small></div><img class="qr" src="img/qr-legacy.svg" alt=""></div>
+    <div class="legal">Les coins n'ont aucune valeur réelle · aucun argent réel · non affilié à Epic Games</div>
+  </div>
+
+</div>
+<script>
+  var q = new URLSearchParams(location.search), stage = document.getElementById('stage');
+  var fmt = q.get('format');
+  var vertical = fmt === 'vertical' || (fmt !== 'horizontal' && innerHeight > innerWidth);
+  stage.className = vertical ? 'v' : 'h';
+  if (q.get('demo')) document.body.classList.add('demo');
+  function fit(){ var W = vertical ? 1080 : 1920, H = vertical ? 1920 : 1080, s = Math.min(innerWidth / W, innerHeight / H); stage.style.transform = 'scale(' + s + ')'; }
+  fit(); addEventListener('resize', fit);
+  function rotate(box, sel, every){
+    var items = box.querySelectorAll(sel), i = 0;
+    setInterval(function(){ items[i].classList.remove('on'); i = (i + 1) % items.length; items[i].classList.add('on'); }, every);
+  }
+  rotate(document.getElementById('ticker'), '.msg', 5200);
+  rotate(document.getElementById('sub'), 'span', 4600);
+</script>
+</body>
+</html>
