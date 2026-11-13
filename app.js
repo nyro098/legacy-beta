@@ -175,9 +175,6 @@ function locked(pid){ var t = 0; for (var k in S.matches) { var m = S.matches[k]
 function balance(pid){ return avail(pid) + locked(pid); }
 function stats(pid){
   var p = P(pid);
-  if (pid === 'f9764ca5-4e91-489e-a308-cbad0b149260' || /dushane/i.test(p.pseudo || '')) {
-    return {w: 0, l: 1000, net: -1000, streak: -1000, ratio: -1000};
-  }
   var w = 0, l = 0, net = 0, list = [];
   for (var k in S.matches) {
     var m = S.matches[k], t = teamOf(m, pid);
@@ -1175,16 +1172,22 @@ function ogShow(){
   setTimeout(function(){ var f = el.querySelector('.og-s1 .btn'); if (f) try { f.focus(); } catch(x){} }, 80);
 }
 /* ---------- message unique : remise à zéro générale des stats (13/11/2026) ---------- */
-var STATS_RESET_EVENT = Date.parse('2026-11-13T13:45:21.747Z'), resetNoticeShown = false;
+var resetNoticeShown = false;
+function globalResetStamp(){
+  var cnt = {}, best = 0, bestN = 0, total = 0;
+  Object.keys(S.players || {}).forEach(function(id){ var t = S.players[id].statsResetAt || 0; total++; if (!t) return; cnt[t] = (cnt[t] || 0) + 1; if (cnt[t] > bestN) { bestN = cnt[t]; best = t; } });
+  return (best && bestN >= 3 && bestN >= total * 0.6) ? best : 0;   // remise à zéro générale = presque tout le monde a exactement la même heure
+}
 function resetNoticeCheck(){
   if (resetNoticeShown || !S.me || !S.players || !S.players[S.me] || !document.querySelector('header.top') || document.querySelector('.rn-notice')) return;
-  var at = S.players[S.me].statsResetAt || 0, key = 'lg_stats_notice_' + S.me;
-  if (Math.abs(at - STATS_RESET_EVENT) > 2000) return;
+  var g = globalResetStamp(); if (!g || Date.now() - g > 30 * 864e5) return;
+  if (Math.abs((S.players[S.me].statsResetAt || 0) - g) > 1500) return;
+  var key = 'lg_stats_notice_' + S.me + '_' + g;
   try { if (localStorage.getItem(key) === '1') return; } catch(e){}
   resetNoticeShown = true;
   document.body.insertAdjacentHTML('beforeend', '<div class="rn-notice" role="alert"><span class="rn-ic" aria-hidden="true">⚠️</span><p>Une erreur est arrivée. Les stats ont été réinitialisées.</p><button type="button" class="btn sm" data-rn="ok">OK</button></div>');
   var el = document.body.lastElementChild;
-  el.querySelector('[data-rn="ok"]').addEventListener('click', function(){ try { localStorage.setItem(key, '1'); } catch(e){} el.classList.add('rn-out'); setTimeout(function(){ el.remove(); }, 250); });
+  el.querySelector('[data-rn="ok"]').addEventListener('click', function(){ try { localStorage.setItem(key, '1'); } catch(x){} el.classList.add('rn-out'); setTimeout(function(){ el.remove(); }, 250); });
 }
 /* ---------- streams Twitch ---------- */
 var liveCache = {}, LIVE_TTL = 55000;
