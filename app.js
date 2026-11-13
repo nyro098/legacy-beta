@@ -92,6 +92,7 @@ function refresh(){
     r[1].data.forEach(function(m){ M[m.id] = mapMatch(m); });
     S.players = P; S.matches = M; S.friends = r[2].data || []; var T = {}; (r[3].data || []).forEach(function(x){ x.members = []; T[x.id] = x; }); (r[4].data || []).forEach(function(x){ if (T[x.team_id]) T[x.team_id].members.push(x); }); S.teams = T; S.notifs = r[5].data || []; var TT = {}; (r[6].data || []).forEach(function(x){ x.players = []; x.matches = []; TT[x.id] = x; }); (r[7].data || []).forEach(function(x){ if (TT[x.tournament_id]) TT[x.tournament_id].players.push(x); }); (r[8].data || []).forEach(function(x){ if (TT[x.tournament_id]) TT[x.tournament_id].matches.push(x); }); S.tours = TT; loaded = true; loadErr = '';
     txCache = {};
+    setTimeout(checkGiftReveal, 700);
   }).catch(function(e){ loadErr = (e && e.message) || 'Erreur réseau'; loaded = true; });
 }
 function loadTx(pid){
@@ -1620,6 +1621,62 @@ function winFxHTML(kind, mid){
   return '<div class="win-fx win-' + kind + '" aria-hidden="true">' + parts + '</div>';
 }
 
+/* ---------- réception d'un cadeau : grosse animation ---------- */
+var giftQueue = [], giftShowing = false, giftSeenMem = {};
+function giftSeenKey(){ return 'lg_gift_seen_' + S.me; }
+function giftSeenGet(){ try { return JSON.parse(localStorage.getItem(giftSeenKey()) || '{}') || {}; } catch(e){ return giftSeenMem; } }
+function giftSeenAdd(id){ var s = giftSeenGet(); s[id] = 1; giftSeenMem[id] = 1; try { localStorage.setItem(giftSeenKey(), JSON.stringify(s)); } catch(e){} }
+function checkGiftReveal(){
+  if (!S.me || !S.notifs) return;
+  var seen = giftSeenGet();
+  S.notifs.slice().reverse().forEach(function(n){
+    if (n.kind !== 'gift' || n.read || seen[n.id] || giftSeenMem[n.id] || n.actor === S.me || String(n.note || '').split('|')[0] === 'banner:oriong') return;  // la bannière ORIONG a son propre pop-up
+    if (giftQueue.some(function(q){ return q.id === n.id; })) return;
+    giftQueue.push(n);
+  });
+  if (!giftShowing) showNextGift();
+}
+function showNextGift(){
+  var n = giftQueue.shift();
+  if (!n) { giftShowing = false; return; }
+  giftShowing = true;
+  giftSeenAdd(n.id);
+  var parts = (n.note || '').split('|'), item = parts[0] || '', msg = parts[1] || '';
+  var from = P(n.actor), name = item === 'vip' ? 'Pass VIP (1 mois)' : itemName(item);
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var burst = '', rain = '';
+  for (var i = 0; i < 46; i++) {
+    var ang = Math.random() * Math.PI * 2, dist = 140 + Math.random() * 260;
+    burst += '<i style="--dx:' + Math.round(Math.cos(ang) * dist) + 'px;--dy:' + Math.round(Math.sin(ang) * dist) + 'px;--r:' + Math.round(Math.random() * 720 - 360) + 'deg;background:hsl(' + Math.round(Math.random() * 360) + ' 95% 62%);animation-delay:' + (2.05 + Math.random() * 0.15).toFixed(2) + 's"></i>';
+  }
+  for (var j = 0; j < 34; j++) {
+    rain += '<i style="left:' + Math.round(Math.random() * 100) + '%;animation-delay:' + (2.2 + Math.random() * 1.6).toFixed(2) + 's;animation-duration:' + (2.4 + Math.random() * 1.6).toFixed(2) + 's;background:hsl(' + Math.round(Math.random() * 360) + ' 90% 60%)"></i>';
+  }
+  var html = '<div class="gift-reveal' + (reduce ? ' gr-reduce' : '') + '" role="dialog" aria-modal="true" aria-label="Cadeau reçu">' +
+    '<div class="gr-bg"></div><div class="gr-rays"></div><div class="gr-flash"></div>' +
+    '<div class="gr-rain" aria-hidden="true">' + rain + '</div>' +
+    '<div class="gr-stage">' +
+      '<p class="gr-intro">' + av(from, 'sm') + ' <span><b>' + esc(from.pseudo) + '</b> t\'envoie un cadeau…</span></p>' +
+      '<div class="gr-box" aria-hidden="true"><div class="gr-lid"><span class="gr-bow"></span></div><div class="gr-body"></div></div>' +
+      '<div class="gr-burst" aria-hidden="true">' + burst + '</div>' +
+      '<div class="gr-card">' +
+        '<div class="gr-prev">' + giftPreview(item) + '</div>' +
+        '<p class="gr-from"><b>' + esc(from.pseudo) + '</b> t\'a offert</p>' +
+        '<h2 class="gr-name">' + esc(name) + '</h2>' +
+        (msg ? '<p class="gr-msg">« ' + esc(msg) + ' »</p>' : '') +
+        '<div class="actions"><button class="btn primary lg" data-act="gift-reveal-close">Trop bien, merci ! 🎉</button><button class="btn ghost" data-act="gift-reveal-close" data-shop="1" data-item="' + esc(item) + '">Voir dans la boutique</button></div>' +
+      '</div>' +
+    '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  var el = document.body.lastElementChild;
+  setTimeout(function(){ var b = el.querySelector('.gr-card .btn'); if (b) try { b.focus(); } catch(e){} }, reduce ? 50 : 2600);
+}
+function closeGiftReveal(){
+  var el = document.querySelector('.gift-reveal');
+  if (el) { el.classList.add('gr-out'); setTimeout(function(){ el.remove(); showNextGift(); }, 350); }
+  else showNextGift();
+}
+
 /* ---------- joueurs de la semaine ---------- */
 function dateTxt(ts){ var d = new Date(ts); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
 function daysLeft(ts){ var d = Math.max(0, Math.ceil((ts - Date.now()) / 864e5)); return d + ' jour' + (d > 1 ? 's' : ''); }
@@ -1969,19 +2026,29 @@ function giftItemOptions(sel){
     return '<optgroup label="' + esc(g.label) + '">' + opts + '</optgroup>';
   }).join('');
 }
-function giftDialog(defaultItem){
+function giftPreview(i){
+  if (i === 'vip') return '<span class="emo-prev">👑</span>';
+  if (i.indexOf('title:') === 0) return '<span class="ptitle">' + esc(TITLES[i.slice(6)] || i.slice(6)) + '</span>';
+  return previewOf(i) || '<span class="emo-prev">🎁</span>';
+}
+function giftDialog(defaultItem, locked){
   var a = Math.max(avail(S.me), 0);
   var otherPlayers = Object.keys(S.players).filter(function(k){ return k !== S.me && S.players[k].status !== 'banned'; });
   if (!otherPlayers.length) return dialogShell('<h2 id="dt">🎁 Offrir un cadeau</h2><p style="margin-top:14px">Il n\'y a pas encore d\'autre joueur inscrit à qui offrir un cadeau.</p><div class="actions" style="margin-top:16px"><button class="btn ghost" data-act="close">Fermer</button></div>');
   var selItem = defaultItem || 'fx:galaxy';
   var pr = giftPrice(selItem);
-  return dialogShell('<h2 id="dt">🎁 Offrir un cadeau de la boutique</h2>' +
-    '<p class="help" style="margin-top:6px">Fais plaisir à un joueur en lui offrant un cosmétique ou le VIP ! Les coins seront débités de ton solde.</p>' +
+  var itemField = locked
+    ? '<input type="hidden" name="item" value="' + esc(selItem) + '">' +
+      '<div class="gift-locked"><div class="gl-prev">' + giftPreview(selItem) + '</div><div class="gl-txt"><small>Tu offres</small><b>' + esc(giftItemName(selItem)) + '</b></div></div>'
+    : '<label for="g-item">Article à offrir</label>' +
+      '<select id="g-item" name="item" required>' + giftItemOptions(selItem) + '</select>';
+  return dialogShell('<h2 id="dt">🎁 ' + (locked ? 'Offrir cet article' : 'Offrir un cadeau de la boutique') + '</h2>' +
+    '<p class="help" style="margin-top:6px">' + (locked ? 'Choisis à qui tu l\'offres. Les coins seront débités de ton solde.' : 'Fais plaisir à un joueur en lui offrant un cosmétique ou le VIP ! Les coins seront débités de ton solde.') + '</p>' +
     '<form data-form="gift-item" novalidate style="margin-top:14px">' +
+    (locked ? itemField : '') +
     '<label for="g-to">Destinataire</label>' +
     '<select id="g-to" name="to" required>' + giftPlayerOptions() + '</select>' +
-    '<label for="g-item">Article à offrir</label>' +
-    '<select id="g-item" name="item" required>' + giftItemOptions(selItem) + '</select>' +
+    (locked ? '' : itemField) +
     '<div id="g-price-box" style="margin-top:8px;font-size:0.92rem;color:var(--fg-2)">Coût : <b id="g-price-val" style="color:var(--accent)">' + cn(pr) + '</b> (disponible : <b>' + cn(a) + '</b>)</div>' +
     '<label for="g-msg" style="margin-top:12px">Mot doux / Message (facultatif)</label>' +
     '<input id="g-msg" name="message" maxlength="120" autocomplete="off" placeholder="Ex. Pour ton beau clutch hier soir ! GG">' +
@@ -2034,7 +2101,7 @@ function bannedHTML(){
 function renderDialog(){
   var L = $('#layer');
   if (!dlg) { L.innerHTML = ''; return; }
-  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'bet' ? betDialog(dlg.mid, dlg.side) : dlg.kind === 'custom' ? customDialog(dlg.id) : dlg.kind === 'gift' ? giftDialog(dlg.item) : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
+  L.innerHTML = dlg.kind === 'discord' ? discordDialog() : dlg.kind === 'new' ? newMatchDialog() : dlg.kind === 'bet' ? betDialog(dlg.mid, dlg.side) : dlg.kind === 'custom' ? customDialog(dlg.id) : dlg.kind === 'gift' ? giftDialog(dlg.item, dlg.locked) : dlg.kind === 'tip' ? tipDialog(dlg.pid) : dlg.kind === 'sanction' ? sanctionDialog(dlg.pid, dlg.mode) : dlg.kind === 'notifs' ? notifsDialog() : dlg.kind === 'search' ? searchDialog() : dlg.kind === 'img' ? imgDialog(dlg.url) : dlg.kind === 'watch' ? watchDialog(dlg.ch, dlg.pid) : dlg.kind === 'tour-new' ? tourNewDialog() : dlg.kind === 'pick' ? pickDialog() : adminDialog(dlg.pid, dlg.mode);
   var f = L.querySelector('input,select,button.btn.primary,.x'); if (f) f.focus();
 }
 function openDialog(d){ lastFocus = document.activeElement; dlg = d; renderDialog(); }
@@ -2186,7 +2253,12 @@ function act(name, el){
       rpc('confirm_discord_join', {}).then(function(r){ busy = false; if (!r.ok) { toast(r.msg); return; } closeDialog(); toast('Bienvenue dans la commu ! Tu peux jouer.'); document.getElementById('app').innerHTML = ''; location.hash = '#arene'; render(); });
       break;
     case 'tip-dialog': openDialog({kind: 'tip', pid: d.pid || null}); break;
-    case 'gift-dialog': openDialog({kind: 'gift', item: d.item || 'fx:galaxy'}); break;
+    case 'gift-dialog': openDialog({kind: 'gift', item: d.item || 'fx:galaxy', locked: !!d.item}); break;
+    case 'gift-reveal-close':
+      var gi = d.item || '';
+      closeGiftReveal();
+      if (d.shop) { shopTab = gi === 'vip' ? 'vip' : gi.indexOf('title:') === 0 ? 'titres' : 'profil'; if (dlg) closeDialog(); location.hash = '#boutique'; render(); window.scrollTo(0, 0); }
+      break;
     case 'admin-dialog': openDialog({kind: 'admin', pid: d.pid || null, mode: d.mode || 'give'}); break;
     case 'close': closeDialog(); break;
     case 'myprofile': viewPid = S.me; editing = false; break;
