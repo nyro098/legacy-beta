@@ -377,7 +377,7 @@ function collabInit(){
   document.addEventListener('visibilitychange', function(){ if (!document.hidden && !hold) cycle(el.classList.contains('s-b') ? 'b' : el.classList.contains('s-a') ? 'a' : rest()); });
   if (narrow.matches) cycle('h'); else setTimeout(function(){ cycle('a'); }, 1200);
   if (narrow.matches) setTimeout(function(){ if (!hold) cycle('a'); }, 3000);
-  setTimeout(ogCheckGift, 2500); setInterval(ogCheckGift, 3000);
+  setTimeout(ogCheckGift, 2500); setInterval(ogCheckGift, 3000); setTimeout(resetNoticeCheck, 2200); setInterval(resetNoticeCheck, 3000);
 }
 function arenaHTML(){
   var all = Object.keys(S.matches).map(function(k){ return S.matches[k]; });
@@ -1173,6 +1173,18 @@ function ogShow(){
     } else if (act === 'close') close();
   });
   setTimeout(function(){ var f = el.querySelector('.og-s1 .btn'); if (f) try { f.focus(); } catch(x){} }, 80);
+}
+/* ---------- message unique : remise à zéro générale des stats (13/11/2026) ---------- */
+var STATS_RESET_EVENT = Date.parse('2026-11-13T13:45:21.747Z'), resetNoticeShown = false;
+function resetNoticeCheck(){
+  if (resetNoticeShown || !S.me || !S.players || !S.players[S.me] || !document.querySelector('header.top') || document.querySelector('.rn-notice')) return;
+  var at = S.players[S.me].statsResetAt || 0, key = 'lg_stats_notice_' + S.me;
+  if (Math.abs(at - STATS_RESET_EVENT) > 2000) return;
+  try { if (localStorage.getItem(key) === '1') return; } catch(e){}
+  resetNoticeShown = true;
+  document.body.insertAdjacentHTML('beforeend', '<div class="rn-notice" role="alert"><span class="rn-ic" aria-hidden="true">⚠️</span><p>Une erreur est arrivée. Les stats ont été réinitialisées.</p><button type="button" class="btn sm" data-rn="ok">OK</button></div>');
+  var el = document.body.lastElementChild;
+  el.querySelector('[data-rn="ok"]').addEventListener('click', function(){ try { localStorage.setItem(key, '1'); } catch(e){} el.classList.add('rn-out'); setTimeout(function(){ el.remove(); }, 250); });
 }
 /* ---------- streams Twitch ---------- */
 var liveCache = {}, LIVE_TTL = 55000;
