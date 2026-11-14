@@ -173,6 +173,9 @@ function active(m){ return m.status === 'open' || m.status === 'live' || m.statu
 function avail(pid){ return P(pid).balance || 0; }
 function locked(pid){ var t = 0; for (var k in S.matches) { var m = S.matches[k]; if (active(m) && teamOf(m, pid)) t += m.stake; } return t; }
 function balance(pid){ return avail(pid) + locked(pid); }
+// Bonus de stats offert par le fondateur (14/11/2026) : s'ajoute aux vraies stats du joueur, ne modifie aucun match ni aucun autre joueur.
+// Pour le retirer : supprimer la ligne du joueur ci-dessous.
+var STAT_BONUS = {'a11b45b3-556e-4875-9fad-327700c971a0': {w: 2, net: 2}};   // Shxwn0nly200 : +2 victoires, +2 coins gagnés
 function stats(pid){
   var p = P(pid);
   var w = 0, l = 0, net = 0, list = [];
@@ -184,6 +187,7 @@ function stats(pid){
   }
   list.sort(function(a, b){ return b.at - a.at; });
   var streak = 0; for (var i = 0; i < list.length; i++) { if (list[i].win) streak++; else break; }
+  var bn = STAT_BONUS[pid]; if (bn) { w += bn.w; net += bn.net; if (!list.length || list[0].win) streak += bn.w; }
   return {w: w, l: l, net: net, streak: streak, ratio: (w + l) ? Math.round(100 * w / (w + l)) : null};
 }
 var RANKS = [
