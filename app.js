@@ -337,7 +337,7 @@ function headerHTML(v){
   function link(h, label){ return '<a href="#' + h + '"' + (v === h || (h === 'arene' && v === 'match') ? ' aria-current="page"' : '') + (h === 'profil' ? ' data-act="myprofile"' : '') + '>' + label + '</a>'; }
   return betaBar() + '<header class="top"><div class="wrap bar">' +
     '<a class="logo" href="#arene" aria-label="Legacy, accueil">' + LOGO + '<span>Legacy</span><em class="beta">BÊTA</em></a>' +
-    '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('roue', '🎡 Roue' + (spinReady() ? ' <i class="count">1</i>' : '')) + link('tournois', 'Tournois') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() ? ' <i class="count">' + pendingIn() + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
+    '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('roue', '🎡 Roue' + (spinReady() ? ' <i class="count">1</i>' : '')) + link('tournois', 'Tournois') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() + dmUnreadTotal() ? ' <i class="count">' + (pendingIn() + dmUnreadTotal()) + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
     '<div class="bar-right">' +
     '<a class="bal" href="#profil" data-act="myprofile" title="Ton solde disponible">' + COIN + '<span>' + fmt(bal) + '</span>' + (lk ? '<small>' + fmt(lk) + ' en jeu</small>' : '') + '</a>' +
     dcBtn('Discord') +
@@ -1194,6 +1194,206 @@ function resetNoticeCheck(){
   var el = document.body.lastElementChild;
   el.querySelector('[data-rn="ok"]').addEventListener('click', function(){ try { localStorage.setItem(key, '1'); } catch(x){} el.classList.add('rn-out'); setTimeout(function(){ el.remove(); }, 250); });
 }
+/* ---------- chat général (page Arène) + messages privés entre amis, en temps réel ---------- */
+var CHT = {msgs: [], ids: {}, loaded: false, open: null, fresh: 0, chan: null, me: null,
+  dm: null, dmMsgs: [], dmIds: {}, dmLoaded: false, unread: {}, lastDmRead: 0};
+function dmBtn(pid){ var n = dmUnread(pid); return '<button type="button" class="btn sm dmb" data-dm="' + esc(pid) + '">💬 Chat' + (n ? ' <i class="count">' + n + '</i>' : '') + '</button>'; }
+function dmUnread(pid){ return CHT.unread[pid] || 0; }
+function dmUnreadTotal(){ var n = 0; for (var k in CHT.unread) n += CHT.unread[k]; return n; }
+function chatTime(t){ var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+function chatMsgHTML(x, priv){
+  var p = P(x.author || x.sender), mine = (x.author || x.sender) === S.me, who = x.author || x.sender;
+  return '<div class="gc-msg' + (mine ? ' mine' : '') + '" data-id="' + x.id + '"><button type="button" class="gc-av" data-act="goto-player" data-pid="' + esc(who) + '" aria-label="Profil de ' + esc(p.pseudo) + '">' + av(p, 'sm') + '</button>' +
+    '<div class="gc-bub"><b class="gc-h">' + nm(p) + (priv ? '' : badge(p)) + ' <small>' + chatTime(x.at) + '</small>' + (!priv && isAdmin() ? '<button type="button" class="gc-del" data-gcdel="' + x.id + '" title="Supprimer ce message" aria-label="Supprimer ce message">✕</button>' : '') + '</b><span>' + esc(x.body) + '</span></div></div>';
+}
+function chatAtBottom(el){ return el.scrollHeight - el.scrollTop - el.clientHeight < 70; }
+function chatPaint(listId, arr, priv, empty){
+  var el = document.getElementById(listId); if (!el) return;
+  el.innerHTML = arr.length ? arr.map(function(x){ return chatMsgHTML(x, priv); }).join('') : '<p class="gc-empty">' + empty + '</p>';
+  el.scrollTop = el.scrollHeight;
+}
+function chatAppend(listId, x, priv){
+  var el = document.getElementById(listId); if (!el) return;
+  var stick = chatAtBottom(el), e0 = el.querySelector('.gc-empty'); if (e0) e0.remove();
+  el.insertAdjacentHTML('beforeend', chatMsgHTML(x, priv));
+  while (el.children.length > 160) el.removeChild(el.firstChild);
+  if (stick || (x.author || x.sender) === S.me) el.scrollTop = el.scrollHeight;
+}
+
+/* --- chat général --- */
+function chatLoad(){
+  if (!S.me) return;
+  sb.from('chat_messages').select('id,author,body,at').order('at', {ascending: false}).limit(80).then(function(r){
+    if (r.error || !S.me) return;
+    CHT.msgs = (r.data || []).reverse(); CHT.ids = {}; CHT.msgs.forEach(function(x){ CHT.ids[x.id] = 1; });
+    CHT.loaded = true; chatPaint('gc-list', CHT.msgs, false, 'Aucun message pour l\'instant. Lance la discussion !');
+  });
+}
+function chatOnInsert(x){
+  if (!x || CHT.ids[x.id]) return;
+  CHT.ids[x.id] = 1; CHT.msgs.push(x); if (CHT.msgs.length > 160) CHT.msgs.shift();
+  chatAppend('gc-list', x, false);
+  var g = document.getElementById('gchat');
+  if (x.author !== S.me && g && !g.classList.contains('open')) { CHT.fresh++; chatApply(); }
+}
+function chatOnDelete(x){
+  if (!x || x.id == null) return;
+  CHT.msgs = CHT.msgs.filter(function(m){ return m.id !== x.id; }); delete CHT.ids[x.id];
+  var el = document.querySelector('#gc-list [data-id="' + x.id + '"]'); if (el) el.remove();
+}
+function chatSend(e){
+  e.preventDefault(); e.stopPropagation();
+  var inp = document.getElementById('gc-input'), btn = e.target.querySelector('button[type=submit]'), v = inp.value.trim();
+  if (!v) return;
+  btn.disabled = true;
+  sb.rpc('send_chat', {p_body: v}).then(function(r){
+    btn.disabled = false;
+    if (r.error) { toast(cleanErr(r.error.message)); return; }
+    inp.value = ''; inp.focus();
+    if (r.data && !CHT.ids[r.data]) chatOnInsert({id: r.data, author: S.me, body: v, at: new Date().toISOString()});
+  });
+}
+
+/* --- messages privés --- */
+function dmLoad(pid){
+  if (!S.me) return;
+  var me = S.me;
+  sb.from('dm_messages').select('id,sender,recipient,body,at,read_at')
+    .or('and(sender.eq.' + me + ',recipient.eq.' + pid + '),and(sender.eq.' + pid + ',recipient.eq.' + me + ')')
+    .order('at', {ascending: false}).limit(100).then(function(r){
+    if (r.error || CHT.dm !== pid) return;
+    CHT.dmMsgs = (r.data || []).reverse(); CHT.dmIds = {}; CHT.dmMsgs.forEach(function(x){ CHT.dmIds[x.id] = 1; });
+    CHT.dmLoaded = true; chatPaint('dm-list', CHT.dmMsgs, true, 'Aucun message. Dis salut à ' + esc(P(pid).pseudo) + ' !');
+    dmMarkRead(pid);
+  });
+}
+function dmMarkRead(pid){
+  if (!CHT.unread[pid]) return;
+  delete CHT.unread[pid]; dmBadges();
+  sb.rpc('mark_dm_read', {p_with: pid}).then(function(){});
+}
+function dmOpen(pid){
+  if (!S.me || pid === S.me) return;
+  CHT.dm = pid; CHT.dmMsgs = []; CHT.dmIds = {}; CHT.dmLoaded = false;
+  var p = P(pid), pr = presence(pid), d = document.getElementById('dmchat');
+  document.getElementById('dm-who').innerHTML = '<button type="button" class="gc-av" data-act="goto-player" data-pid="' + esc(pid) + '">' + av(p, 'sm') + '</button><span><b>' + nm(p) + '</b><small class="pr-' + pr.k + '">' + esc(pr.label) + '</small></span>';
+  document.getElementById('dm-list').innerHTML = '<p class="gc-empty">Chargement…</p>';
+  d.hidden = false; chatApply();
+  if (innerWidth < 1700) { CHT.open = false; chatApply(); }
+  dmLoad(pid);
+  setTimeout(function(){ var i = document.getElementById('dm-input'); if (i) try { i.focus(); } catch(e){} }, 60);
+}
+function dmClose(){ CHT.dm = null; document.getElementById('dmchat').hidden = true; chatApply(); }
+function dmOnInsert(x){
+  if (!x || (x.sender !== S.me && x.recipient !== S.me)) return;
+  var other = x.sender === S.me ? x.recipient : x.sender, incoming = x.sender !== S.me;
+  if (CHT.dm === other) {
+    if (!CHT.dmIds[x.id]) { CHT.dmIds[x.id] = 1; CHT.dmMsgs.push(x); chatAppend('dm-list', x, true); }
+    if (incoming) { CHT.unread[other] = 1; dmMarkRead(other); }
+  } else if (incoming) {
+    CHT.unread[other] = (CHT.unread[other] || 0) + 1; dmBadges();
+    toast('💬 ' + P(other).pseudo + ' : ' + String(x.body).slice(0, 60));
+  }
+}
+function dmSend(e){
+  e.preventDefault(); e.stopPropagation();
+  var pid = CHT.dm, inp = document.getElementById('dm-input'), btn = e.target.querySelector('button[type=submit]'), v = inp.value.trim();
+  if (!pid || !v) return;
+  btn.disabled = true;
+  sb.rpc('send_dm', {p_to: pid, p_body: v}).then(function(r){
+    btn.disabled = false;
+    if (r.error) { toast(cleanErr(r.error.message)); return; }
+    inp.value = ''; inp.focus();
+    if (r.data && !CHT.dmIds[r.data] && CHT.dm === pid) dmOnInsert({id: r.data, sender: S.me, recipient: pid, body: v, at: new Date().toISOString()});
+  });
+}
+function dmLoadUnread(){
+  if (!S.me) return;
+  sb.from('dm_messages').select('sender').eq('recipient', S.me).is('read_at', null).limit(500).then(function(r){
+    if (r.error || !S.me) return;
+    var u = {}; (r.data || []).forEach(function(x){ u[x.sender] = (u[x.sender] || 0) + 1; });
+    if (CHT.dm) delete u[CHT.dm];
+    CHT.unread = u; dmBadges();
+  });
+}
+function dmBadges(){
+  [].forEach.call(document.querySelectorAll('[data-dm]'), function(b){
+    var n = dmUnread(b.getAttribute('data-dm')), c = b.querySelector('i.count');
+    if (n && !c) b.insertAdjacentHTML('beforeend', ' <i class="count">' + n + '</i>'); else if (n && c) c.textContent = n; else if (!n && c) c.remove();
+  });
+  var a = document.querySelector('.nav a[href="#amis"]'); if (!a) return;
+  var tot = pendingIn() + dmUnreadTotal(), c2 = a.querySelector('i.count');
+  if (tot && !c2) a.insertAdjacentHTML('beforeend', ' <i class="count">' + tot + '</i>'); else if (tot && c2) c2.textContent = tot; else if (!tot && c2) c2.remove();
+}
+
+/* --- affichage, abonnement temps réel, rattrapage --- */
+function chatApply(){
+  var g = document.getElementById('gchat'), l = document.getElementById('gc-launch'), d = document.getElementById('dmchat');
+  if (!g) return;
+  var logged = !!(S.me && S.players && S.players[S.me] && document.querySelector('header.top'));
+  var allowed = logged && viewName() === 'arene';
+  if (CHT.open === null) CHT.open = innerWidth >= 1700;
+  g.hidden = !(allowed && CHT.open); g.classList.toggle('open', allowed && CHT.open);
+  l.hidden = !(allowed && !CHT.open); l.classList.toggle('has-new', CHT.fresh > 0);
+  var cnt = l.querySelector('i.count'); cnt.hidden = !CHT.fresh; cnt.textContent = CHT.fresh;
+  if (allowed && CHT.open) CHT.fresh = 0;
+  if (!logged) d.hidden = true; else d.hidden = !CHT.dm;
+  g.classList.toggle('dm-on', !d.hidden);
+}
+function chatSubscribe(){
+  try {
+    CHT.chan = sb.channel('legacy-chat-' + S.me)
+      .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'chat_messages'}, function(p){ chatOnInsert(p.new); })
+      .on('postgres_changes', {event: 'DELETE', schema: 'public', table: 'chat_messages'}, function(p){ chatOnDelete(p.old); })
+      .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'dm_messages'}, function(p){ dmOnInsert(p.new); })
+      .subscribe(function(st){ if (st === 'SUBSCRIBED' && CHT.loaded) { chatLoad(); if (CHT.dm) dmLoad(CHT.dm); dmLoadUnread(); } });
+  } catch(e){}
+}
+function chatReset(){
+  try { if (CHT.chan) sb.removeChannel(CHT.chan); } catch(e){}
+  CHT.chan = null; CHT.msgs = []; CHT.ids = {}; CHT.loaded = false; CHT.dm = null; CHT.dmMsgs = []; CHT.unread = {}; CHT.fresh = 0;
+}
+function chatPoll(){   // filet de sécurité si la connexion temps réel s'interrompt : on rattrape les messages manquants
+  if (!S.me || document.hidden) return;
+  var last = 0; CHT.msgs.forEach(function(m){ if (m.id > last) last = m.id; });
+  if (CHT.loaded) sb.from('chat_messages').select('id,author,body,at').gt('id', last).order('at').limit(50).then(function(r){ (r.data || []).forEach(chatOnInsert); });
+  if (CHT.dm && CHT.dmLoaded) {
+    var lastDm = 0; CHT.dmMsgs.forEach(function(m){ if (m.id > lastDm) lastDm = m.id; });
+    var pid = CHT.dm;
+    sb.from('dm_messages').select('id,sender,recipient,body,at,read_at').gt('id', lastDm).or('and(sender.eq.' + S.me + ',recipient.eq.' + pid + '),and(sender.eq.' + pid + ',recipient.eq.' + S.me + ')').order('at').limit(50).then(function(r){ (r.data || []).forEach(dmOnInsert); });
+  }
+}
+function chatTick(){
+  var logged = !!(S.me && S.players && S.players[S.me]);
+  if (!logged) { if (CHT.me) { chatReset(); CHT.me = null; } chatApply(); return; }
+  if (CHT.me !== S.me) { chatReset(); CHT.me = S.me; chatSubscribe(); chatLoad(); dmLoadUnread(); }
+  chatApply();
+}
+function chatInit(){
+  if (document.getElementById('gchat')) return;
+  document.body.insertAdjacentHTML('beforeend',
+    '<aside id="gchat" class="gchat" hidden aria-label="Chat général"><header class="gc-head"><span>💬 Chat général</span><button type="button" class="gc-x" data-gcclose aria-label="Réduire le chat" title="Réduire">–</button></header>' +
+    '<div class="gc-list" id="gc-list" aria-live="polite"></div>' +
+    '<form class="gc-form" id="gc-form" autocomplete="off"><input id="gc-input" maxlength="300" placeholder="Écris un message…" aria-label="Ton message"><button class="btn sm primary" type="submit">Envoyer</button></form></aside>' +
+    '<button type="button" id="gc-launch" class="gc-launch" hidden>💬 Chat <i class="count" hidden></i></button>' +
+    '<aside id="dmchat" class="dmchat" hidden aria-label="Chat privé"><header class="gc-head"><span id="dm-who" class="dm-who"></span><button type="button" class="gc-x" data-dmclose aria-label="Fermer la conversation" title="Fermer">✕</button></header>' +
+    '<div class="gc-list" id="dm-list" aria-live="polite"></div>' +
+    '<form class="gc-form" id="dm-form" autocomplete="off"><input id="dm-input" maxlength="500" placeholder="Écris en privé…" aria-label="Ton message privé"><button class="btn sm primary" type="submit">Envoyer</button></form></aside>');
+  document.getElementById('gc-form').addEventListener('submit', chatSend);
+  document.getElementById('dm-form').addEventListener('submit', dmSend);
+  document.addEventListener('click', function(e){
+    var t = e.target.closest ? e.target.closest('[data-dm],[data-dmclose],[data-gcclose],#gc-launch,[data-gcdel]') : null; if (!t) return;
+    if (t.hasAttribute('data-dm')) { e.preventDefault(); dmOpen(t.getAttribute('data-dm')); }
+    else if (t.hasAttribute('data-dmclose')) dmClose();
+    else if (t.hasAttribute('data-gcclose')) { CHT.open = false; chatApply(); }
+    else if (t.id === 'gc-launch') { CHT.open = true; CHT.fresh = 0; if (innerWidth < 1700) CHT.dm = null; chatApply(); var l = document.getElementById('gc-list'); if (l) l.scrollTop = l.scrollHeight; }
+    else if (t.hasAttribute('data-gcdel')) { if (confirm('Supprimer ce message du chat ?')) sb.rpc('delete_chat_message', {p_id: parseInt(t.getAttribute('data-gcdel'), 10)}).then(function(r){ if (r.error) toast(cleanErr(r.error.message)); }); }
+  });
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden && S.me && CHT.loaded) { chatLoad(); if (CHT.dm) dmLoad(CHT.dm); dmLoadUnread(); } });
+  window.addEventListener('hashchange', chatApply); window.addEventListener('resize', chatApply);
+  setInterval(chatTick, 700); setInterval(chatPoll, 12000);
+}
+
 /* ---------- streams Twitch ---------- */
 var liveCache = {}, LIVE_TTL = 55000;
 function isLive(ch){ var c = ch && liveCache[ch]; return !!(c && c.live); }
@@ -1797,7 +1997,7 @@ function pendingIn(){ return (S.friends || []).filter(function(x){ return x.addr
 function friendBtn(pid){
   var r = rel(pid);
   if (pid === S.me) return '';
-  if (r === 'friend') return '<span class="fr-tag">✓ Amis</span>';
+  if (r === 'friend') return dmBtn(pid) + '<span class="fr-tag">✓ Amis</span>';
   if (r === 'sent') return '<button class="btn sm ghost" data-act="friend-remove" data-pid="' + esc(pid) + '">Annuler la demande</button>';
   if (r === 'received') return '<button class="btn sm primary" data-act="friend-accept" data-pid="' + esc(pid) + '">Accepter</button>';
   return '<button class="btn sm primary" data-act="friend-add" data-pid="' + esc(pid) + '">+ Ajouter en ami</button>';
@@ -1827,7 +2027,7 @@ function friendsHTML(){
   html += '<section class="panel"><h2>Rechercher un joueur</h2><input id="friend-q" type="search" autocomplete="off" placeholder="Tape un pseudo…" value="' + esc(friendQ) + '" aria-label="Rechercher un joueur"><div id="friend-results">' + searchResultsHTML() + '</div></section>';
   if (inc.length) html += '<section class="panel fr-incoming"><h2>Demandes reçues <i class="count">' + inc.length + '</i></h2><ul class="fr-list">' + inc.map(function(k){ return personRow(k, '<button class="btn sm primary" data-act="friend-accept" data-pid="' + esc(k) + '">Accepter</button><button class="btn sm ghost" data-act="friend-decline" data-pid="' + esc(k) + '">Refuser</button>'); }).join('') + '</ul></section>';
   html += '<section class="panel"><h2>Mes amis <small class="help" style="font:500 14px var(--f-body);text-transform:none;letter-spacing:0">' + friends.length + ' ami' + (friends.length > 1 ? 's' : '') + ' · ' + online + ' connecté' + (online > 1 ? 's' : '') + '</small></h2>' +
-    (friends.length ? '<ul class="fr-list">' + friends.map(function(k){ var pr = presence(k); return personRow(k, (pr.k === 'match' ? '<button class="btn sm" data-act="open-match" data-id="' + esc(pr.mid) + '">Voir le match</button>' : '') + '<button class="btn sm ghost" data-act="friend-remove" data-pid="' + esc(k) + '" title="Retirer de mes amis">Retirer</button>'); }).join('') + '</ul>'
+    (friends.length ? '<ul class="fr-list">' + friends.map(function(k){ var pr = presence(k); return personRow(k, (pr.k === 'match' ? '<button class="btn sm" data-act="open-match" data-id="' + esc(pr.mid) + '">Voir le match</button>' : '') + dmBtn(k) + '<button class="btn sm ghost" data-act="friend-remove" data-pid="' + esc(k) + '" title="Retirer de mes amis">Retirer</button>'); }).join('') + '</ul>'
       : '<div class="empty"><b>Pas encore d\'amis</b>Cherche un pseudo juste au-dessus et envoie une demande.</div>') + '</section>';
   if (out.length) html += '<section class="panel"><h2>Demandes envoyées</h2><ul class="fr-list">' + out.map(function(k){ return personRow(k, '<span class="fr-tag">En attente</span><button class="btn sm ghost" data-act="friend-remove" data-pid="' + esc(k) + '">Annuler</button>'); }).join('') + '</ul></section>';
   return html;
@@ -2685,4 +2885,5 @@ if (sb) {
   window.addEventListener('focus', beat);
 }
 collabInit();
+chatInit();
 })();
