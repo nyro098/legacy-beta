@@ -2156,7 +2156,7 @@ function tipDialog(pid){
   if (a < 1) return dialogShell('<h2 id="dt">Pourboire</h2><p style="margin-top:14px">Tu n\'as plus de coins disponibles à donner.</p>');
   return dialogShell('<h2 id="dt">Donner des coins</h2><form data-form="tip" novalidate>' +
     '<label for="t-to">Joueur</label><select id="t-to" name="to">' + playerOptions(pid) + '</select>' +
-    '<label for="t-amount">Montant</label><input id="t-amount" name="amount" type="number" inputmode="decimal" min="0.5" max="' + Math.min(a, 50) + '" step="0.5" value="1" required><p class="hint">Disponible : ' + cn(a) + '. Par tranches de 0,5, <b>50 coins maximum</b> par don. Un pourboire est définitif.</p>' +
+    '<label for="t-amount">Montant</label><input id="t-amount" name="amount" type="number" inputmode="decimal" min="0.01" max="' + Math.min(a, 50) + '" step="0.01" value="1" required><p class="hint">Disponible : ' + cn(a) + '. Tu peux donner <b>n\'importe quel montant dès 0,01</b> (2 décimales max), <b>50 coins maximum</b> par don. Un pourboire est définitif.</p>' +
     '<label for="t-note">Message (facultatif)</label><input id="t-note" name="note" maxlength="60" autocomplete="off" placeholder="Pour ton prochain défi">' +
     '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Envoyer</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
 }
