@@ -41,7 +41,7 @@ var S = {players: {}, matches: {}, bets: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, esport: !!p.is_esport, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, lfm: p.lfm_until ? Date.parse(p.lfm_until) : 0, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, esport: !!p.is_esport, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, noBreak: !!m.no_break, killLead: m.kill_lead != null ? Number(m.kill_lead) : 1, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -53,7 +53,7 @@ function mapMatch(m){
 }
 function refresh(){
   return Promise.all([
-    sb.from('profiles').select('id,pseudo,' + (S.me ? 'discord,' : '') + 'twitter,bio,balance,is_admin,is_owner,is_esport,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
+    sb.from('profiles').select('id,pseudo,' + (S.me ? 'discord,' : '') + 'twitter,bio,balance,is_admin,is_owner,is_esport,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,lfm_until,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
     sb.from('matches').select('*').order('created_at', {ascending: false}).limit(400),
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
@@ -389,7 +389,7 @@ function arenaHTML(){
   var list = tab === 'mes' ? mineM : tab === 'termines' ? doneM : open;
   var played = all.filter(function(m){ return m.status === 'done'; }).length;
   var html = '<section class="hero"><div><p class="eyebrow">Fortnite · défis à mise</p><h1>Mets tes coins en jeu.</h1><p class="lead">Du 1v1 au 3v3 : lance un défi, mise des coins, et empoche la mise des perdants. Tout le monde démarre avec ' + cn(START) + '.</p></div>' +
-    '<button class="btn primary" data-act="new-match">Lancer un défi</button></section>';
+    '<div class="hero-act"><button class="btn primary" data-act="new-match">Lancer un défi</button>' + lfmHTML() + '</div></section>';
   html += podiumHTML(true);
   html += '<section class="strip" aria-label="Chiffres de Legacy"><div><b>' + Object.keys(S.players).filter(function(k){ return !S.players[k].owner; }).length + '</b><span>Joueurs</span></div><div><b>' + played + '</b><span>Matchs joués</span></div><div><b>' + fmt(coinsInPlay()) + '</b><span>Coins en jeu</span></div></section>';
   if (!me().fortnite) html += '<div class="notice fn-notice"><p><b>🎮 Ajoute ton pseudo Fortnite</b> pour que tes adversaires puissent t’ajouter en jeu facilement.</p><button class="btn sm primary" data-act="fn-setup">Ajouter</button></div>';
@@ -1195,9 +1195,46 @@ function resetNoticeCheck(){
   el.querySelector('[data-rn="ok"]').addEventListener('click', function(){ try { localStorage.setItem(key, '1'); } catch(x){} el.classList.add('rn-out'); setTimeout(function(){ el.remove(); }, 250); });
 }
 /* ---------- chat général (page Arène) + messages privés entre amis, en temps réel ---------- */
-var CHT = {msgs: [], ids: {}, loaded: false, open: null, fresh: 0, chan: null, me: null,
+var CHT = {rx: {}, msgs: [], ids: {}, loaded: false, open: null, fresh: 0, chan: null, me: null,
   dm: null, dmMsgs: [], dmIds: {}, dmLoaded: false, unread: {}, lastDmRead: 0};
 function dmBtn(pid){ var n = dmUnread(pid); return '<button type="button" class="btn sm dmb" data-dm="' + esc(pid) + '">💬 Chat' + (n ? ' <i class="count">' + n + '</i>' : '') + '</button>'; }
+var RX_LIST = ['🔥', '😂', '👍', '💜', '😮', '💀'];
+function rxHTML(id){
+  var m = CHT.rx[id] || {}, h = '';
+  RX_LIST.forEach(function(e){
+    var ps = m[e] ? Object.keys(m[e]) : []; if (!ps.length) return;
+    h += '<button type="button" class="gc-chip' + (m[e][S.me] ? ' mine' : '') + '" data-gcrx="' + id + '|' + e + '" title="' + esc(ps.map(function(k){ return P(k).pseudo; }).join(', ')) + '">' + e + ' ' + ps.length + '</button>';
+  });
+  return '<div class="gc-rx">' + h + '<button type="button" class="gc-chip gc-add" data-gcrxopen="' + id + '" aria-label="Réagir" title="Réagir">☺＋</button><span class="gc-pick" hidden>' + RX_LIST.map(function(e){ return '<button type="button" data-gcrx="' + id + '|' + e + '">' + e + '</button>'; }).join('') + '</span></div>';
+}
+function rxPaint(id){ var el = document.querySelector('#gc-list [data-id="' + id + '"] .gc-rx'); if (el) el.outerHTML = rxHTML(id); }
+function rxSet(id, e, pid, on){
+  var m = CHT.rx[id] || (CHT.rx[id] = {}), o = m[e] || (m[e] = {});
+  if (on) o[pid] = 1; else delete o[pid];
+  if (!Object.keys(o).length) delete m[e];
+  rxPaint(id);
+}
+function rxLoad(){
+  var ids = CHT.msgs.filter(function(x){ return x.kind !== 'warn' && x.kind !== 'fiche'; }).map(function(x){ return x.id; });
+  if (!ids.length) return;
+  sb.from('chat_reactions').select('message_id,player,emoji').in('message_id', ids).then(function(r){
+    if (r.error) return;
+    CHT.rx = {}; (r.data || []).forEach(function(x){ var m = CHT.rx[x.message_id] || (CHT.rx[x.message_id] = {}); (m[x.emoji] || (m[x.emoji] = {}))[x.player] = 1; });
+    ids.forEach(rxPaint);
+  });
+}
+function rxToggle(id, e){
+  var had = !!(CHT.rx[id] && CHT.rx[id][e] && CHT.rx[id][e][S.me]);
+  rxSet(id, e, S.me, !had);
+  sb.rpc('toggle_chat_reaction', {p_id: id, p_emoji: e}).then(function(r){ if (r.error) { rxSet(id, e, S.me, had); toast(cleanErr(r.error.message)); } });
+}
+function lfmHTML(){
+  var m = me(); if (!m) return '';
+  var on = m.lfm && m.lfm > Date.now();
+  var fr = (S.friends || []).filter(function(x){ return x.status === 'accepted'; }).map(function(x){ return x.requester === S.me ? x.addressee : x.requester; }).filter(function(k){ return presence(k).k === 'lfm'; });
+  return '<button type="button" class="btn' + (on ? ' primary' : '') + '" data-lfm="' + (on ? '0' : '1') + '">' + (on ? '🎯 Je cherche un match · arrêter' : '🎯 Je cherche un match') + '</button>' +
+    (fr.length ? '<p class="lfm-fr">🎯 Tes amis qui cherchent un match : ' + fr.map(function(k){ return '<button type="button" class="lfm-name" data-act="goto-player" data-pid="' + esc(k) + '">' + esc(P(k).pseudo) + '</button>'; }).join(' ') + '</p>' : '');
+}
 function dmUnread(pid){ return CHT.unread[pid] || 0; }
 function dmUnreadTotal(){ var n = 0; for (var k in CHT.unread) n += CHT.unread[k]; return n; }
 function chatTime(t){ var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
@@ -1206,7 +1243,7 @@ function chatMsgHTML(x, priv){
   if (x.kind === 'warn') return '<div class="gc-warn" data-id="' + x.id + '">⚠️ <b>' + esc(P(x.author).pseudo) + '</b> a reçu un avertissement pour langage interdit. Au prochain, il sera fiché (affiché ici) et muet 15 minutes.' + (isAdmin() ? '<button type="button" class="gc-del" data-gcdel="' + x.id + '" aria-label="Supprimer">✕</button>' : '') + '</div>';
   var p = P(x.author || x.sender), mine = (x.author || x.sender) === S.me, who = x.author || x.sender;
   return '<div class="gc-msg' + (mine ? ' mine' : '') + '" data-id="' + x.id + '"><button type="button" class="gc-av" data-act="goto-player" data-pid="' + esc(who) + '" aria-label="Profil de ' + esc(p.pseudo) + '">' + av(p, 'sm') + '</button>' +
-    '<div class="gc-bub"><b class="gc-h">' + nm(p) + (priv ? '' : badge(p)) + ' <small>' + chatTime(x.at) + '</small>' + (!priv && isAdmin() ? '<button type="button" class="gc-del" data-gcdel="' + x.id + '" title="Supprimer ce message" aria-label="Supprimer ce message">✕</button>' : '') + '</b><span>' + esc(x.body) + '</span></div></div>';
+    '<div class="gc-bub"><b class="gc-h">' + nm(p) + (priv ? '' : badge(p)) + ' <small>' + chatTime(x.at) + '</small>' + (!priv && isAdmin() ? '<button type="button" class="gc-del" data-gcdel="' + x.id + '" title="Supprimer ce message" aria-label="Supprimer ce message">✕</button>' : '') + '</b><span>' + esc(x.body) + '</span>' + (!priv ? rxHTML(x.id) : '') + '</div></div>';
 }
 function chatAtBottom(el){ return el.scrollHeight - el.scrollTop - el.clientHeight < 70; }
 function chatPaint(listId, arr, priv, empty){
@@ -1228,7 +1265,7 @@ function chatLoad(){
   sb.from('chat_messages').select('id,author,body,at,kind').order('at', {ascending: false}).limit(80).then(function(r){
     if (r.error || !S.me) return;
     CHT.msgs = (r.data || []).reverse(); CHT.ids = {}; CHT.msgs.forEach(function(x){ CHT.ids[x.id] = 1; });
-    CHT.loaded = true; chatPaint('gc-list', CHT.msgs, false, 'Aucun message pour l\'instant. Lance la discussion !');
+    CHT.loaded = true; chatPaint('gc-list', CHT.msgs, false, 'Aucun message pour l\'instant. Lance la discussion !'); rxLoad();
   });
 }
 function chatOnInsert(x){
@@ -1334,7 +1371,7 @@ function chatApply(){
   if (!g) return;
   var logged = !!(S.me && S.players && S.players[S.me] && document.querySelector('header.top'));
   var allowed = logged && viewName() === 'arene';
-  if (CHT.open === null) CHT.open = innerWidth >= 1700;
+  if (innerWidth >= 1700) CHT.open = true; else if (CHT.open === null) CHT.open = false;
   g.hidden = !(allowed && CHT.open); g.classList.toggle('open', allowed && CHT.open);
   l.hidden = !(allowed && !CHT.open); l.classList.toggle('has-new', CHT.fresh > 0);
   var cnt = l.querySelector('i.count'); cnt.hidden = !CHT.fresh; cnt.textContent = CHT.fresh;
@@ -1347,6 +1384,8 @@ function chatSubscribe(){
     CHT.chan = sb.channel('legacy-chat-' + S.me)
       .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'chat_messages'}, function(p){ chatOnInsert(p.new); })
       .on('postgres_changes', {event: 'DELETE', schema: 'public', table: 'chat_messages'}, function(p){ chatOnDelete(p.old); })
+      .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'chat_reactions'}, function(p){ if (p.new) rxSet(p.new.message_id, p.new.emoji, p.new.player, true); })
+      .on('postgres_changes', {event: 'DELETE', schema: 'public', table: 'chat_reactions'}, function(p){ if (p.old && p.old.emoji) rxSet(p.old.message_id, p.old.emoji, p.old.player, false); })
       .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'dm_messages'}, function(p){ dmOnInsert(p.new); })
       .subscribe(function(st){ if (st === 'SUBSCRIBED' && CHT.loaded) { chatLoad(); if (CHT.dm) dmLoad(CHT.dm); dmLoadUnread(); } });
   } catch(e){}
@@ -1384,11 +1423,17 @@ function chatInit(){
   document.getElementById('gc-form').addEventListener('submit', chatSend);
   document.getElementById('dm-form').addEventListener('submit', dmSend);
   document.addEventListener('click', function(e){
-    var t = e.target.closest ? e.target.closest('[data-dm],[data-dmclose],[data-gcclose],#gc-launch,[data-gcdel]') : null; if (!t) return;
+    var t = e.target.closest ? e.target.closest('[data-dm],[data-dmclose],[data-gcclose],#gc-launch,[data-gcdel],[data-gcrx],[data-gcrxopen],[data-lfm]') : null; if (!t) return;
     if (t.hasAttribute('data-dm')) { e.preventDefault(); dmOpen(t.getAttribute('data-dm')); }
     else if (t.hasAttribute('data-dmclose')) dmClose();
     else if (t.hasAttribute('data-gcclose')) { CHT.open = false; chatApply(); }
     else if (t.id === 'gc-launch') { CHT.open = true; CHT.fresh = 0; if (innerWidth < 1700) CHT.dm = null; chatApply(); var l = document.getElementById('gc-list'); if (l) l.scrollTop = l.scrollHeight; }
+    else if (t.hasAttribute('data-gcrxopen')) { var pk = t.parentNode.querySelector('.gc-pick'); if (pk) pk.hidden = !pk.hidden; }
+    else if (t.hasAttribute('data-gcrx')) { var pr = t.getAttribute('data-gcrx').split('|'); rxToggle(parseInt(pr[0], 10), pr[1]); }
+    else if (t.hasAttribute('data-lfm')) {
+      var on = t.getAttribute('data-lfm') === '1';
+      sb.rpc('set_lfm', {p_on: on}).then(function(r){ if (r.error) { toast(cleanErr(r.error.message)); return; } var m0 = me(); if (m0) m0.lfm = r.data ? Date.parse(r.data) : 0; toast(on ? '🎯 Tes amis voient que tu cherches un match (30 min).' : 'Statut retiré.'); render(); });
+    }
     else if (t.hasAttribute('data-gcdel')) { if (confirm('Supprimer ce message du chat ?')) sb.rpc('delete_chat_message', {p_id: parseInt(t.getAttribute('data-gcdel'), 10)}).then(function(r){ if (r.error) toast(cleanErr(r.error.message)); }); }
   });
   document.addEventListener('visibilitychange', function(){ if (!document.hidden && S.me && CHT.loaded) { chatLoad(); if (CHT.dm) dmLoad(CHT.dm); dmLoadUnread(); } });
@@ -1992,6 +2037,7 @@ var onlinePeers = {};
 function presence(pid){
   var p = P(pid);
   for (var k in S.matches) { var m = S.matches[k]; if ((m.status === 'live' || m.status === 'dispute') && teamOf(m, pid)) return {k: 'match', label: 'En match', mid: m.id}; }
+  if (p.lfm && p.lfm > Date.now()) return {k: 'lfm', label: '🎯 Cherche un match'};
   if (pid === S.me || onlinePeers[pid] || (p.lastSeen && Date.now() - p.lastSeen < 300000)) return {k: 'online', label: 'En ligne'};
   return {k: 'off', label: p.lastSeen ? 'Hors ligne · vu ' + ago(p.lastSeen) : 'Hors ligne'};
 }
@@ -2020,7 +2066,7 @@ function friendsHTML(){
   var F = S.friends || [];
   var other = function(x){ return x.requester === S.me ? x.addressee : x.requester; };
   var friends = F.filter(function(x){ return x.status === 'accepted'; }).map(other);
-  var order = {match: 0, online: 1, off: 2};
+  var order = {lfm: 0, match: 0, online: 1, off: 2};
   friends.sort(function(a, b){ return order[presence(a).k] - order[presence(b).k] || P(a).pseudo.localeCompare(P(b).pseudo); });
   var inc = F.filter(function(x){ return x.status === 'pending' && x.addressee === S.me; }).map(function(x){ return x.requester; });
   var out = F.filter(function(x){ return x.status === 'pending' && x.requester === S.me; }).map(function(x){ return x.addressee; });
