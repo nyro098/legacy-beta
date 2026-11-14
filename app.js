@@ -1202,6 +1202,7 @@ function dmUnread(pid){ return CHT.unread[pid] || 0; }
 function dmUnreadTotal(){ var n = 0; for (var k in CHT.unread) n += CHT.unread[k]; return n; }
 function chatTime(t){ var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
 function chatMsgHTML(x, priv){
+  if (x.kind === 'warn') return '<div class="gc-warn" data-id="' + x.id + '">⚠️ <b>' + esc(P(x.author).pseudo) + '</b> a reçu un avertissement pour langage interdit. Au prochain : mute de 15 minutes.' + (isAdmin() ? '<button type="button" class="gc-del" data-gcdel="' + x.id + '" aria-label="Supprimer">✕</button>' : '') + '</div>';
   var p = P(x.author || x.sender), mine = (x.author || x.sender) === S.me, who = x.author || x.sender;
   return '<div class="gc-msg' + (mine ? ' mine' : '') + '" data-id="' + x.id + '"><button type="button" class="gc-av" data-act="goto-player" data-pid="' + esc(who) + '" aria-label="Profil de ' + esc(p.pseudo) + '">' + av(p, 'sm') + '</button>' +
     '<div class="gc-bub"><b class="gc-h">' + nm(p) + (priv ? '' : badge(p)) + ' <small>' + chatTime(x.at) + '</small>' + (!priv && isAdmin() ? '<button type="button" class="gc-del" data-gcdel="' + x.id + '" title="Supprimer ce message" aria-label="Supprimer ce message">✕</button>' : '') + '</b><span>' + esc(x.body) + '</span></div></div>';
@@ -1223,7 +1224,7 @@ function chatAppend(listId, x, priv){
 /* --- chat général --- */
 function chatLoad(){
   if (!S.me) return;
-  sb.from('chat_messages').select('id,author,body,at').order('at', {ascending: false}).limit(80).then(function(r){
+  sb.from('chat_messages').select('id,author,body,at,kind').order('at', {ascending: false}).limit(80).then(function(r){
     if (r.error || !S.me) return;
     CHT.msgs = (r.data || []).reverse(); CHT.ids = {}; CHT.msgs.forEach(function(x){ CHT.ids[x.id] = 1; });
     CHT.loaded = true; chatPaint('gc-list', CHT.msgs, false, 'Aucun message pour l\'instant. Lance la discussion !');
@@ -1250,7 +1251,7 @@ function chatSend(e){
     btn.disabled = false;
     if (r.error) { toast(cleanErr(r.error.message)); return; }
     inp.value = ''; inp.focus();
-    if (r.data && !CHT.ids[r.data]) chatOnInsert({id: r.data, author: S.me, body: v, at: new Date().toISOString()});
+    if (r.data > 0 && !CHT.ids[r.data]) chatOnInsert({id: r.data, author: S.me, body: v, at: new Date().toISOString()});
   });
 }
 
@@ -1356,7 +1357,7 @@ function chatReset(){
 function chatPoll(){   // filet de sécurité si la connexion temps réel s'interrompt : on rattrape les messages manquants
   if (!S.me || document.hidden) return;
   var last = 0; CHT.msgs.forEach(function(m){ if (m.id > last) last = m.id; });
-  if (CHT.loaded) sb.from('chat_messages').select('id,author,body,at').gt('id', last).order('at').limit(50).then(function(r){ (r.data || []).forEach(chatOnInsert); });
+  if (CHT.loaded) sb.from('chat_messages').select('id,author,body,at,kind').gt('id', last).order('at').limit(50).then(function(r){ (r.data || []).forEach(chatOnInsert); });
   if (CHT.dm && CHT.dmLoaded) {
     var lastDm = 0; CHT.dmMsgs.forEach(function(m){ if (m.id > lastDm) lastDm = m.id; });
     var pid = CHT.dm;
@@ -1526,7 +1527,7 @@ var chatCache = {};
 function loadChat(mid){
   if (chatCache[mid] === 'loading') return;
   if (!chatCache[mid]) chatCache[mid] = 'loading';
-  sb.from('match_messages').select('id,author,body,at').eq('match_id', mid).order('at', {ascending: true}).limit(200).then(function(r){
+  sb.from('match_messages').select('id,author,body,at,kind').eq('match_id', mid).order('at', {ascending: true}).limit(200).then(function(r){
     chatCache[mid] = r.data || [];
     paintChat(mid);
   });
