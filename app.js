@@ -1888,60 +1888,208 @@ function winFxHTML(kind, mid){
   return '<div class="win-fx win-' + kind + '" aria-hidden="true">' + parts + '</div>';
 }
 
-/* ---------- réception d'un cadeau : grosse animation ---------- */
+/* ---------- réception d'un cadeau : pop-up interactive & animée ---------- */
 var giftQueue = [], giftShowing = false, giftSeenMem = {};
-function giftSeenKey(){ return 'lg_gift_seen_' + S.me; }
-function giftSeenGet(){ try { return JSON.parse(localStorage.getItem(giftSeenKey()) || '{}') || {}; } catch(e){ return giftSeenMem; } }
-function giftSeenAdd(id){ var s = giftSeenGet(); s[id] = 1; giftSeenMem[id] = 1; try { localStorage.setItem(giftSeenKey(), JSON.stringify(s)); } catch(e){} }
+function giftSeenKey(){ return 'lg_gift_seen_v3_' + (S.me || 'anon'); }
+function giftSeenGet(){
+  try { return JSON.parse(localStorage.getItem(giftSeenKey()) || '{}') || {}; }
+  catch(e){ return giftSeenMem; }
+}
+function giftSeenAdd(id){
+  if (!id) return;
+  var s = giftSeenGet();
+  s[id] = 1;
+  giftSeenMem[id] = 1;
+  try { localStorage.setItem(giftSeenKey(), JSON.stringify(s)); } catch(e){}
+}
+function shopTabForItem(i){
+  if (i === 'vip') return 'vip';
+  if (i.indexOf('title:') === 0) return 'titres';
+  if (i.indexOf('win:') === 0 || i.indexOf('poster:') === 0) return 'matchs';
+  return 'profil';
+}
+function giftRevealPreview(item){
+  var p = me() || {pseudo: 'Toi', avatar: ''};
+  if (item === 'vip') {
+    return '<div class="gr-pv-vip"><span class="gr-crown" aria-hidden="true">👑</span><span class="gr-vip-lbl">PASS VIP</span><small>Accès illimité 30 jours</small></div>';
+  }
+  if (item.indexOf('title:') === 0) {
+    var tk = item.slice(6), tName = TITLES[tk] || WHEEL_TITLES[tk] || tk;
+    return '<div class="gr-pv-title"><span class="ptitle lg' + titleTier(tk) + '">' + esc(tName) + '</span></div>';
+  }
+  var slot = slotOf(item), key = item.split(':')[1] || '';
+  if (slot === 'frame') {
+    return '<div class="gr-pv-frame"><span class="avf avf-' + key + ' xl"><span class="av xl' + (p.avatar ? ' has-img' : '') + '" style="--h:' + hue(p.pseudo) + '">' +
+      (p.avatar ? '<img src="' + esc(p.avatar) + '" alt="">' : ini(p.pseudo)) + '</span></span></div>';
+  }
+  if (slot === 'banner') {
+    var sigText = SIG[key] ? (SIG[key] === 1 ? p.pseudo : SIG[key]) : '';
+    return '<div class="gr-pv-banner"><div class="bn-prev bn-' + key + (SIG[key] ? ' sig-prev' : '') + '">' +
+      (sigText ? '<span class="sig-mini">' + esc(sigText) + '</span>' : '') + '</div></div>';
+  }
+  if (slot === 'fx') {
+    return '<div class="gr-pv-fx"><span class="fx-' + key + '" data-t="' + esc(p.pseudo) + '">' + esc(p.pseudo) + '</span></div>';
+  }
+  if (slot === 'emoji') {
+    return '<div class="gr-pv-emoji"><span>' + (EMOJI[key] || '✨') + '</span></div>';
+  }
+  if (slot === 'poster') {
+    return '<div class="gr-pv-poster"><span class="pt-prev pt-' + key + '"></span></div>';
+  }
+  if (slot === 'win') {
+    return '<div class="gr-pv-win"><span class="win-prev">' + (WIN_ICON[key] || '🎉') + '</span></div>';
+  }
+  return '<div class="gr-pv-generic"><span class="emo-prev">🎁</span></div>';
+}
 function checkGiftReveal(){
-  if (!S.me || !S.notifs) return;
+  if (!S.me || !S.notifs || !document.querySelector('header.top')) return;
   var seen = giftSeenGet();
-  S.notifs.slice().reverse().forEach(function(n){
-    if (n.kind !== 'gift' || n.read || seen[n.id] || giftSeenMem[n.id] || n.actor === S.me || String(n.note || '').split('|')[0] === 'banner:oriong') return;  // la bannière ORIONG a son propre pop-up
+  (S.notifs || []).slice().reverse().forEach(function(n){
+    if (!n || n.kind !== 'gift') return;
+    if (n.actor === S.me) return;
+    var item = String(n.note || '').split('|')[0] || '';
+    if (item === 'banner:oriong') return; // la bannière ORIONG a son propre pop-up
+    if (seen[n.id] || giftSeenMem[n.id]) return;
+    // Si la notif est déjà lue et date de plus de 7 jours, on l'ignore
+    var age = Date.now() - (Date.parse(n.created_at) || 0);
+    if (n.read && age > 7 * 864e5) { giftSeenAdd(n.id); return; }
     if (giftQueue.some(function(q){ return q.id === n.id; })) return;
     giftQueue.push(n);
   });
-  if (!giftShowing) showNextGift();
+  if (!giftShowing && giftQueue.length) showNextGift();
 }
 function showNextGift(){
+  if (document.querySelector('.gift-reveal')) return;
   var n = giftQueue.shift();
   if (!n) { giftShowing = false; return; }
   giftShowing = true;
   giftSeenAdd(n.id);
-  var parts = (n.note || '').split('|'), item = parts[0] || '', msg = parts[1] || '';
-  var from = P(n.actor), name = item === 'vip' ? 'Pass VIP (1 mois)' : itemName(item);
+  if (sb && !n.read) {
+    sb.from('notifications').update({read: true}).eq('id', n.id).then(function(){ n.read = true; });
+  }
+
+  var parts = String(n.note || '').split('|');
+  var item = (parts[0] || '').trim();
+  var msg = parts.slice(1).join('|').trim();
+  var from = P(n.actor) || {pseudo: 'Un joueur', avatar: ''};
+  var name = item === 'vip' ? 'Pass VIP (1 mois)' : (item.indexOf('title:') === 0 && WHEEL_TITLES[item.slice(6)] ? 'Titre « ' + WHEEL_TITLES[item.slice(6)] + ' »' : itemName(item));
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   var burst = '', rain = '';
-  for (var i = 0; i < 46; i++) {
+  for (var i = 0; i < 48; i++) {
     var ang = Math.random() * Math.PI * 2, dist = 140 + Math.random() * 260;
-    burst += '<i style="--dx:' + Math.round(Math.cos(ang) * dist) + 'px;--dy:' + Math.round(Math.sin(ang) * dist) + 'px;--r:' + Math.round(Math.random() * 720 - 360) + 'deg;background:hsl(' + Math.round(Math.random() * 360) + ' 95% 62%);animation-delay:' + (2.05 + Math.random() * 0.15).toFixed(2) + 's"></i>';
+    burst += '<i style="--dx:' + Math.round(Math.cos(ang) * dist) + 'px;--dy:' + Math.round(Math.sin(ang) * dist) + 'px;--r:' + Math.round(Math.random() * 720 - 360) + 'deg;background:hsl(' + Math.round(Math.random() * 360) + ' 95% 62%);animation-delay:' + (Math.random() * 0.12).toFixed(2) + 's"></i>';
   }
-  for (var j = 0; j < 34; j++) {
-    rain += '<i style="left:' + Math.round(Math.random() * 100) + '%;animation-delay:' + (2.2 + Math.random() * 1.6).toFixed(2) + 's;animation-duration:' + (2.4 + Math.random() * 1.6).toFixed(2) + 's;background:hsl(' + Math.round(Math.random() * 360) + ' 90% 60%)"></i>';
+  for (var j = 0; j < 36; j++) {
+    rain += '<i style="left:' + Math.round(Math.random() * 100) + '%;animation-delay:' + (0.1 + Math.random() * 1.5).toFixed(2) + 's;animation-duration:' + (2.2 + Math.random() * 1.4).toFixed(2) + 's;background:hsl(' + Math.round(Math.random() * 360) + ' 90% 60%)"></i>';
   }
-  var html = '<div class="gift-reveal' + (reduce ? ' gr-reduce' : '') + '" role="dialog" aria-modal="true" aria-label="Cadeau reçu">' +
-    '<div class="gr-bg"></div><div class="gr-rays"></div><div class="gr-flash"></div>' +
+
+  var isEquippable = false, eqBtnLabel = '✨ Équiper maintenant', isEquipped = false;
+  var myP = me();
+  if (item === 'vip') {
+    isEquippable = false;
+  } else if (item.indexOf('title:') === 0) {
+    isEquippable = true;
+    eqBtnLabel = '✨ Équiper ce titre';
+    isEquipped = myP && myP.titleKey === item.slice(6);
+  } else {
+    var sl = slotOf(item);
+    if (sl && ['frame', 'banner', 'fx', 'emoji', 'poster', 'win'].indexOf(sl) >= 0) {
+      isEquippable = true;
+      isEquipped = myP && myP.eq && myP.eq[sl] === item;
+    }
+  }
+
+  var actHtml = '';
+  if (isEquippable) {
+    if (isEquipped) {
+      actHtml += '<button type="button" class="btn primary lg" disabled>✓ Déjà équipé</button>';
+    } else {
+      actHtml += '<button type="button" class="btn primary lg" data-act="gift-reveal-equip" data-item="' + esc(item) + '">' + eqBtnLabel + '</button>';
+    }
+  } else if (item === 'vip') {
+    actHtml += '<button type="button" class="btn primary lg" data-act="gift-reveal-profile">👑 Voir mon statut VIP</button>';
+  }
+  actHtml += '<button type="button" class="btn ghost" data-act="gift-reveal-close">Trop bien, merci ! 🎉</button>';
+  actHtml += '<button type="button" class="btn ghost sm" data-act="gift-reveal-shop" data-item="' + esc(item) + '">Voir dans la boutique</button>';
+
+  var html = '<div class="gift-reveal' + (reduce ? ' gr-reduce gr-opened gr-s2on' : '') + '" role="dialog" aria-modal="true" aria-label="Cadeau reçu">' +
+    '<div class="gr-bg" data-act="gift-reveal-close" title="Fermer"></div>' +
+    '<button type="button" class="gr-x" data-act="gift-reveal-close" aria-label="Fermer" title="Fermer (Échap)">✕</button>' +
+    '<div class="gr-rays" aria-hidden="true"></div>' +
+    '<div class="gr-flash" aria-hidden="true"></div>' +
     '<div class="gr-rain" aria-hidden="true">' + rain + '</div>' +
     '<div class="gr-stage">' +
-      '<p class="gr-intro">' + av(from, 'sm') + ' <span><b>' + esc(from.pseudo) + '</b> t\'envoie un cadeau…</span></p>' +
-      '<div class="gr-box" aria-hidden="true"><div class="gr-lid"><span class="gr-bow"></span></div><div class="gr-body"></div></div>' +
-      '<div class="gr-burst" aria-hidden="true">' + burst + '</div>' +
-      '<div class="gr-card">' +
-        '<div class="gr-prev">' + giftPreview(item) + '</div>' +
-        '<p class="gr-from"><b>' + esc(from.pseudo) + '</b> t\'a offert</p>' +
-        '<h2 class="gr-name">' + esc(name) + '</h2>' +
-        (msg ? '<p class="gr-msg">« ' + esc(msg) + ' »</p>' : '') +
-        '<div class="actions"><button class="btn primary lg" data-act="gift-reveal-close">Trop bien, merci ! 🎉</button><button class="btn ghost" data-act="gift-reveal-close" data-shop="1" data-item="' + esc(item) + '">Voir dans la boutique</button></div>' +
+      '<div class="gr-step gr-s1">' +
+        '<div class="gr-intro">' + av(from, 'sm') + ' <span><b>' + esc(from.pseudo) + '</b> t\'envoie un cadeau !</span></div>' +
+        '<button type="button" class="gr-box-wrap" data-act="gift-reveal-open" aria-label="Ouvrir le cadeau">' +
+          '<div class="gr-box" aria-hidden="true">' +
+            '<div class="gr-lid"><span class="gr-bow"></span></div>' +
+            '<div class="gr-body"></div>' +
+          '</div>' +
+          '<div class="gr-pulse-glow" aria-hidden="true"></div>' +
+        '</button>' +
+        '<p class="gr-tap-hint">Touche la boîte pour l\'ouvrir !</p>' +
+        '<button type="button" class="btn primary lg gr-open-btn" data-act="gift-reveal-open">🎁 Déballer mon cadeau</button>' +
       '</div>' +
-    '</div></div>';
+      '<div class="gr-step gr-s2">' +
+        '<div class="gr-burst" aria-hidden="true">' + burst + '</div>' +
+        '<div class="gr-card">' +
+          '<div class="gr-prev">' + giftRevealPreview(item) + '</div>' +
+          '<p class="gr-from">' + av(from, 'sm') + ' <span><b>' + esc(from.pseudo) + '</b> t\'a offert</span></p>' +
+          '<h2 class="gr-name">' + esc(name) + '</h2>' +
+          (msg ? '<p class="gr-msg">« ' + esc(msg) + ' »</p>' : '') +
+          '<div class="actions gr-actions">' + actHtml + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
   document.body.insertAdjacentHTML('beforeend', html);
   var el = document.body.lastElementChild;
-  setTimeout(function(){ var b = el.querySelector('.gr-card .btn'); if (b) try { b.focus(); } catch(e){} }, reduce ? 50 : 2600);
+
+  function onKey(e){ if (e.key === 'Escape') closeGiftReveal(); }
+  window.addEventListener('keydown', onKey);
+  el._onKey = onKey;
+
+  setTimeout(function(){
+    var b = el.querySelector(reduce ? '.gr-card .btn' : '.gr-open-btn');
+    if (b) try { b.focus(); } catch(x){}
+  }, 100);
+}
+function openGiftReveal(){
+  var el = document.querySelector('.gift-reveal');
+  if (!el || el.classList.contains('gr-opened')) return;
+  el.classList.add('gr-opened');
+  try { winSound(4); } catch(e){}
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(function(){
+    if (!el.isConnected) return;
+    el.classList.add('gr-s2on');
+    var b = el.querySelector('.gr-card .btn.primary') || el.querySelector('.gr-card .btn');
+    if (b) try { b.focus(); } catch(x){}
+  }, reduce ? 20 : 500);
 }
 function closeGiftReveal(){
   var el = document.querySelector('.gift-reveal');
-  if (el) { el.classList.add('gr-out'); setTimeout(function(){ el.remove(); showNextGift(); }, 350); }
-  else showNextGift();
+  if (!el) {
+    giftShowing = false;
+    if (giftQueue.length) setTimeout(showNextGift, 250);
+    return;
+  }
+  if (el._onKey) {
+    window.removeEventListener('keydown', el._onKey);
+    delete el._onKey;
+  }
+  if (el.classList.contains('gr-out')) return;
+  el.classList.add('gr-out');
+  setTimeout(function(){
+    if (el.parentNode) el.parentNode.removeChild(el);
+    giftShowing = false;
+    if (giftQueue.length) {
+      setTimeout(showNextGift, 250);
+    }
+  }, 320);
 }
 
 /* ---------- joueurs de la semaine ---------- */
@@ -2523,10 +2671,42 @@ function act(name, el){
       break;
     case 'tip-dialog': openDialog({kind: 'tip', pid: d.pid || null}); break;
     case 'gift-dialog': openDialog({kind: 'gift', item: d.item || 'fx:galaxy', locked: !!d.item}); break;
-    case 'gift-reveal-close':
+    case 'gift-reveal-open':
+      openGiftReveal();
+      break;
+    case 'gift-reveal-equip': {
+      var it = d.item || '';
+      closeGiftReveal();
+      if (it.indexOf('title:') === 0) {
+        var tk = it.slice(6);
+        doRpc('set_cosmetics', {p_style: (me() && me().nameStyle) || '', p_title: tk}, 'Titre « ' + (TITLES[tk] || WHEEL_TITLES[tk] || tk) + ' » équipé !');
+      } else {
+        var sl = slotOf(it);
+        if (sl) doRpc('set_equip', {p_slot: sl, p_item: it}, itemName(it) + ' équipé !');
+      }
+      break;
+    }
+    case 'gift-reveal-profile':
+      closeGiftReveal();
+      viewPid = S.me;
+      editing = false;
+      if (dlg) closeDialog();
+      location.hash = '#profil';
+      render();
+      window.scrollTo(0, 0);
+      break;
+    case 'gift-reveal-shop': {
       var gi = d.item || '';
       closeGiftReveal();
-      if (d.shop) { shopTab = gi === 'vip' ? 'vip' : gi.indexOf('title:') === 0 ? 'titres' : 'profil'; if (dlg) closeDialog(); location.hash = '#boutique'; render(); window.scrollTo(0, 0); }
+      shopTab = shopTabForItem(gi);
+      if (dlg) closeDialog();
+      location.hash = '#boutique';
+      render();
+      window.scrollTo(0, 0);
+      break;
+    }
+    case 'gift-reveal-close':
+      closeGiftReveal();
       break;
     case 'admin-dialog': openDialog({kind: 'admin', pid: d.pid || null, mode: d.mode || 'give'}); break;
     case 'close': closeDialog(); break;
@@ -2909,7 +3089,11 @@ if (sb) {
       .on('postgres_changes', {event: '*', schema: 'public', table: 'matches'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'profiles'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'friendships'}, passiveRefresh)
-      .on('postgres_changes', {event: '*', schema: 'public', table: 'notifications'}, function(){ passiveRefresh(); setTimeout(function(){ if (dlg && dlg.kind === 'notifs') renderDialog(); }, 1200); })
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'notifications'}, function(){
+        passiveRefresh();
+        setTimeout(checkGiftReveal, 600);
+        setTimeout(function(){ if (dlg && dlg.kind === 'notifs') renderDialog(); }, 1200);
+      })
       .on('postgres_changes', {event: '*', schema: 'public', table: 'team_members'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'tournaments'}, passiveRefresh)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'tournament_players'}, passiveRefresh)
