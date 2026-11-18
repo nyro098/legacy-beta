@@ -891,7 +891,9 @@ var CAS_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 
 var CAS_RED = {1: 1, 3: 1, 5: 1, 7: 1, 9: 1, 12: 1, 14: 1, 16: 1, 18: 1, 19: 1, 21: 1, 23: 1, 25: 1, 27: 1, 30: 1, 32: 1, 34: 1, 36: 1};
 var CAS_SEG = 360 / 37, CAS_CAP = 25, casRot = 0, casHit = -1;
 function casFree(){ return true; }   // mise libre (all-in et montant au choix) en permanence ; le plafond de gains de 25 coins/jour s'applique toujours
-var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 2, black: 2, green: 36};
+var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 1.9, black: 1.9, green: 30}, CAS_MAXWIN = 10;
+function casGain(st){ return Math.min(Math.round(st * (CAS_MULT[CAS.bet] - 1) * 100) / 100, CAS_MAXWIN); }
+function casMultTxt(c){ return 'x' + String(CAS_MULT[c]).replace('.', ','); }
 function casColor(n){ return n === 0 ? 'green' : CAS_RED[n] ? 'red' : 'black'; }
 function casStake(){
   if (casFree()) return CAS.stake === 'all' ? Math.floor(avail(S.me) * 100) / 100 : (Math.round(CAS.stake * 100) / 100 || 0);   // ce soir : mise libre, all-in = tout le solde disponible
@@ -929,7 +931,7 @@ function casinoSVG(){
 function casinoHTML(){
   var vip = !!(me() && me().vip), st = casStake(), a = avail(S.me), capped = CAS.today >= CAS_CAP;
   if (vip && !CAS.loaded) casinoLoad();
-  var h = '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Roulette européenne : <b>rouge</b> ou <b>noir</b> pour doubler ta mise, <b>vert</b> pour tenter le x36. Les coins n\'ont aucune valeur réelle : joue pour le plaisir.</p></div></section>';
+  var h = '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Roulette européenne : <b>rouge</b> ou <b>noir</b> pour presque doubler ta mise (x1,9), <b>vert</b> pour tenter le x30. Les coins n\'ont aucune valeur réelle : joue pour le plaisir.</p></div></section>';
   h += '<div class="cas-wrap' + (vip ? '' : ' locked') + '"><div class="cas-stage"><div class="cas-box" id="cas-box"><div class="cas-pin" id="cas-pin" aria-hidden="true"></div><div class="cas-wheel">' + casinoSVG() + '</div></div>';
   if (!vip) h += '<div class="cas-lock"><b>🔒 Réservé aux membres VIP</b><p>Le Pass VIP ouvre le casino, booste la roue quotidienne et bien plus.</p><button class="btn primary" data-act="shop-vip">Devenir VIP · ' + cn(20) + '</button></div>';
   h += '</div><div class="cas-side">';
@@ -938,7 +940,7 @@ function casinoHTML(){
     h += '<div class="cas-res ' + (win ? 'win' : 'lose') + '"><span class="cas-ball ' + r.color + '">' + r.number + '</span><div><b>' + (win ? '🎉 Gagné · +' + cn(r.net) : 'Perdu · −' + cn(r.stake)) + '</b><small>Le ' + r.number + ' ' + CAS_NAME[r.color] + ' · tu avais misé ' + cn(r.stake) + ' sur ' + CAS_NAME[r.bet] + '</small></div></div>';
   }
   h += '<div class="cas-bets" role="group" aria-label="Choisis ta couleur">' + ['red', 'black', 'green'].map(function(c){
-    return '<button type="button" class="cas-col ' + c + (CAS.bet === c ? ' sel' : '') + '" data-cas="bet:' + c + '"' + (vip ? '' : ' disabled') + '>' + CAS_NAME[c].charAt(0).toUpperCase() + CAS_NAME[c].slice(1) + '<small>x' + CAS_MULT[c] + '</small></button>';
+    return '<button type="button" class="cas-col ' + c + (CAS.bet === c ? ' sel' : '') + '" data-cas="bet:' + c + '"' + (vip ? '' : ' disabled') + '>' + CAS_NAME[c].charAt(0).toUpperCase() + CAS_NAME[c].slice(1) + '<small>' + casMultTxt(c) + '</small></button>';
   }).join('') + '</div>';
   var cv = (typeof CAS.stake === 'number' && [0.5, 1, 2, 5].indexOf(CAS.stake) < 0 && CAS.stake > 0) ? String(CAS.stake).replace('.', ',') : '';
   h += '<div class="cas-stakes" role="group" aria-label="Ta mise"><span>Mise</span>' + [0.5, 1, 2, 5].map(function(v){
@@ -947,12 +949,12 @@ function casinoHTML(){
   }).join('') + (casFree() ? '<button type="button" class="cas-chip allin' + (CAS.stake === 'all' ? ' sel' : '') + '" data-cas="stake:all"' + (!vip || a < 0.01 ? ' disabled' : '') + '>🔥 ALL-IN</button><label class="cas-custom' + (cv ? ' sel' : '') + '"><span>ou</span><input id="cas-custom" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 12,5" value="' + cv + '"' + (vip ? '' : ' disabled') + ' aria-label="Montant libre en coins"><em>coins</em></label>' : '') + '</div>';
   h += '<button type="button" class="btn primary lg cas-go" id="cas-spin" data-cas="spin"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🎰 Lancer · ' + cn(st) + '</button>';
   if (vip) {
-    h += (capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de coins disponibles pour cette mise.</p>' : '<p class="help" id="cas-gain">Gain possible : <b>+' + cn(st * (CAS_MULT[CAS.bet] - 1)) + '</b> · Disponible : ' + cn(a) + '</p>');
+    h += (capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de coins disponibles pour cette mise.</p>' : '<p class="help" id="cas-gain">Gain possible : <b>+' + cn(casGain(st)) + '</b> · Disponible : ' + cn(a) + '</p>');
     h += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + cn(Math.abs(CAS.today)) + ' / ' + cn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + cn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
   }
-  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Plafond de gains : <b>' + cn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Gain maximum par lancer : <b>' + cn(CAS_MAXWIN) + '</b>.</li><li>Plafond de gains : <b>' + cn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return h + '</div></div>';
 }
 
@@ -999,7 +1001,7 @@ function casSync(){
   var st = casStake(), a = avail(S.me), btn = document.getElementById('cas-spin'), g = document.getElementById('cas-gain');
   [].forEach.call(document.querySelectorAll('.cas-chip'), function(c){ c.classList.remove('sel'); });
   if (btn && !CAS.busy && !spinLock) { btn.textContent = '🎰 Lancer · ' + cn(st); btn.disabled = !(st >= 0.01) || a < st; }
-  if (g) g.innerHTML = !(st >= 0.01) ? 'Entre un montant à partir de 0,01 coin.' : a < st ? '<span class="cas-warn">Pas assez de coins disponibles (' + cn(a) + ').</span>' : 'Gain possible : <b>+' + cn(st * (CAS_MULT[CAS.bet] - 1)) + '</b> · Disponible : ' + cn(a);
+  if (g) g.innerHTML = !(st >= 0.01) ? 'Entre un montant à partir de 0,01 coin.' : a < st ? '<span class="cas-warn">Pas assez de coins disponibles (' + cn(a) + ').</span>' : 'Gain possible : <b>+' + cn(casGain(st)) + '</b> · Disponible : ' + cn(a);
 }
 function casinoInit(){
   document.addEventListener('input', function(e){
