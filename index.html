@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794967655">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794968361">
 </head><body>
 <title>Legacy · Défis Fortnite gratuits (bêta)</title><link rel="icon" type="image/svg+xml" href="logo.svg"><meta name="description" content="Legacy : défis Fortnite entre joueurs, 100 % gratuits. Lance un 1v1, 2v2 ou 3v3, mise des coins sans valeur réelle et grimpe au classement."><meta property="og:title" content="Legacy · Défis Fortnite gratuits"><meta property="og:description" content="Défis Fortnite entre joueurs, 100 % gratuits. Coins sans valeur réelle, classement, chat de match."><meta property="og:image" content="https://nyro098.github.io/legacy-beta/logo.svg"><link rel="canonical" href="https://nyro098.github.io/legacy-beta/">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -1079,6 +1079,34 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 .mn-stepper button{border:1px solid var(--line);background:rgba(255,255,255,.06);color:#ffd84a;font-weight:900;border-radius:8px;padding:6px 9px;cursor:pointer}
 .mn-stepper button:disabled{opacity:.4;cursor:not-allowed}
 .mn-note{margin:0}
+/* ---- Plinko / Hi-Lo / Tower ---- */
+.cas-tabs{display:flex;flex-wrap:wrap}
+.plk-scene{border-radius:18px;padding:12px;background:radial-gradient(ellipse at 50% 0,#27204d,#141a33 70%);border:1px solid #2c3b5e;box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.plk-svg{width:100%;height:auto;display:block}
+.plk-b rect{transition:filter .2s}.plk-b.hit rect{filter:brightness(1.35) drop-shadow(0 0 10px #fff);stroke:#fff;stroke-width:2}
+.plk-hist small{display:block;color:var(--fg-2);margin:8px 0 6px}.plk-hist>div{display:flex;flex-wrap:wrap;gap:5px}
+.plk-hist span{color:#10131f;font:800 12px var(--f-mono,monospace);padding:3px 7px;border-radius:7px}.plk-hist em{color:var(--fg-2);font-size:13px}
+.hl-table{border-radius:22px;padding:18px 14px;display:grid;gap:14px;justify-items:center;background:radial-gradient(ellipse at 50% 40%,#13795a 0,#0b4f3b 62%,#073328 100%);border:6px solid #5a3a14;box-shadow:inset 0 0 40px rgba(0,0,0,.55),0 0 0 3px #2a1a08,0 22px 50px rgba(0,0,0,.55)}
+.hl-hist{display:flex;min-height:104px;align-items:center;padding-left:46px}.hl-hist .bj-card{width:56px;height:80px;margin-left:-46px;transform:scale(.9)}.hl-hist .bj-card b{font-size:15px}.hl-hist .bj-card i{top:20px;font-size:12px}.hl-hist .bj-card .bj-mid{font-size:24px}
+.hl-main{display:flex;align-items:center;gap:24px}.hl-main .bj-card{width:98px;height:138px}.hl-main .bj-card b{font-size:26px}.hl-main .bj-card i{top:34px;font-size:20px}.hl-main .bj-card .bj-mid{font-size:54px}
+.hl-next{opacity:.7}.hl-info{color:#e6fff3;font-size:14px;text-align:center}.hl-info b{color:#ffe9a0}
+.hl-btns{display:grid;gap:10px}.hl-btns .btn{flex:none;width:100%;padding-block:12px;display:grid;gap:2px;justify-items:center}.hl-btns .btn small{font-weight:600;opacity:.9;font-size:12px}
+.hl-lo{background:linear-gradient(135deg,#c8283c,#8f1a2c);color:#fff;border:0}.hl-btns .btn:disabled{opacity:.4}
+.tw-scene{border-radius:18px;padding:14px;background:linear-gradient(180deg,#2a2150,#17142e);border:1px solid #3a2f6e;box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.tw-tower{display:grid;gap:8px;max-width:420px;margin:0 auto}
+.tw-row{display:grid;grid-template-columns:62px 1fr;align-items:center;gap:8px;padding:6px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid transparent}
+.tw-row.now{background:rgba(255,201,60,.1);border-color:rgba(255,201,60,.6);box-shadow:0 0 18px rgba(255,201,60,.25)}
+.tw-mult{font:800 13px var(--f-mono,monospace);color:#ffc93c;text-align:center}.tw-row.done .tw-mult{color:#35d6a1}
+.tw-cells{display:grid;gap:8px}
+.tw-tile{height:44px;border:0;border-radius:9px;display:grid;place-items:center;font:900 20px/1 var(--f-head,system-ui);color:#f4fbff;background:linear-gradient(180deg,#5d4fa3,#3a2f78);box-shadow:0 4px 0 #261e57,inset 0 1px 0 rgba(255,255,255,.25);cursor:default}
+.tw-tile.cur{background:linear-gradient(180deg,#c4e3f8,#80b4de);box-shadow:0 4px 0 #4b83b2,inset 0 2px 0 rgba(255,255,255,.55);color:#fff;cursor:pointer}
+.tw-tile.cur:not(:disabled):hover{transform:translateY(-2px);filter:brightness(1.1)}
+.tw-tile.safe{background:radial-gradient(circle at 50% 40%,#1f5a56,#0e2a33);box-shadow:inset 0 0 0 3px #35d6a1,0 0 14px rgba(53,214,161,.4)}
+.tw-tile.trap{background:radial-gradient(circle at 50% 40%,#5a2230,#2a0f18);box-shadow:inset 0 0 0 2px rgba(255,255,255,.08)}
+.tw-tile.boom{background:radial-gradient(circle at 50% 40%,#ff6a3a,#a01818);box-shadow:inset 0 0 0 3px #ffd0a0,0 0 22px rgba(255,90,40,.8)}
+.tw-tile.ghost{background:linear-gradient(180deg,#27324f,#1d2740);opacity:.5;box-shadow:none}
+.tw-tile:not(.cur):disabled{opacity:.9}
+@media (max-width:560px){.hl-main .bj-card{width:80px;height:114px}.tw-row{grid-template-columns:52px 1fr}}
 .cas-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:28px;align-items:start}
 @media (max-width:900px){.cas-wrap{grid-template-columns:1fr}}
 .cas-stage{position:relative;display:grid;place-items:center}
@@ -1189,6 +1217,6 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1794967655"></script>
-<script src="app.js?v=1794967655"></script>
+<script src="config.js?v=1794968361"></script>
+<script src="app.js?v=1794968361"></script>
 </body></html>

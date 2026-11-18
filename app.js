@@ -961,6 +961,9 @@ function casinoHTML(){
   if (CAS.game === 'chicken') return chickenPage();
   if (CAS.game === 'blackjack') return blackjackPage();
   if (CAS.game === 'mines') return minesPage();
+  if (CAS.game === 'plinko') return plinkoPage();
+  if (CAS.game === 'hilo') return hiloPage();
+  if (CAS.game === 'tower') return towerPage();
   return rouletteHTML();
 }
 function rouletteHTML(){
@@ -1063,6 +1066,16 @@ function casinoInit(){
     else if (v === 'slspin') slotsSpin();
     else if (v === 'chstart') chStart();
     else if (v === 'mnstart') mnStart();
+    else if (v === 'plkgo') plinkoDrop();
+    else if (v.indexOf('plkrisk:') === 0) { PL.risk = v.slice(8); render(); }
+    else if (v === 'hlstart') hlCall('casino_hilo_start', {p_stake: gStakeVal('hl')}, true);
+    else if (v === 'hlhi') hlCall('casino_hilo_guess', {p_dir: 'hi'});
+    else if (v === 'hllo') hlCall('casino_hilo_guess', {p_dir: 'lo'});
+    else if (v === 'hlcash') hlCall('casino_hilo_cashout');
+    else if (v === 'twstart') twStart();
+    else if (v === 'twcash') twCash();
+    else if (v.indexOf('twpick:') === 0) twPick(parseInt(v.slice(7), 10));
+    else if (v.indexOf('twdiff:') === 0) { TW.diff = v.slice(7); render(); }
     else if (v === 'mncash') mnCash();
     else if (v.indexOf('mnpick:') === 0) mnPick(parseInt(v.slice(7), 10));
     else if (v.indexOf('mn:') === 0) { var mv = v.slice(3); MN.n = mv === 'min' ? 1 : mv === 'max' ? 24 : Math.max(1, Math.min(24, MN.n + (mv === 'inc' ? 1 : -1))); render(); }
@@ -1104,7 +1117,7 @@ function casinoInit(){
 
 /* ---------- casino : onglets, machine à sous et poulet qui traverse ---------- */
 function casinoTabsHTML(){
-  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack'], ['mines', '⛏️ Legacy Miner']];
+  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack'], ['mines', '⛏️ Legacy Miner'], ['plinko', '🔻 Plinko'], ['hilo', '↕️ Hi-Lo'], ['tower', '🗼 Tower']];
   return '<div class="tabs cas-tabs" role="tablist">' + tabs.map(function(t){ return '<button type="button" role="tab" aria-selected="' + (CAS.game === t[0]) + '" data-cas="game:' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
 }
 function casinoHeroHTML(){
@@ -1117,7 +1130,8 @@ function casinoGameShell(vip, stageHTML, sideHTML){
 }
 
 /* --- mise : jetons, ALL-IN et montant libre (commun aux deux jeux) --- */
-var GS = {slots: 1, chicken: 1, bj: 1, mn: 1};
+var GS = {slots: 1, chicken: 1, bj: 1, mn: 1, plk: 1, hl: 1, tw: 1};
+var GSYNC = {slots: ['sl-spin', '🎰 LANCER · '], chicken: ['ch-start', '🐔 JOUER · '], bj: ['bj-start', '🃏 DISTRIBUER · '], mn: ['mn-start', '⛏️ JOUER · '], plk: ['plk-go', '🔻 LÂCHER LA BILLE · '], hl: ['hl-start', '↕️ JOUER · '], tw: ['tw-start', '🗼 GRIMPER · ']};
 function gStakeVal(g){ var v = GS[g]; return v === 'all' ? Math.floor(ccBal() * 100) / 100 : (Math.round(v * 100) / 100 || 0); }
 function gStakeHTML(g, vip, lock){
   var cur = GS[g], chips = [1, 2, 5, 10, 25], off = !vip || lock ? ' disabled' : '';
@@ -1130,8 +1144,8 @@ function gStakeHTML(g, vip, lock){
 function gSync(g){
   var st = gStakeVal(g), a = ccBal(), capped = CAS.today >= CAS_CAP;
   [].forEach.call(document.querySelectorAll('.cas-stakes .cas-chip'), function(c){ c.classList.remove('sel'); });
-  var btn = document.getElementById(g === 'slots' ? 'sl-spin' : g === 'bj' ? 'bj-start' : g === 'mn' ? 'mn-start' : 'ch-start'), led = document.getElementById('led-bet');
-  if (btn && !CAS.busy && !SL.spinning && !spinLock) { btn.textContent = (g === 'slots' ? '🎰 LANCER · ' : g === 'bj' ? '🃏 DISTRIBUER · ' : g === 'mn' ? '⛏️ JOUER · ' : '🐔 JOUER · ') + ccn(st); btn.disabled = !(st >= 0.01) || a < st || capped; }
+  var gm = GSYNC[g] || GSYNC.chicken, btn = document.getElementById(gm[0]), led = document.getElementById('led-bet');
+  if (btn && !CAS.busy && !SL.spinning && !spinLock) { btn.textContent = gm[1] + ccn(st); btn.disabled = !(st >= 0.01) || a < st || capped; }
   if (led) led.textContent = fmt(st);
 }
 
@@ -1577,6 +1591,211 @@ function mnCash(){
     if (me()) me().cc = Number(d.balance); CAS.today = Number(d.today) || CAS.today;
     winSound(d.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(d.net));
     render(); refresh().then(render, render);
+  });
+}
+
+/* =================== PLINKO =================== */
+var PL_T = {low: [8.5, 3, 1.6, 1.3, 1.1, 0.9, 0.5, 0.9, 1.1, 1.3, 1.6, 3, 8.5], med: [28, 10, 4, 1.9, 1.1, 0.6, 0.3, 0.6, 1.1, 1.9, 4, 10, 28], high: [140, 22, 8, 1.9, 0.7, 0.2, 0.2, 0.2, 0.7, 1.9, 8, 22, 140]};
+var PL_NAME = {low: 'Faible', med: 'Moyen', high: 'Élevé'};
+var PL = {risk: 'med', busy: false, hist: [], res: null, hit: -1};
+var PL_CX = 320, PL_DX = 40, PL_Y0 = 46, PL_DY = 33;
+function plColor(m){ return m >= 10 ? '#ff4d5a' : m >= 3 ? '#ff9a3c' : m >= 1.5 ? '#ffd84a' : m >= 1 ? '#8be28b' : '#6f86a8'; }
+function plMulTxt(m){ return String(m).replace('.', ',') + 'x'; }
+function plinkoPage(){
+  var vip = !!(me() && me().vip), st = gStakeVal('plk'), a = ccBal(), capped = CAS.today >= CAS_CAP, tbl = PL_T[PL.risk], i, j, pegs = '', buckets = '';
+  if (vip && !CAS.loaded) casinoLoad();
+  for (i = 0; i < 12; i++) for (j = 0; j <= i; j++) pegs += '<circle cx="' + (PL_CX + (j - i / 2) * PL_DX) + '" cy="' + (PL_Y0 + i * PL_DY) + '" r="3.6" fill="#dfe8ff" opacity=".9"/>';
+  for (i = 0; i <= 12; i++) {
+    var bx = PL_CX + (i - 6) * PL_DX, by = PL_Y0 + 12 * PL_DY - 4;
+    buckets += '<g class="plk-b' + (PL.hit === i ? ' hit' : '') + '" id="plk-b' + i + '"><rect x="' + (bx - 18) + '" y="' + by + '" width="36" height="28" rx="6" fill="' + plColor(tbl[i]) + '"/><text x="' + bx + '" y="' + (by + 19) + '" text-anchor="middle" font-size="' + (tbl[i] >= 100 ? 10 : 11.5) + '" font-weight="800" fill="#10131f">' + plMulTxt(tbl[i]) + '</text></g>';
+  }
+  var board = '<div class="plk-scene"><svg viewBox="0 0 640 500" class="plk-svg" role="img" aria-label="Plateau de Plinko">' + pegs + buckets + '<circle id="plk-ball" cx="' + PL_CX + '" cy="12" r="8" fill="#fff" stroke="#8b5cff" stroke-width="3" opacity="' + (PL.busy ? 1 : 0.0) + '"/></svg>' +
+    '<div class="plk-hist"><small>Dernières billes</small><div>' + (PL.hist.length ? PL.hist.map(function(m){ return '<span style="background:' + plColor(m) + '">' + plMulTxt(m) + '</span>'; }).join('') : '<em>Aucune bille pour le moment.</em>') + '</div></div></div>';
+  var side = '';
+  if (PL.res) { var r = PL.res, win = r.net > 0; side += '<div class="cas-res ' + (win ? 'win' : 'lose') + '"><span class="cas-ball ' + (win ? 'green' : 'red') + '">🔻</span><div><b>' + (win ? '🎉 +' + ccn(r.net) : r.net === 0 ? 'Mise récupérée' : 'Perdu · −' + ccn(Math.abs(r.net))) + '</b><small>Case ' + plMulTxt(r.mult) + ' · mise ' + ccn(r.stake) + '</small></div></div>'; }
+  side += '<div class="cas-stakes" role="group" aria-label="Niveau de risque"><span>Risque</span>' + ['low', 'med', 'high'].map(function(k){ return '<button type="button" class="cas-chip' + (PL.risk === k ? ' sel' : '') + '" data-cas="plkrisk:' + k + '"' + (!vip || PL.busy ? ' disabled' : '') + '>' + PL_NAME[k] + '</button>'; }).join('') + '</div>';
+  side += gStakeHTML('plk', vip, PL.busy);
+  side += '<button type="button" class="btn primary lg cas-go" id="plk-go" data-cas="plkgo"' + (!vip || PL.busy || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🔻 LÂCHER LA BILLE · ' + ccn(st) + '</button>';
+  side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<ul class="cas-rules"><li>Ta bille rebondit sur 12 rangées de clous et tombe dans une case : le multiplicateur de la case multiplie ta mise.</li><li><b>Risque faible</b> : gains réguliers. <b>Élevé</b> : souvent perdu, mais jusqu\'à <b>x140</b> sur les bords.</li><li>Le chemin est tiré par le serveur : impossible de tricher.</li><li>Retour moyen d\'environ 95 %. Jeu 100 % virtuel.</li></ul>';
+  return casinoGameShell(vip, board, side);
+}
+function plinkoDrop(){
+  if (PL.busy || spinLock || !me() || !me().vip) return;
+  var st = gStakeVal('plk'), risk = PL.risk; audio(); PL.busy = true; PL.hit = -1;
+  var btn = document.getElementById('plk-go'); if (btn) { btn.disabled = true; btn.textContent = 'La bille tombe…'; }
+  sb.rpc('casino_plinko', {p_stake: st, p_risk: risk}).then(function(r){
+    if (r.error) { PL.busy = false; toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    var res = r.data, ball = document.getElementById('plk-ball'), pts = [], R = 0, i;
+    spinLock = true;
+    pts.push({x: PL_CX, y: 14});
+    for (i = 0; i < 12; i++) { pts.push({x: PL_CX + (R - i / 2) * PL_DX, y: PL_Y0 + i * PL_DY - 11}); R += res.path[i]; }
+    pts.push({x: PL_CX + (R - 6) * PL_DX, y: PL_Y0 + 12 * PL_DY + 10});
+    if (ball) ball.setAttribute('opacity', '1');
+    var seg = 0, SEG = 92;
+    function finish(){
+      PL.busy = false; PL.res = res; PL.hit = res.bucket; PL.hist.unshift(Number(res.mult)); PL.hist = PL.hist.slice(0, 12);
+      CAS.today = Number(res.today) || 0; if (me()) me().cc = Number(res.balance);
+      var bk = document.getElementById('plk-b' + res.bucket); if (bk) bk.classList.add('hit');
+      if (res.net > 0) winSound(res.mult >= 10 ? 5 : res.mult >= 3 ? 3 : 2); else beep(180, 0, 0.25, 'triangle', 0.1);
+      setTimeout(function(){
+        spinLock = false; toast(res.net > 0 ? 'Gagné ! +' + ccn(res.net) : res.net === 0 ? 'Mise récupérée' : 'Perdu, retente ta chance !');
+        refresh().then(render, render);
+      }, 450);
+    }
+    (function nextSeg(){
+      if (seg >= pts.length - 1) { finish(); return; }
+      var a0 = pts[seg], b0 = pts[seg + 1], t0 = performance.now();
+      casLoop(function(now){
+        var t = Math.min(1, (now - t0) / SEG), e = t * t * (3 - 2 * t);
+        if (ball) { ball.setAttribute('cx', a0.x + (b0.x - a0.x) * e); ball.setAttribute('cy', a0.y + (b0.y - a0.y) * t - Math.sin(Math.PI * t) * 9); }
+        if (t >= 1) { tickSound(); seg++; nextSeg(); return true; }
+        return false;
+      });
+    })();
+  });
+}
+
+/* =================== HI-LO =================== */
+var HL = {g: null, hist: [], res: null, busy: false, loaded: false, loading: false, n: 0};
+function hlLoad(){
+  if (HL.loaded || HL.loading || !S.me) return;
+  HL.loading = true;
+  sb.rpc('casino_hilo_state').then(function(r){
+    HL.loading = false; HL.loaded = true; if (r.data) { HL.g = r.data; HL.hist = []; }
+    if (viewName() === 'casino' && CAS.game === 'hilo') render();
+  }).catch(function(){ HL.loading = false; HL.loaded = true; });
+}
+function hiloPage(){
+  var vip = !!(me() && me().vip), st = gStakeVal('hl'), a = ccBal(), capped = CAS.today >= CAS_CAP, g = HL.g, live = !!(g && !g.over);
+  if (vip) { hlLoad(); if (!CAS.loaded) casinoLoad(); }
+  var rank = g ? g.card % 13 + 1 : 0;
+  var cards = '<div class="hl-table"><div class="hl-hist">' + HL.hist.slice(-6).map(function(c){ return bjCard(c, 0, false); }).join('') + '</div><div class="hl-main">' +
+    (g ? bjCard(g.card, 0, HL.n >= 0 && HL.fresh) : '<div class="bj-card back"><img src="logo.svg" alt="" width="40" height="40"></div>') +
+    '<div class="hl-next"><div class="bj-card back"><img src="logo.svg" alt="" width="34" height="34"></div></div></div>' +
+    '<div class="hl-info">' + (live ? 'Gain actuel <b>' + ccn(Math.round(g.stake * g.mult * 100) / 100) + '</b> · ' + mnTxt(g.mult) : g ? 'Dernière carte tirée' : 'Devine si la prochaine carte sera plus haute ou plus basse') + '</div></div>';
+  var side = '';
+  if (HL.res) { var r = HL.res; side += '<div class="cas-res ' + (r.won ? 'win' : 'lose') + '"><span class="cas-ball ' + (r.won ? 'green' : 'red') + '">' + (r.won ? '💰' : '✖') + '</span><div><b>' + (r.won ? '🎉 Encaissé · +' + ccn(r.net) : 'Raté · −' + ccn(r.stake)) + '</b><small>' + (r.won ? 'Tu repars avec ' + mnTxt(r.mult) + '.' : 'La carte n\'était pas la bonne (égalité = perdu).') + '</small></div></div>'; }
+  if (live) {
+    var pHi = Math.round((13 - rank) / 13 * 100), pLo = Math.round((rank - 1) / 13 * 100);
+    side += '<div class="hl-btns"><button type="button" class="btn primary lg" data-cas="hlhi"' + (HL.busy || !g.m_hi ? ' disabled' : '') + '>⬆️ PLUS HAUT<small>' + (g.m_hi ? pHi + ' % · ' + mnTxt(g.m_hi) + ' par pas' : 'impossible') + '</small></button>' +
+      '<button type="button" class="btn lg hl-lo" data-cas="hllo"' + (HL.busy || !g.m_lo ? ' disabled' : '') + '>⬇️ PLUS BAS<small>' + (g.m_lo ? pLo + ' % · ' + mnTxt(g.m_lo) + ' par pas' : 'impossible') + '</small></button></div>';
+    side += '<button type="button" class="btn lg cas-cash" data-cas="hlcash"' + (HL.busy || g.steps < 1 ? ' disabled' : '') + '>💰 ENCAISSER · ' + ccn(Math.round(g.stake * g.mult * 100) / 100) + '</button>';
+    side += '<p class="help">Mise en jeu : <b>' + ccn(g.stake) + '</b> · cartes devinées : <b>' + g.steps + '</b>. Une égalité fait perdre.</p>';
+  } else {
+    side += gStakeHTML('hl', vip, false);
+    side += '<button type="button" class="btn primary lg cas-go" id="hl-start" data-cas="hlstart"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>↕️ JOUER · ' + ccn(st) + '</button>';
+    side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  }
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<ul class="cas-rules"><li>Une carte est tirée. Devine si la <b>suivante sera plus haute ou plus basse</b> (As = la plus basse, Roi = la plus haute).</li><li>Plus ton choix est risqué, plus il rapporte. Chaque bonne réponse multiplie ton gain.</li><li>Encaisse quand tu veux, dès la 1re bonne réponse. Une égalité = perdu.</li><li>Les cartes sont tirées par le serveur. Jeu 100 % virtuel.</li></ul>';
+  return casinoGameShell(vip, cards, side);
+}
+function hlApply(res, first){
+  var prev = HL.g ? HL.g.card : null;
+  if (first) { HL.hist = []; HL.res = null; }
+  else if (prev != null) HL.hist.push(prev);
+  HL.fresh = true; HL.n = 0;
+  if (res.balance != null && me()) me().cc = Number(res.balance);
+  if (res.correct === false) {
+    HL.g = {card: res.card, mult: 1, steps: res.steps, stake: res.stake, over: true}; HL.res = {won: false, stake: res.stake};
+    render(); bjAnimNew(); beep(140, 0, 0.35, 'sawtooth', 0.12); toast('Raté ! Tu perds ' + ccn(res.stake)); refresh().then(render, render); return;
+  }
+  HL.g = res; if (res.done) { HL.res = {won: true, mult: res.mult, net: res.net, payout: res.payout}; CAS.today = Number(res.today) || CAS.today; HL.g.over = true; winSound(5); toast('Maximum atteint ! +' + ccn(res.net)); }
+  else if (!first) winSound(0);
+  render(); bjAnimNew(); HL.fresh = false;
+  if (res.done) refresh().then(render, render);
+}
+function hlCall(fn, args, first){
+  if (HL.busy || !me() || !me().vip) return;
+  HL.busy = true; audio();
+  sb.rpc(fn, args || {}).then(function(r){
+    HL.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    if (fn === 'casino_hilo_cashout') { var d = r.data; HL.g.over = true; HL.res = {won: true, mult: d.mult, net: d.net, payout: d.payout}; if (me()) me().cc = Number(d.balance); CAS.today = Number(d.today) || CAS.today; winSound(d.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(d.net)); render(); refresh().then(render, render); return; }
+    hlApply(r.data, first);
+  });
+}
+
+/* =================== TOWER =================== */
+var TW_CFG = {easy: [4, 1, 'Facile', '4 cases, 1 piège'], medium: [3, 1, 'Moyen', '3 cases, 1 piège'], hard: [2, 1, 'Difficile', '2 cases, 1 piège'], expert: [3, 2, 'Expert', '3 cases, 2 pièges']};
+function twMult(d, l){ if (l <= 0) return 1; var c = TW_CFG[d]; return Math.min(Math.round(0.96 * Math.pow(c[0] / (c[0] - c[1]), l) * 10000) / 10000, 1000); }
+var TW = {diff: 'medium', active: false, tiles: 3, level: 0, mult: 1, stake: 1, picks: [], traps: null, res: null, busy: false, loaded: false, loading: false};
+function twLoad(){
+  if (TW.loaded || TW.loading || !S.me) return;
+  TW.loading = true;
+  sb.rpc('casino_tower_state').then(function(r){
+    TW.loading = false; TW.loaded = true; var d = r.data;
+    if (d) { TW.active = true; TW.diff = d.diff; TW.tiles = Number(d.tiles); TW.level = Number(d.level); TW.mult = Number(d.mult); TW.stake = Number(d.stake); TW.picks = []; TW.traps = null; }
+    if (viewName() === 'casino' && CAS.game === 'tower') render();
+  }).catch(function(){ TW.loading = false; TW.loaded = true; });
+}
+function towerPage(){
+  var vip = !!(me() && me().vip), st = gStakeVal('tw'), a = ccBal(), capped = CAS.today >= CAS_CAP, cfg = TW_CFG[TW.diff], tiles = TW.active || TW.traps ? TW.tiles : cfg[0], f, k;
+  if (vip) { twLoad(); if (!CAS.loaded) casinoLoad(); }
+  var rows = '';
+  for (f = 8; f >= 1; f--) {
+    var done = f <= TW.level, cur = TW.active && f === TW.level + 1, tr = TW.traps ? TW.traps[f - 1] : null, cells = '';
+    for (k = 0; k < tiles; k++) {
+      var picked = TW.picks[f - 1] === k, isTrap = tr && tr.indexOf(k) >= 0;
+      if (isTrap) cells += '<button type="button" class="tw-tile trap' + (TW.boomLevel === f && TW.boomTile === k ? ' boom' : '') + '" disabled><span>💣</span></button>';
+      else if (picked && done) cells += '<button type="button" class="tw-tile safe" disabled><span>💎</span></button>';
+      else if (tr) cells += '<button type="button" class="tw-tile ghost" disabled><span>💎</span></button>';
+      else if (cur) cells += '<button type="button" class="tw-tile cur" data-cas="twpick:' + k + '"' + (TW.busy ? ' disabled' : '') + '><span>?</span></button>';
+      else cells += '<button type="button" class="tw-tile" disabled><span>' + (done ? '·' : '?') + '</span></button>';
+    }
+    rows += '<div class="tw-row' + (cur ? ' now' : '') + (done ? ' done' : '') + '"><b class="tw-mult">' + mnTxt(twMult(TW.diff, f)) + '</b><div class="tw-cells" style="grid-template-columns:repeat(' + tiles + ',1fr)">' + cells + '</div></div>';
+  }
+  var scene = '<div class="tw-scene"><div class="mn-title"><span class="g">LEGACY</span> <span class="s">TOWER</span><i class="mn-ball" aria-hidden="true">🗼</i></div><div class="tw-tower">' + rows + '</div></div>';
+  var side = '';
+  if (TW.res) { var r = TW.res; side += '<div class="cas-res ' + (r.boom ? 'lose' : 'win') + '"><span class="cas-ball ' + (r.boom ? 'red' : 'green') + '">' + (r.boom ? '💥' : '🗼') + '</span><div><b>' + (r.boom ? 'Piège ! −' + ccn(r.stake) : '🎉 Encaissé · +' + ccn(r.net)) + '</b><small>' + (r.boom ? 'Tu étais à l\'étage ' + r.level + '.' : 'Étage ' + r.level + ' · ' + mnTxt(r.mult) + ' (' + ccn(r.payout) + ')') + '</small></div></div>'; }
+  if (TW.active) {
+    side += '<button type="button" class="btn lg cas-cash" data-cas="twcash"' + (TW.busy || TW.level < 1 ? ' disabled' : '') + '>💰 ENCAISSER · ' + ccn(Math.round(TW.stake * TW.mult * 100) / 100) + '</button>';
+    side += '<p class="help">Étage <b>' + TW.level + '/8</b> · prochain <b>' + mnTxt(twMult(TW.diff, TW.level + 1)) + '</b> · mise ' + ccn(TW.stake) + '. Choisis une case de l\'étage en surbrillance : l\'une cache un piège.</p>';
+  } else {
+    side += '<button type="button" class="btn primary lg cas-go mn-play" id="tw-start" data-cas="twstart"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🗼 GRIMPER · ' + ccn(st) + '</button>';
+    side += gStakeHTML('tw', vip, false);
+    side += '<div class="cas-stakes" role="group" aria-label="Difficulté"><span>Niveau</span>' + Object.keys(TW_CFG).map(function(d){ return '<button type="button" class="cas-chip' + (TW.diff === d ? ' sel' : '') + '" data-cas="twdiff:' + d + '"' + (vip ? '' : ' disabled') + ' title="' + TW_CFG[d][3] + '">' + TW_CFG[d][2] + '</button>'; }).join('') + '</div>';
+    side += '<p class="help">' + cfg[3] + ' par étage · sommet <b>' + mnTxt(twMult(TW.diff, 8)) + '</b> (' + ccn(Math.round(st * twMult(TW.diff, 8) * 100) / 100) + ').</p>';
+    side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  }
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<ul class="cas-rules"><li>Tu montes une tour de <b>8 étages</b>. À chaque étage, choisis une case : une (ou deux) cache un <b>piège</b>.</li><li>Étage réussi = ton gain monte. Piège = tu perds ta mise.</li><li>Encaisse quand tu veux, dès le 1er étage. Au sommet, c\'est automatique.</li><li>Les pièges sont placés par le serveur dès le départ. Retour moyen d\'environ 96 %.</li></ul>';
+  return casinoGameShell(vip, scene, side);
+}
+function twApply(d, first){
+  if (first) { TW.active = true; TW.diff = d.diff; TW.tiles = Number(d.tiles); TW.level = 0; TW.mult = 1; TW.stake = Number(d.stake); TW.picks = []; TW.traps = null; TW.res = null; TW.boomLevel = -1; TW.boomTile = -1; }
+}
+function twCall(fn, args, onOk){
+  if (TW.busy || !me() || !me().vip) return;
+  TW.busy = true; audio();
+  sb.rpc(fn, args || {}).then(function(r){
+    TW.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    if (r.data && r.data.balance != null && me()) me().cc = Number(r.data.balance);
+    onOk(r.data);
+  });
+}
+function twStart(){ twCall('casino_tower_start', {p_stake: gStakeVal('tw'), p_diff: TW.diff}, function(d){ twApply(d, true); render(); }); }
+function twPick(k){
+  if (!TW.active) return;
+  twCall('casino_tower_pick', {p_tile: k}, function(d){
+    if (d.boom) {
+      TW.active = false; TW.traps = d.traps; TW.boomLevel = TW.level + 1; TW.boomTile = d.tile; TW.res = {boom: true, stake: TW.stake, level: TW.level};
+      render(); beep(120, 0, 0.5, 'sawtooth', 0.16); beep(70, 0.06, 0.55, 'square', 0.1); toast('Piège ! Tu perds ' + ccn(TW.stake)); refresh().then(render, render); return;
+    }
+    TW.picks[TW.level] = d.tile; TW.level = d.level; TW.mult = Number(d.mult);
+    if (d.done) { TW.active = false; TW.traps = d.traps; TW.res = {boom: false, level: d.level, mult: Number(d.mult), payout: d.payout, net: d.net}; CAS.today = Number(d.today) || CAS.today; winSound(5); toast('Sommet atteint ! +' + ccn(d.net)); }
+    else beep(480 + d.level * 55, 0, 0.14, 'triangle', 0.12);
+    render(); if (d.done) refresh().then(render, render);
+  });
+}
+function twCash(){
+  if (!TW.active || TW.level < 1) return;
+  twCall('casino_tower_cashout', {}, function(d){
+    TW.active = false; TW.traps = d.traps; TW.res = {boom: false, level: d.level, mult: Number(d.mult), payout: d.payout, net: d.net}; CAS.today = Number(d.today) || CAS.today;
+    winSound(d.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(d.net)); render(); refresh().then(render, render);
   });
 }
 
