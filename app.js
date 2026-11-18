@@ -894,7 +894,10 @@ var CAS_FREE_UNTIL = Date.parse('2026-11-19T03:00:00Z');   // soirée spéciale 
 function casFree(){ return Date.now() < CAS_FREE_UNTIL; }
 var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 2, black: 2, green: 36};
 function casColor(n){ return n === 0 ? 'green' : CAS_RED[n] ? 'red' : 'black'; }
-function casStake(){ return CAS.bet === 'green' ? 0.5 : CAS.stake; }
+function casStake(){
+  if (casFree()) return CAS.stake === 'all' ? Math.floor(avail(S.me) * 100) / 100 : CAS.stake;   // ce soir : mise libre, all-in = tout le solde disponible
+  return CAS.bet === 'green' ? 0.5 : (CAS.stake === 'all' ? 5 : CAS.stake);
+}
 
 function casinoLoad(){
   if (CAS.loading || !S.me) return;
@@ -939,9 +942,9 @@ function casinoHTML(){
     return '<button type="button" class="cas-col ' + c + (CAS.bet === c ? ' sel' : '') + '" data-cas="bet:' + c + '"' + (vip ? '' : ' disabled') + '>' + CAS_NAME[c].charAt(0).toUpperCase() + CAS_NAME[c].slice(1) + '<small>x' + CAS_MULT[c] + '</small></button>';
   }).join('') + '</div>';
   h += '<div class="cas-stakes" role="group" aria-label="Ta mise"><span>Mise</span>' + [0.5, 1, 2, 5].map(function(v){
-    var off = !vip || (CAS.bet === 'green' && v > 0.5);
-    return '<button type="button" class="cas-chip' + (st === v ? ' sel' : '') + '" data-cas="stake:' + v + '"' + (off ? ' disabled' : '') + '>' + cn(v) + '</button>';
-  }).join('') + '</div>';
+    var off = !vip || (!casFree() && CAS.bet === 'green' && v > 0.5);
+    return '<button type="button" class="cas-chip' + (CAS.stake !== 'all' && st === v ? ' sel' : '') + '" data-cas="stake:' + v + '"' + (off ? ' disabled' : '') + '>' + cn(v) + '</button>';
+  }).join('') + (casFree() ? '<button type="button" class="cas-chip allin' + (CAS.stake === 'all' ? ' sel' : '') + '" data-cas="stake:all"' + (!vip || a < 0.01 ? ' disabled' : '') + '>🔥 ALL-IN</button>' : '') + '</div>';
   h += '<button type="button" class="btn primary lg cas-go" id="cas-spin" data-cas="spin"' + (!vip || a < st || capped ? ' disabled' : '') + '>🎰 Lancer · ' + cn(st) + '</button>';
   if (vip) {
     h += (capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de coins disponibles pour cette mise.</p>' : '<p class="help">Gain possible : <b>+' + cn(st * (CAS_MULT[CAS.bet] - 1)) + '</b> · Disponible : ' + cn(a) + '</p>');
@@ -949,7 +952,7 @@ function casinoHTML(){
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + cn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
   }
-  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Mise max : <b>5 coins</b> sur rouge/noir, <b>0,5</b> sur le vert.</li><li>Plafond de gains : <b>' + cn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + (casFree() ? ' (<b>levé ce soir !</b>)' : '') + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>' + (casFree() ? '🔥 <b>Ce soir : mise libre et ALL-IN autorisé !</b> (normalement ' : 'Mise max : ') + '<b>5 coins</b> sur rouge/noir, <b>0,5</b> sur le vert' + (casFree() ? ')' : '.') + '</li><li>Plafond de gains : <b>' + cn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + (casFree() ? ' (<b>levé ce soir !</b>)' : '') + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return h + '</div></div>';
 }
 
@@ -997,7 +1000,7 @@ function casinoInit(){
     var v = t.getAttribute('data-cas');
     if (v === 'spin') casinoSpin();
     else if (v.indexOf('bet:') === 0) { CAS.bet = v.slice(4); render(); }
-    else if (v.indexOf('stake:') === 0) { CAS.stake = parseFloat(v.slice(6)); render(); }
+    else if (v.indexOf('stake:') === 0) { CAS.stake = v.slice(6) === 'all' ? 'all' : parseFloat(v.slice(6)); render(); }
   });
 }
 
