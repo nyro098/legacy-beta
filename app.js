@@ -340,7 +340,7 @@ function headerHTML(v){
     '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('roue', '🎡 Roue' + (spinReady() ? ' <i class="count">1</i>' : '')) + link('casino', '🎰 Casino') + link('tournois', 'Tournois') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() + dmUnreadTotal() ? ' <i class="count">' + (pendingIn() + dmUnreadTotal()) + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
     '<div class="bar-right">' +
     '<a class="bal" href="#profil" data-act="myprofile" title="Ton solde disponible">' + COIN + '<span>' + fmt(bal) + '</span>' + (lk ? '<small>' + fmt(lk) + ' en jeu</small>' : '') + '</a>' +
-    ((p.vip || p.cc > 0) ? '<a class="bal cc" href="#casino" title="Tes casino coins (se jouent au casino)">' + CC_ICON + '<span>' + fmt(p.cc || 0) + '</span></a>' : '') +
+    ((p.vip || p.cc > 0) ? '<a class="bal cc" href="#casino" title="Tes V-Coins (se jouent au casino)">' + CC_ICON + '<span>' + fmt(p.cc || 0) + '</span></a>' : '') +
     dcBtn('Discord') +
     '<button class="btn sm bell" data-act="search" title="Rechercher un joueur" aria-label="Rechercher un joueur">🔍</button>' +
     '<button class="btn sm bell" data-act="notifs" title="Notifications" aria-label="Notifications">🔔' + (unread() ? '<i class="count">' + unread() + '</i>' : '') + '</button>' +
@@ -634,7 +634,7 @@ function boardHTML(){
   return html + '</tbody></table></div>';
 }
 
-var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', bet: 'Pari sur match (gain x2 potentiel)', bet_win: 'Pari gagné (gain x2)', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', gift_out: 'Cadeau offert à ', gift_in: 'Cadeau reçu de ', casino_bet: 'Roulette : mise', casino_win: 'Roulette : gain', casino_exchange: 'Échange de casino coins', admin: 'Ajustement admin'};
+var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', bet: 'Pari sur match (gain x2 potentiel)', bet_win: 'Pari gagné (gain x2)', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', gift_out: 'Cadeau offert à ', gift_in: 'Cadeau reçu de ', casino_bet: 'Roulette : mise', casino_win: 'Roulette : gain', casino_exchange: 'Échange de V-Coins', admin: 'Ajustement admin'};
 function profileHTML(){
   var pid = S.players[viewPid] ? viewPid : S.me, p = P(pid), own = pid === S.me, s = stats(pid), bal = avail(pid), lk = locked(pid);
   var html = '';
@@ -887,21 +887,21 @@ function spinWheel(){
 setInterval(function(){ var el = document.getElementById('wheel-cd'); if (el) { var left = (S.lastSpin || 0) + 864e5 - Date.now(); if (left <= 0) render(); else el.textContent = waitTxt(left); } }, 1000);
 
 /* ---------- casino VIP : roulette européenne (100 % virtuel) ---------- */
-var CC_ICON = '<svg class="coin cc-coin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#6d3df5"/><circle cx="10" cy="10" r="6.5" fill="#a78bfa"/><path d="M8.2 6.2v7.4h4" fill="none" stroke="#2a1470" stroke-width="1.7"/></svg>';
-function ccn(n){ return fmt(n) + ' CC'; }
+var CC_ICON = '<svg class="coin cc-coin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#6d3df5"/><circle cx="10" cy="10" r="6.5" fill="#a78bfa"/><path d="M6.2 6.6l3.8 7.2 3.8-7.2" fill="none" stroke="#2a1470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function ccn(n){ return fmt(n) + ' VC'; }
 function ccBal(){ var p = me(); return p ? Number(p.cc) || 0 : 0; }
 function casinoWalletHTML(vip){
   var left = ((me() || {}).ccClaim || 0) + 864e5 - Date.now(), can = vip && left <= 0;
-  return '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Tes casino coins</small><b>' + ccn(ccBal()) + '</b></div></div>' +
-    (vip ? (can ? '<button type="button" class="btn primary sm" data-cas="claim">🎁 Bonus du jour : +50 CC</button>' : '<small class="cc-next">Prochain bonus dans ' + waitTxt(left) + '</small>') : '') +
+  return '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Tes V-Coins</small><b>' + ccn(ccBal()) + '</b></div></div>' +
+    (vip ? (can ? '<button type="button" class="btn primary sm" data-cas="claim">🎁 Bonus du jour : +50 VC</button>' : '<small class="cc-next">Prochain bonus dans ' + waitTxt(left) + '</small>') : '') +
     '<button type="button" class="btn sm ghost" data-cas="shop-cc">Échanger en boutique</button></div>';
 }
 function casinoShopHTML(){
   var cc = ccBal(), done = CAS.exToday || 0, left = Math.max(0, 40 - done);
   if (!CAS.loaded) casinoLoad();
   var packs = [[10, 0.5], [20, 1], [40, 2], [100, 5]];
-  return '<section class="cc-shop"><p class="eyebrow">🎰 Casino coins</p><h2 class="sec shop-h">Échange tes casino coins</h2><p class="help">Les casino coins se gagnent au casino (réservé aux VIP). <b>20 CC = 1 coin</b>. Limite : 40 CC échangeables par jour (2 coins).</p>' +
-    '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Ton solde</small><b>' + ccn(cc) + '</b></div></div><small class="cc-next">Échangé aujourd\'hui : ' + fmt(done) + ' / 40 CC</small><a class="btn sm" href="#casino">Aller au casino</a></div>' +
+  return '<section class="cc-shop"><p class="eyebrow">🎰 V-Coins</p><h2 class="sec shop-h">Échange tes V-Coins</h2><p class="help">Les V-Coins se gagnent au casino (réservé aux VIP). <b>20 VC = 1 coin</b>. Limite : 40 VC échangeables par jour (2 coins).</p>' +
+    '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Ton solde</small><b>' + ccn(cc) + '</b></div></div><small class="cc-next">Échangé aujourd\'hui : ' + fmt(done) + ' / 40 VC</small><a class="btn sm" href="#casino">Aller au casino</a></div>' +
     '<div class="shop-grid cc-packs">' + packs.map(function(p){ var off = cc < p[0] || p[0] > left; return '<div class="shop-item cc-pack"><b class="cc-in">' + ccn(p[0]) + '</b><span aria-hidden="true">→</span><b class="cc-out">' + cn(p[1]) + '</b><button type="button" class="btn sm primary" data-cas="exch:' + p[0] + '"' + (off ? ' disabled' : '') + '>Échanger</button></div>'; }).join('') + '</div></section>';
 }
 var CAS = {bet: 'red', stake: 1, loaded: false, loading: false, hist: [], feed: [], today: 0, exToday: 0, res: null, busy: false};
@@ -950,7 +950,7 @@ function casinoSVG(){
 function casinoHTML(){
   var vip = !!(me() && me().vip), st = casStake(), a = ccBal(), capped = CAS.today >= CAS_CAP;
   if (vip && !CAS.loaded) casinoLoad();
-  var h = '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Joue avec tes <b>casino coins</b> 💜 · roulette européenne : <b>rouge</b> ou <b>noir</b> pour presque doubler ta mise (x1,9), <b>vert</b> pour tenter le x30. Les coins n\'ont aucune valeur réelle : joue pour le plaisir.</p></div></section>';
+  var h = '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Joue avec tes <b>V-Coins</b> 💜 · roulette européenne : <b>rouge</b> ou <b>noir</b> pour presque doubler ta mise (x1,9), <b>vert</b> pour tenter le x30. Les coins n\'ont aucune valeur réelle : joue pour le plaisir.</p></div></section>';
   h += '<div class="cas-wrap' + (vip ? '' : ' locked') + '"><div class="cas-stage"><div class="cas-box" id="cas-box"><div class="cas-pin" id="cas-pin" aria-hidden="true"></div><div class="cas-wheel">' + casinoSVG() + '</div></div>';
   if (!vip) h += '<div class="cas-lock"><b>🔒 Réservé aux membres VIP</b><p>Le Pass VIP ouvre le casino, booste la roue quotidienne et bien plus.</p><button class="btn primary" data-act="shop-vip">Devenir VIP · ' + ccn(20) + '</button></div>';
   h += '</div><div class="cas-side">' + casinoWalletHTML(vip);
@@ -973,7 +973,7 @@ function casinoHTML(){
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + ccn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
   }
-  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Tu joues avec des <b>casino coins (CC)</b> : bonus VIP de 50 CC par jour, échangeables en boutique (20 CC = 1 coin).</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Gain maximum par lancer : <b>' + ccn(CAS_MAXWIN) + '</b>.</li><li>Plafond de gains : <b>' + ccn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Tu joues avec des <b>V-Coins (VC)</b> : bonus VIP de 50 VC par jour, échangeables en boutique (20 VC = 1 coin).</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Gain maximum par lancer : <b>' + ccn(CAS_MAXWIN) + '</b>.</li><li>Plafond de gains : <b>' + ccn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return h + '</div></div>';
 }
 
@@ -1038,7 +1038,7 @@ function casinoInit(){
       sb.rpc('casino_claim').then(function(r){
         if (r.error) { toast(cleanErr(r.error.message)); return; }
         var p0 = me(); if (p0) { p0.cc = Number(r.data) || 0; p0.ccClaim = Date.now(); }
-        toast('🎁 +50 casino coins !'); render();
+        toast('🎁 +50 V-Coins !'); render();
       });
     }
     else if (v === 'shop-cc') { shopTab = 'casino'; if (viewName() === 'boutique') render(); else location.hash = '#boutique'; }
