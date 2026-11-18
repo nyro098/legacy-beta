@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794960911">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794961807">
 </head><body>
 <title>Legacy · Défis Fortnite gratuits (bêta)</title><link rel="icon" type="image/svg+xml" href="logo.svg"><meta name="description" content="Legacy : défis Fortnite entre joueurs, 100 % gratuits. Lance un 1v1, 2v2 ou 3v3, mise des coins sans valeur réelle et grimpe au classement."><meta property="og:title" content="Legacy · Défis Fortnite gratuits"><meta property="og:description" content="Défis Fortnite entre joueurs, 100 % gratuits. Coins sans valeur réelle, classement, chat de match."><meta property="og:image" content="https://nyro098.github.io/legacy-beta/logo.svg"><link rel="canonical" href="https://nyro098.github.io/legacy-beta/">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -956,6 +956,50 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 @media (max-width:1699px){.gchat.dm-on{display:none}}
 @media (min-width:1700px){.gchat{top:150px;bottom:14px;height:auto;width:clamp(250px,calc((100vw - 1120px)/2 - 32px),360px)}.gchat.dm-on{bottom:454px}.dmchat{width:clamp(250px,calc((100vw - 1120px)/2 - 32px),360px)}.gc-launch{display:none!important}}
 @media (min-width:1700px){.gc-x[data-gcclose]{display:none}}
+.cas-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:28px;align-items:start}
+@media (max-width:900px){.cas-wrap{grid-template-columns:1fr}}
+.cas-stage{position:relative;display:grid;place-items:center}
+.cas-box{position:relative;width:min(100%,460px);aspect-ratio:1;filter:drop-shadow(0 18px 40px rgba(139,92,255,.35))}
+.cas-box.spinning{filter:drop-shadow(0 0 38px rgba(255,201,60,.55))}
+.cas-wheel,.cas-wheel svg{width:100%;height:100%;display:block}
+.cas-pin{position:absolute;left:50%;top:-6px;width:0;height:0;margin-left:-13px;border-left:13px solid transparent;border-right:13px solid transparent;border-top:28px solid #ffc93c;z-index:3;filter:drop-shadow(0 3px 4px rgba(0,0,0,.6));transform-origin:50% 0}
+.cas-pin.kick{animation:casKick .12s ease-out}
+@keyframes casKick{40%{transform:rotate(-14deg)}}
+.cl{fill:#fff;font:700 7px var(--f-body,system-ui);pointer-events:none}
+.cl-hub{fill:#ffc93c;font:800 20px var(--f-head,system-ui)}
+.cbulb{fill:#ffe9a8}
+.cs.hit{filter:brightness(1.7) drop-shadow(0 0 5px #ffc93c);stroke:#ffc93c;stroke-width:1.6}
+.cas-wrap.locked .cas-box{filter:grayscale(.7) brightness(.45) blur(1.5px)}
+.cas-lock{position:absolute;inset:0;display:grid;align-content:center;justify-items:center;gap:10px;text-align:center;padding:24px;z-index:4}
+.cas-lock b{font-size:22px}.cas-lock p{margin:0;color:var(--fg-2);max-width:300px}
+.cas-side{display:flex;flex-direction:column;gap:14px}
+.cas-res{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2)}
+.cas-res.win{border-color:rgba(30,232,160,.6);background:rgba(30,232,160,.1)}
+.cas-res.lose{border-color:rgba(255,77,122,.45);background:rgba(255,77,122,.08)}
+.cas-res b{display:block;font-size:17px}.cas-res small{color:var(--fg-2)}
+.cas-ball{display:inline-grid;place-items:center;flex:none;width:44px;height:44px;border-radius:50%;font:800 17px var(--f-head,system-ui);color:#fff;border:2px solid rgba(255,255,255,.35)}
+.cas-ball.sm{width:28px;height:28px;font-size:12px;border-width:1px}
+.cas-ball.red,.cas-col.red{background:#c8283c}.cas-ball.black,.cas-col.black{background:#161823}.cas-ball.green,.cas-col.green{background:#12a35c}
+.cas-bets{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cas-col{border:2px solid transparent;border-radius:14px;padding:14px 8px;color:#fff;font-weight:800;font-size:16px;cursor:pointer;display:grid;gap:2px;justify-items:center;transition:transform .12s,border-color .12s,box-shadow .12s}
+.cas-col.black{border-color:rgba(255,255,255,.18)}
+.cas-col small{font-weight:600;opacity:.85}
+.cas-col:hover:not(:disabled){transform:translateY(-2px)}
+.cas-col.sel{border-color:#ffc93c;box-shadow:0 0 0 3px rgba(255,201,60,.28),0 8px 22px rgba(0,0,0,.4)}
+.cas-col:disabled,.cas-chip:disabled{opacity:.45;cursor:not-allowed}
+.cas-stakes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.cas-stakes>span{color:var(--fg-2);font-weight:700;margin-right:4px}
+.cas-chip{border:1px solid var(--line);background:var(--surface-2);color:var(--fg);border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer}
+.cas-chip.sel{background:rgba(139,92,255,.3);border-color:#8b5cff}
+.cas-go{width:100%;padding-block:14px;font-size:18px}
+.cas-warn{color:#ffb3c4}
+.cas-meter{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(7,8,26,.4)}
+.cas-meter-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+.cas-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}.cas-bar i{display:block;height:100%;background:linear-gradient(90deg,#8b5cff,#ffc93c);border-radius:99px;transition:width .4s}
+.cas-hist small,.cas-feed small{display:block;color:var(--fg-2);margin-bottom:6px}
+.cas-hist>div{display:flex;flex-wrap:wrap;gap:5px}
+.cas-hist em,.cas-feed em{color:var(--fg-2);font-size:13px}
+.cas-feed ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}.cas-feed li{display:flex;align-items:center;gap:8px}.cas-feed li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}.cas-feed li b{color:#1ee8a0}
+.cas-rules{margin:4px 0 0;padding-left:18px;color:var(--fg-2);font-size:13px;display:grid;gap:3px}
 .gc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(139,92,255,.16);border-bottom:1px solid var(--line);font-weight:800}
 .gc-x{background:none;border:0;color:var(--fg-2);font-size:20px;line-height:1;cursor:pointer;padding:2px 8px;border-radius:8px}
 .gc-x:hover{background:rgba(255,255,255,.1);color:var(--fg)}
@@ -1017,6 +1061,6 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1794960911"></script>
-<script src="app.js?v=1794960911"></script>
+<script src="config.js?v=1794961807"></script>
+<script src="app.js?v=1794961807"></script>
 </body></html>

@@ -247,7 +247,7 @@ function myDecl(m){ return S.me === capA(m) ? m.declA : S.me === capB(m) ? m.dec
 
 /* ---------- état de l'interface ---------- */
 var authTab = 'login', tab = 'ouverts', viewPid = null, editing = false, dlg = null, lastFocus = null, toastT = null, busy = false;
-var VIEWS = ['arene', 'roue', 'tournois', 'classement', 'amis', 'boutique', 'profil', 'regles', 'signaler', 'match'];
+var VIEWS = ['arene', 'roue', 'casino', 'tournois', 'classement', 'amis', 'boutique', 'profil', 'regles', 'signaler', 'match'];
 function viewName(){
   var h = (location.hash || '').slice(1);
   if (h.indexOf('match-') === 0) { S.lastMatch = h.slice(6); return S.matches[S.lastMatch] ? 'match' : 'arene'; }
@@ -337,7 +337,7 @@ function headerHTML(v){
   function link(h, label){ return '<a href="#' + h + '"' + (v === h || (h === 'arene' && v === 'match') ? ' aria-current="page"' : '') + (h === 'profil' ? ' data-act="myprofile"' : '') + '>' + label + '</a>'; }
   return betaBar() + '<header class="top"><div class="wrap bar">' +
     '<a class="logo" href="#arene" aria-label="Legacy, accueil">' + LOGO + '<span>Legacy</span><em class="beta">BÊTA</em></a>' +
-    '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('roue', '🎡 Roue' + (spinReady() ? ' <i class="count">1</i>' : '')) + link('tournois', 'Tournois') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() + dmUnreadTotal() ? ' <i class="count">' + (pendingIn() + dmUnreadTotal()) + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
+    '<nav class="nav" aria-label="Navigation">' + link('arene', 'Arène') + link('roue', '🎡 Roue' + (spinReady() ? ' <i class="count">1</i>' : '')) + link('casino', '🎰 Casino') + link('tournois', 'Tournois') + link('classement', 'Classement') + link('amis', 'Amis' + (pendingIn() + dmUnreadTotal() ? ' <i class="count">' + (pendingIn() + dmUnreadTotal()) + '</i>' : '')) + link('boutique', 'Boutique') + link('profil', 'Mon profil') + link('regles', 'Règles') + link('signaler', 'Signaler') + '</nav>' +
     '<div class="bar-right">' +
     '<a class="bal" href="#profil" data-act="myprofile" title="Ton solde disponible">' + COIN + '<span>' + fmt(bal) + '</span>' + (lk ? '<small>' + fmt(lk) + ' en jeu</small>' : '') + '</a>' +
     dcBtn('Discord') +
@@ -633,7 +633,7 @@ function boardHTML(){
   return html + '</tbody></table></div>';
 }
 
-var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', bet: 'Pari sur match (gain x2 potentiel)', bet_win: 'Pari gagné (gain x2)', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', gift_out: 'Cadeau offert à ', gift_in: 'Cadeau reçu de ', admin: 'Ajustement admin'};
+var TX_LABEL = {wheel: 'Roue quotidienne', shop: 'Achat boutique', bonus: 'Bonus d\'inscription', stake: 'Mise placée dans un match', refund: 'Mise rendue', win: 'Victoire : mise récupérée + gain', bet: 'Pari sur match (gain x2 potentiel)', bet_win: 'Pari gagné (gain x2)', tip_in: 'Pourboire reçu de ', tip_out: 'Pourboire envoyé à ', gift_out: 'Cadeau offert à ', gift_in: 'Cadeau reçu de ', casino_bet: 'Roulette : mise', casino_win: 'Roulette : gain', admin: 'Ajustement admin'};
 function profileHTML(){
   var pid = S.players[viewPid] ? viewPid : S.me, p = P(pid), own = pid === S.me, s = stats(pid), bal = avail(pid), lk = locked(pid);
   var html = '';
@@ -884,6 +884,120 @@ function spinWheel(){
   });
 }
 setInterval(function(){ var el = document.getElementById('wheel-cd'); if (el) { var left = (S.lastSpin || 0) + 864e5 - Date.now(); if (left <= 0) render(); else el.textContent = waitTxt(left); } }, 1000);
+
+/* ---------- casino VIP : roulette européenne (100 % virtuel) ---------- */
+var CAS = {bet: 'red', stake: 1, loaded: false, loading: false, hist: [], feed: [], today: 0, res: null, busy: false};
+var CAS_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+var CAS_RED = {1: 1, 3: 1, 5: 1, 7: 1, 9: 1, 12: 1, 14: 1, 16: 1, 18: 1, 19: 1, 21: 1, 23: 1, 25: 1, 27: 1, 30: 1, 32: 1, 34: 1, 36: 1};
+var CAS_SEG = 360 / 37, CAS_CAP = 25, casRot = 0, casHit = -1;
+var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 2, black: 2, green: 36};
+function casColor(n){ return n === 0 ? 'green' : CAS_RED[n] ? 'red' : 'black'; }
+function casStake(){ return CAS.bet === 'green' ? 0.5 : CAS.stake; }
+
+function casinoLoad(){
+  if (CAS.loading || !S.me) return;
+  CAS.loading = true;
+  Promise.all([
+    sb.from('casino_spins').select('number,at').eq('player', S.me).order('at', {ascending: false}).limit(14),
+    sb.from('casino_spins').select('player,payout,stake,bet,at').gt('payout', 0).order('at', {ascending: false}).limit(6),
+    sb.rpc('casino_today')
+  ]).then(function(r){
+    CAS.loading = false; CAS.loaded = true;
+    CAS.hist = r[0].data || []; CAS.feed = r[1].data || []; CAS.today = Number(r[2].data) || 0;
+    if (viewName() === 'casino' && !spinLock) render();
+  }).catch(function(){ CAS.loading = false; CAS.loaded = true; });
+}
+
+function casinoSVG(){
+  var s = '', bulbs = '', i, n, col, a0, a1, fill;
+  for (i = 0; i < 37; i++) {
+    n = CAS_ORDER[i]; col = casColor(n); fill = col === 'red' ? '#c8283c' : col === 'green' ? '#12a35c' : '#161823';
+    a0 = (i * CAS_SEG - CAS_SEG / 2 - 90) * Math.PI / 180; a1 = ((i + 1) * CAS_SEG - CAS_SEG / 2 - 90) * Math.PI / 180;
+    s += '<path id="cs-' + i + '" class="cs' + (i === casHit ? ' hit' : '') + '" d="M0 0L' + (88 * Math.cos(a0)).toFixed(2) + ' ' + (88 * Math.sin(a0)).toFixed(2) + 'A88 88 0 0 1 ' + (88 * Math.cos(a1)).toFixed(2) + ' ' + (88 * Math.sin(a1)).toFixed(2) + 'Z" fill="' + fill + '" stroke="#2a2330" stroke-width=".6"/>';
+    s += '<text transform="rotate(' + (i * CAS_SEG).toFixed(3) + ') translate(0 -74) rotate(-90)" text-anchor="middle" dominant-baseline="middle" class="cl">' + n + '</text>';
+    bulbs += '<circle class="cbulb" cx="' + (94 * Math.cos((i * CAS_SEG - CAS_SEG / 2 - 90) * Math.PI / 180)).toFixed(2) + '" cy="' + (94 * Math.sin((i * CAS_SEG - CAS_SEG / 2 - 90) * Math.PI / 180)).toFixed(2) + '" r="1.7"/>';
+  }
+  return '<svg viewBox="-100 -100 200 200" aria-hidden="true"><defs><radialGradient id="cg-rim" r="1"><stop offset=".86" stop-color="#2a1a00"/><stop offset=".93" stop-color="#ffc93c"/><stop offset="1" stop-color="#8a5d00"/></radialGradient><radialGradient id="cg-shine"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
+    '<circle r="99" fill="url(#cg-rim)"/><g id="cas-g" style="transform:rotate(' + casRot + 'deg)">' + s + '<circle r="56" fill="#0e0a14" stroke="#ffc93c" stroke-width="1.4"/></g>' +
+    '<circle r="88" fill="url(#cg-shine)" pointer-events="none"/><g>' + bulbs + '</g><circle r="22" fill="#0b0f12" stroke="#ffc93c" stroke-width="3"/><text class="cl-hub" text-anchor="middle" dominant-baseline="central">L</text></svg>';
+}
+
+function casinoHTML(){
+  var vip = !!(me() && me().vip), st = casStake(), a = avail(S.me), capped = CAS.today >= CAS_CAP;
+  if (vip && !CAS.loaded) casinoLoad();
+  var h = '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Roulette européenne : <b>rouge</b> ou <b>noir</b> pour doubler ta mise, <b>vert</b> pour tenter le x36. Les coins n\'ont aucune valeur réelle : joue pour le plaisir.</p></div></section>';
+  h += '<div class="cas-wrap' + (vip ? '' : ' locked') + '"><div class="cas-stage"><div class="cas-box" id="cas-box"><div class="cas-pin" id="cas-pin" aria-hidden="true"></div><div class="cas-wheel">' + casinoSVG() + '</div></div>';
+  if (!vip) h += '<div class="cas-lock"><b>🔒 Réservé aux membres VIP</b><p>Le Pass VIP ouvre le casino, booste la roue quotidienne et bien plus.</p><button class="btn primary" data-act="shop-vip">Devenir VIP · ' + cn(20) + '</button></div>';
+  h += '</div><div class="cas-side">';
+  if (CAS.res) {
+    var r = CAS.res, win = r.payout > 0;
+    h += '<div class="cas-res ' + (win ? 'win' : 'lose') + '"><span class="cas-ball ' + r.color + '">' + r.number + '</span><div><b>' + (win ? '🎉 Gagné · +' + cn(r.net) : 'Perdu · −' + cn(r.stake)) + '</b><small>Le ' + r.number + ' ' + CAS_NAME[r.color] + ' · tu avais misé ' + cn(r.stake) + ' sur ' + CAS_NAME[r.bet] + '</small></div></div>';
+  }
+  h += '<div class="cas-bets" role="group" aria-label="Choisis ta couleur">' + ['red', 'black', 'green'].map(function(c){
+    return '<button type="button" class="cas-col ' + c + (CAS.bet === c ? ' sel' : '') + '" data-cas="bet:' + c + '"' + (vip ? '' : ' disabled') + '>' + CAS_NAME[c].charAt(0).toUpperCase() + CAS_NAME[c].slice(1) + '<small>x' + CAS_MULT[c] + '</small></button>';
+  }).join('') + '</div>';
+  h += '<div class="cas-stakes" role="group" aria-label="Ta mise"><span>Mise</span>' + [0.5, 1, 2, 5].map(function(v){
+    var off = !vip || (CAS.bet === 'green' && v > 0.5);
+    return '<button type="button" class="cas-chip' + (st === v ? ' sel' : '') + '" data-cas="stake:' + v + '"' + (off ? ' disabled' : '') + '>' + cn(v) + '</button>';
+  }).join('') + '</div>';
+  h += '<button type="button" class="btn primary lg cas-go" id="cas-spin" data-cas="spin"' + (!vip || a < st || capped ? ' disabled' : '') + '>🎰 Lancer · ' + cn(st) + '</button>';
+  if (vip) {
+    h += (capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de coins disponibles pour cette mise.</p>' : '<p class="help">Gain possible : <b>+' + cn(st * (CAS_MULT[CAS.bet] - 1)) + '</b> · Disponible : ' + cn(a) + '</p>');
+    h += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + cn(Math.abs(CAS.today)) + ' / ' + cn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+    h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
+    h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + cn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
+  }
+  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Mise max : <b>5 coins</b> sur rouge/noir, <b>0,5</b> sur le vert.</li><li>Plafond de gains : <b>' + cn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  return h + '</div></div>';
+}
+
+function casinoSpin(){
+  if (spinLock || CAS.busy || !me() || !me().vip) return;
+  var st = casStake(), bet = CAS.bet, btn = document.getElementById('cas-spin');
+  audio(); CAS.busy = true; if (btn) { btn.disabled = true; btn.textContent = 'La roulette tourne…'; }
+  sb.rpc('casino_roulette', {p_bet: bet, p_stake: st}).then(function(r){
+    CAS.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render); return; }
+    var res = r.data, idx = CAS_ORDER.indexOf(res.number);
+    var start = casRot, cur = ((start % 360) + 360) % 360, target = (360 - idx * CAS_SEG) % 360;
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var end = start + 360 * (reduce ? 4 : 7) + ((target - cur + 360) % 360) + (Math.random() * 0.6 - 0.3) * CAS_SEG, D = reduce ? 3500 : 6000;
+    var g = document.getElementById('cas-g'), pin = document.getElementById('cas-pin'), box = document.getElementById('cas-box');
+    var t0 = performance.now(), lastSeg = null, lastTick = 0;
+    spinLock = true; casHit = -1; CAS.res = null; if (box) box.classList.add('spinning');
+    function ease(t){ return 1 - Math.pow(1 - t, 4); }
+    function frame(now){
+      var t = Math.min(1, (now - t0) / D), rot = start + (end - start) * ease(t);
+      if (g) g.style.transform = 'rotate(' + rot + 'deg)';
+      var seg = Math.floor((((-rot % 360) + 360) % 360 + CAS_SEG / 2) / CAS_SEG) % 37;
+      if (seg !== lastSeg) { lastSeg = seg; if (now - lastTick > 30) { lastTick = now; tickSound(); if (pin) { pin.classList.remove('kick'); void pin.offsetWidth; pin.classList.add('kick'); } } }
+      if (t < 1) { requestAnimationFrame(frame); return; }
+      casRot = end; casHit = idx; if (box) box.classList.remove('spinning');
+      var hit = document.getElementById('cs-' + idx); if (hit) hit.classList.add('hit');
+      if (res.payout > 0) winSound(res.color === 'green' ? 6 : 2);
+      setTimeout(function(){
+        CAS.res = res; CAS.today = Number(res.today) || 0; CAS.hist.unshift({number: res.number}); CAS.hist = CAS.hist.slice(0, 14);
+        if (res.payout > 0) CAS.feed.unshift({player: S.me, payout: res.payout, stake: res.stake, bet: res.bet}); CAS.feed = CAS.feed.slice(0, 6);
+        spinLock = false;
+        toast(res.payout > 0 ? 'Gagné ! +' + cn(res.net) : 'Perdu, retente ta chance !');
+        refresh().then(function(){
+          render();
+          if (res.color === 'green' && res.payout > 0) { document.body.insertAdjacentHTML('beforeend', winFxHTML('confetti', 'cas' + Date.now())); var fx = document.body.lastElementChild; setTimeout(function(){ if (fx) fx.remove(); }, 5000); }
+        }).catch(function(){ render(); });
+      }, 600);
+    }
+    requestAnimationFrame(frame);
+  });
+}
+function casinoInit(){
+  document.addEventListener('click', function(e){
+    var t = e.target.closest ? e.target.closest('[data-cas]') : null; if (!t || t.disabled) return;
+    var v = t.getAttribute('data-cas');
+    if (v === 'spin') casinoSpin();
+    else if (v.indexOf('bet:') === 0) { CAS.bet = v.slice(4); render(); }
+    else if (v.indexOf('stake:') === 0) { CAS.stake = parseFloat(v.slice(6)); render(); }
+  });
+}
 
 /* ---------- tournois ---------- */
 var tourId = null;
@@ -2541,7 +2655,7 @@ function render(){
   if (!me().rulesAt) { if (!document.getElementById('rules-btn')) { app.innerHTML = rulesGateHTML(); window.scrollTo(0, 0); } return; }
   if (!me().joined) { if (!document.getElementById('dc-ok')) app.innerHTML = discordGateHTML(); return; }
   var v = viewName();
-  var body = v === 'classement' ? boardHTML() : v === 'profil' ? profileHTML() : v === 'regles' ? rulesHTML() : v === 'signaler' ? reportHTML() : v === 'amis' ? friendsHTML() : v === 'boutique' ? shopHTML() : v === 'tournois' ? tournamentsHTML() : v === 'roue' ? wheelHTML() : v === 'match' ? matchPageHTML() : arenaHTML();
+  var body = v === 'classement' ? boardHTML() : v === 'profil' ? profileHTML() : v === 'regles' ? rulesHTML() : v === 'signaler' ? reportHTML() : v === 'amis' ? friendsHTML() : v === 'boutique' ? shopHTML() : v === 'tournois' ? tournamentsHTML() : v === 'roue' ? wheelHTML() : v === 'casino' ? casinoHTML() : v === 'match' ? matchPageHTML() : arenaHTML();
   app.innerHTML = headerHTML(v) + (loadErr ? '<div class="wrap"><div class="notice" style="margin-top:16px"><p>Problème de connexion au serveur : ' + esc(loadErr) + '</p></div></div>' : '') + '<main class="wrap main" id="main">' + (me().status === 'restricted' ? '<div class="notice restricted"><p><b>Compte restreint jusqu\'à ' + untilTxt(me().restrictedUntil) + '.</b> Tu peux regarder le site mais tu ne peux plus jouer, écrire dans les chats ni envoyer de coins' + (me().statusReason ? ' (raison : « ' + esc(me().statusReason) + ' »)' : '') + '. Pour contester, ouvre un ticket sur le Discord.</p></div>' : '') + body + '</main>';
   updateStreamsHost(v === 'arene');
   var ft = document.getElementById('foot'); if (ft && !ft.firstChild) ft.innerHTML = footerHTML();
@@ -3118,4 +3232,5 @@ if (sb) {
 }
 collabInit();
 chatInit();
+casinoInit();
 })();
