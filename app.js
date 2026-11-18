@@ -960,6 +960,7 @@ function casinoHTML(){
   if (CAS.game === 'slots') return slotsPage();
   if (CAS.game === 'chicken') return chickenPage();
   if (CAS.game === 'blackjack') return blackjackPage();
+  if (CAS.game === 'mines') return minesPage();
   return rouletteHTML();
 }
 function rouletteHTML(){
@@ -1061,6 +1062,10 @@ function casinoInit(){
     else if (v.indexOf('gs:') === 0) { var gp = v.split(':'); GS[gp[1]] = gp[2] === 'all' ? 'all' : parseFloat(gp[2]); render(); }
     else if (v === 'slspin') slotsSpin();
     else if (v === 'chstart') chStart();
+    else if (v === 'mnstart') mnStart();
+    else if (v === 'mncash') mnCash();
+    else if (v.indexOf('mnpick:') === 0) mnPick(parseInt(v.slice(7), 10));
+    else if (v.indexOf('mn:') === 0) { var mv = v.slice(3); MN.n = mv === 'min' ? 1 : mv === 'max' ? 24 : Math.max(1, Math.min(24, MN.n + (mv === 'inc' ? 1 : -1))); render(); }
     else if (v === 'bjstart') bjCall('casino_bj_start', {p_stake: gStakeVal('bj')}, true);
     else if (v === 'bjhit') bjCall('casino_bj_hit');
     else if (v === 'bjstand') bjCall('casino_bj_stand');
@@ -1099,7 +1104,7 @@ function casinoInit(){
 
 /* ---------- casino : onglets, machine à sous et poulet qui traverse ---------- */
 function casinoTabsHTML(){
-  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack']];
+  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack'], ['mines', '⛏️ Legacy Miner']];
   return '<div class="tabs cas-tabs" role="tablist">' + tabs.map(function(t){ return '<button type="button" role="tab" aria-selected="' + (CAS.game === t[0]) + '" data-cas="game:' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
 }
 function casinoHeroHTML(){
@@ -1112,7 +1117,7 @@ function casinoGameShell(vip, stageHTML, sideHTML){
 }
 
 /* --- mise : jetons, ALL-IN et montant libre (commun aux deux jeux) --- */
-var GS = {slots: 1, chicken: 1, bj: 1};
+var GS = {slots: 1, chicken: 1, bj: 1, mn: 1};
 function gStakeVal(g){ var v = GS[g]; return v === 'all' ? Math.floor(ccBal() * 100) / 100 : (Math.round(v * 100) / 100 || 0); }
 function gStakeHTML(g, vip, lock){
   var cur = GS[g], chips = [1, 2, 5, 10, 25], off = !vip || lock ? ' disabled' : '';
@@ -1125,8 +1130,8 @@ function gStakeHTML(g, vip, lock){
 function gSync(g){
   var st = gStakeVal(g), a = ccBal(), capped = CAS.today >= CAS_CAP;
   [].forEach.call(document.querySelectorAll('.cas-stakes .cas-chip'), function(c){ c.classList.remove('sel'); });
-  var btn = document.getElementById(g === 'slots' ? 'sl-spin' : g === 'bj' ? 'bj-start' : 'ch-start'), led = document.getElementById('led-bet');
-  if (btn && !CAS.busy && !SL.spinning && !spinLock) { btn.textContent = (g === 'slots' ? '🎰 LANCER · ' : g === 'bj' ? '🃏 DISTRIBUER · ' : '🐔 JOUER · ') + ccn(st); btn.disabled = !(st >= 0.01) || a < st || capped; }
+  var btn = document.getElementById(g === 'slots' ? 'sl-spin' : g === 'bj' ? 'bj-start' : g === 'mn' ? 'mn-start' : 'ch-start'), led = document.getElementById('led-bet');
+  if (btn && !CAS.busy && !SL.spinning && !spinLock) { btn.textContent = (g === 'slots' ? '🎰 LANCER · ' : g === 'bj' ? '🃏 DISTRIBUER · ' : g === 'mn' ? '⛏️ JOUER · ' : '🐔 JOUER · ') + ccn(st); btn.disabled = !(st >= 0.01) || a < st || capped; }
   if (led) led.textContent = fmt(st);
 }
 
@@ -1461,6 +1466,117 @@ function bjCall(fn, args, first){
     if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
     if (first) { BJ.res = null; BJ.g = null; BJ.nP = 0; BJ.nD = 0; }
     bjApply(r.data);
+  });
+}
+
+/* =================== LEGACY MINER (jeu de mines 5x5) =================== */
+function mnMult(m, k){
+  if (k <= 0) return 1;
+  var f = 1; for (var i = 0; i < k; i++) f *= (25 - i) / (25 - m - i);
+  return Math.min(Math.round(0.96 * f * 10000) / 10000, 1000);
+}
+function mnTxt(x){ return 'x' + String(Math.round(x * 100) / 100).replace('.', ','); }
+var MN = {n: 3, active: false, run: 1, rev: [], mult: 1, next: 1, mines: null, boom: -1, res: null, busy: false, loaded: false, loading: false, pop: -1};
+function mnLoad(){
+  if (MN.loaded || MN.loading || !S.me) return;
+  MN.loading = true;
+  sb.rpc('casino_mines_state').then(function(r){
+    MN.loading = false; MN.loaded = true;
+    var d = r.data;
+    if (d) { MN.active = true; MN.n = Number(d.n_mines) || 3; MN.run = Number(d.stake) || 1; MN.rev = d.revealed || []; MN.mult = Number(d.mult) || 1; MN.next = Number(d.next) || 1; }
+    if (viewName() === 'casino' && CAS.game === 'mines') render();
+  }).catch(function(){ MN.loading = false; MN.loaded = true; });
+}
+function minesPage(){
+  var vip = !!(me() && me().vip), st = gStakeVal('mn'), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  if (vip) { mnLoad(); if (!CAS.loaded) casinoLoad(); }
+  var tiles = '', i;
+  for (i = 0; i < 25; i++) {
+    var rev = MN.rev.indexOf(i) >= 0, isMine = MN.mines && MN.mines.indexOf(i) >= 0;
+    if (rev) tiles += '<button type="button" class="mn-tile safe" disabled' + (MN.pop === i ? ' data-pop="1"' : '') + '><span>💎</span></button>';
+    else if (isMine) tiles += '<button type="button" class="mn-tile mine' + (MN.boom === i ? ' boom' : '') + '" disabled><span>💣</span></button>';
+    else if (MN.mines) tiles += '<button type="button" class="mn-tile ghost" disabled><span>💎</span></button>';
+    else tiles += '<button type="button" class="mn-tile" ' + (MN.active ? 'data-cas="mnpick:' + i + '"' + (MN.busy ? ' disabled' : '') : 'disabled') + '><span>?</span></button>';
+  }
+  var maxM = mnMult(MN.n, 25 - MN.n), cur = MN.active ? Math.round(MN.run * MN.mult * 100) / 100 : 0;
+  var scene = '<div class="mn-scene"><div class="mn-title"><span class="g">LEGACY</span> <span class="s">MINER</span><i class="mn-ball" aria-hidden="true">💣</i></div>' +
+    '<div class="mn-board"><div class="mn-grid" id="mn-grid">' + tiles + '</div></div>' +
+    '<div class="mn-hud"><span>' + (MN.active ? 'Mise ' + ccn(MN.run) + ' · ' + MN.n + ' mine' + (MN.n > 1 ? 's' : '') : 'Choisis ta mise et tes mines') + '</span><b>' + mnTxt(MN.active ? MN.mult : 1) + '</b><span>' + (MN.active ? 'Prochaine case ' + mnTxt(MN.next) : 'Gain max ' + mnTxt(maxM)) + '</span></div></div>';
+  var side = '';
+  if (MN.res) {
+    var r = MN.res;
+    side += '<div class="cas-res ' + (r.boom ? 'lose' : 'win') + '"><span class="cas-ball ' + (r.boom ? 'red' : 'green') + '">' + (r.boom ? '💥' : '💎') + '</span><div><b>' + (r.boom ? 'BOUM ! −' + ccn(r.stake) : '🎉 Encaissé · +' + ccn(r.net)) + '</b><small>' + (r.boom ? 'Tu es tombé sur une mine.' : 'Tu repars avec ' + mnTxt(r.mult) + ' (' + ccn(r.payout) + ').') + '</small></div></div>';
+  }
+  if (MN.active) {
+    side += '<button type="button" class="btn lg cas-cash" data-cas="mncash"' + (MN.busy || !MN.rev.length ? ' disabled' : '') + '>💰 ENCAISSER · ' + ccn(cur) + '</button>';
+    side += '<p class="help">Ouvre des cases : chaque 💎 augmente ton gain. Si tu tombes sur une 💣, tu perds ta mise. Encaisse quand tu veux, dès la 1re case.</p>';
+  } else {
+    side += '<button type="button" class="btn primary lg cas-go mn-play" id="mn-start" data-cas="mnstart"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>⛏️ JOUER · ' + ccn(st) + '</button>';
+    side += gStakeHTML('mn', vip, false);
+    side += '<div class="mn-step"><span>MINES</span><div class="mn-stepper"><button type="button" data-cas="mn:min"' + (vip ? '' : ' disabled') + '>MIN</button><button type="button" data-cas="mn:dec"' + (vip ? '' : ' disabled') + '>−</button><b>' + MN.n + '</b><button type="button" data-cas="mn:inc"' + (vip ? '' : ' disabled') + '>+</button><button type="button" data-cas="mn:max"' + (vip ? '' : ' disabled') + '>MAX</button></div></div>';
+    side += '<p class="help mn-note">Avec ce nombre de mines, le gain maximum est <b>' + ccn(Math.round(st * maxM * 100) / 100) + '</b> (' + mnTxt(maxM) + ').</p>';
+    side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  }
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<ul class="cas-rules"><li>La grille cache <b>1 à 24 mines</b> sur 25 cases. Plus il y a de mines, plus chaque case rapporte.</li><li>Chaque case sûre (💎) multiplie ta mise. Une mine (💣) fait tout perdre.</li><li>Les mines sont placées par le serveur au début de la partie : impossible de tricher.</li><li>Retour moyen d\'environ 96 %. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  return casinoGameShell(vip, scene, side);
+}
+function mnAnim(){
+  var pop = document.querySelector('.mn-tile[data-pop]');
+  if (pop) {
+    var t0 = performance.now(); pop.removeAttribute('data-pop');
+    casLoop(function(now){ var t = Math.min(1, (now - t0) / 320), s = t < 0.6 ? 0.55 + t / 0.6 * 0.6 : 1.15 - (t - 0.6) / 0.4 * 0.15; pop.style.transform = 'scale(' + s + ')'; if (t >= 1) { pop.style.transform = ''; return true; } return false; });
+  }
+}
+function mnShake(){
+  var g = document.getElementById('mn-grid'); if (!g) return;
+  var t0 = performance.now();
+  casLoop(function(now){ var t = Math.min(1, (now - t0) / 450); g.style.transform = 'translate(' + (Math.sin(t * 40) * 9 * (1 - t)) + 'px,' + (Math.cos(t * 33) * 5 * (1 - t)) + 'px)'; if (t >= 1) { g.style.transform = ''; return true; } return false; });
+}
+function mnStart(){
+  if (MN.active || MN.busy || !me() || !me().vip) return;
+  var st = gStakeVal('mn'); MN.busy = true; audio();
+  sb.rpc('casino_mines_start', {p_stake: st, p_mines: MN.n}).then(function(r){
+    MN.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    var d = r.data; MN.active = true; MN.run = Number(d.stake); MN.rev = []; MN.mult = 1; MN.next = Number(d.next) || 1; MN.mines = null; MN.boom = -1; MN.res = null;
+    if (me()) me().cc = Number(d.balance);
+    render();
+  });
+}
+function mnPick(i){
+  if (!MN.active || MN.busy || MN.rev.indexOf(i) >= 0) return;
+  MN.busy = true; audio();
+  sb.rpc('casino_mines_pick', {p_cell: i}).then(function(r){
+    MN.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    var d = r.data;
+    if (d.boom) {
+      MN.mines = d.mines; MN.rev = d.revealed || []; MN.boom = d.cell; MN.active = false; MN.res = {boom: true, stake: MN.run};
+      if (me()) me().cc = Number(d.balance);
+      render(); mnShake(); beep(120, 0, 0.5, 'sawtooth', 0.16); beep(70, 0.06, 0.55, 'square', 0.1);
+      toast('BOUM ! Tu perds ' + ccn(MN.run)); refresh().then(render, render); return;
+    }
+    MN.rev = d.revealed; MN.mult = Number(d.mult); MN.next = Number(d.next) || MN.next; MN.pop = d.cell;
+    if (me()) me().cc = Number(d.balance);
+    if (d.done) {
+      MN.active = false; MN.mines = d.mines; MN.res = {boom: false, mult: Number(d.mult), payout: d.payout, net: d.net}; CAS.today = Number(d.today) || CAS.today;
+      winSound(5); toast('Grille nettoyée ! +' + ccn(d.net));
+    } else beep(520 + MN.rev.length * 45, 0, 0.14, 'triangle', 0.12);
+    render(); mnAnim(); MN.pop = -1;
+    if (d.done) refresh().then(render, render);
+  });
+}
+function mnCash(){
+  if (!MN.active || MN.busy || !MN.rev.length) return;
+  MN.busy = true; audio();
+  sb.rpc('casino_mines_cashout').then(function(r){
+    MN.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    var d = r.data; MN.active = false; MN.mines = d.mines; MN.res = {boom: false, mult: Number(d.mult), payout: d.payout, net: d.net};
+    if (me()) me().cc = Number(d.balance); CAS.today = Number(d.today) || CAS.today;
+    winSound(d.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(d.net));
+    render(); refresh().then(render, render);
   });
 }
 
