@@ -901,7 +901,14 @@ function casinoBuyHTML(){
   return '<section class="cc-shop cc-buy"><h2 class="sec shop-h">Achète des V-Coins avec tes coins</h2><p class="help">Il te manque des V-Coins pour jouer ? <b>1 coin = 50 VC</b>. Réservé aux membres VIP. Ton solde de coins : <b>' + cn(a) + '</b>.</p>' +
     '<div class="shop-grid cc-packs">' + packs.map(function(p){ var off = !vip || a < p[0]; return '<div class="shop-item cc-pack"><b class="cc-out">' + cn(p[0]) + '</b><span aria-hidden="true">→</span><b class="cc-in">' + ccn(p[1]) + '</b><button type="button" class="btn sm primary" data-cas="buy:' + p[0] + '"' + (off ? ' disabled' : '') + '>Acheter</button></div>'; }).join('') + '</div></section>';
 }
+// fermeture temporaire de la boutique du casino (ce soir), même heure côté base de données
+var CASINO_SHOP_CLOSED_UNTIL = Date.parse('2026-11-19T02:47:10Z');
+function casinoShopClosed(){ return Date.now() < CASINO_SHOP_CLOSED_UNTIL; }
 function casinoShopHTML(){
+  if (casinoShopClosed()) {
+    var left = CASINO_SHOP_CLOSED_UNTIL - Date.now(), hh = Math.floor(left / 3600e3), mm = Math.ceil((left % 3600e3) / 60e3);
+    return '<section class="cc-shop"><p class="eyebrow">🎰 V-Coins</p><h2 class="sec shop-h">🔒 La boutique du casino est fermée ce soir</h2><div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Tes V-Coins</small><b>' + ccn(ccBal()) + '</b></div></div><small class="cc-next">Réouverture dans environ ' + (hh ? hh + ' h ' : '') + mm + ' min (à 3 h 47)</small><a class="btn sm" href="#casino">Aller au casino</a></div><p class="help">Les échanges de V-Coins, les achats de V-Coins et les titres du casino sont indisponibles pour le moment. Le casino, lui, reste ouvert.</p></section>';
+  }
   var cc = ccBal(), done = CAS.exToday || 0, left = Math.max(0, 160 - done);
   if (!CAS.loaded) casinoLoad();
   var packs = [[40, 0.5], [80, 1], [160, 2], [400, 5]];
