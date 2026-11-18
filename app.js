@@ -3559,8 +3559,9 @@ function ownerVcDialog(pid){
   var all = Object.keys(S.players).sort(function(x, y){ return P(x).pseudo.localeCompare(P(y).pseudo); });
   return dialogShell('<h2 id="dt">Donner des V-Coins</h2>' + vcSwitch(pid, 'vc') + '<form data-form="owner-give-vc" novalidate>' +
     '<label for="a-to">Joueur</label><select id="a-to" name="to">' + all.map(function(k){ return '<option value="' + esc(k) + '"' + (k === pid ? ' selected' : '') + '>' + esc(P(k).pseudo) + ' · ' + fmt(P(k).cc || 0) + ' VC</option>'; }).join('') + '</select>' +
-    '<label for="a-amount">V-Coins à donner</label><input id="a-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" value="100" required>' +
-    '<p class="hint">Autant que tu veux (jusqu\'à 1 000 000), avec 2 décimales maximum. Mets un nombre négatif (ex. -50) pour en retirer.</p>' +
+    '<label for="a-act">Action</label><select id="a-act" name="act"><option value="give">➕ Donner des V-Coins</option><option value="remove">➖ Retirer des V-Coins</option></select>' +
+    '<label for="a-amount">Combien de V-Coins ?</label><input id="a-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" value="100" required>' +
+    '<p class="hint">Autant que tu veux (jusqu\'à 1 000 000), avec 2 décimales maximum. Tape toujours un nombre positif : l\'action au-dessus décide si on donne ou si on retire.</p>' +
     '<label for="a-note">Raison (facultatif)</label><input id="a-note" name="note" maxlength="60" autocomplete="off" placeholder="Ex. cadeau">' +
     '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Valider</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
 }
@@ -4073,7 +4074,7 @@ document.addEventListener('submit', function(e){
     match: ['create_match', {p_mode: d.mode, p_format: d.format, p_bo: d.bo, p_stake: num(d.stake), p_rules: d.rules, p_target: d.target || null, p_team: d.team || null, p_pingpong: !!d.pingpong, p_kill_lead: isNaN(parseInt(d.kill_lead, 10)) ? 0 : parseInt(d.kill_lead, 10), p_no_break: !!d.nobreak}, 'Défi publié. ' + cn(num(d.stake) || 0) + ' mis en jeu.'],
     tip: ['send_tip', {p_to: d.to, p_amount: num(d.amount), p_note: d.note}, cn(num(d.amount) || 0) + ' envoyé(s).'],
     sanction: ['set_player_status', {p_player: f.dataset.pid, p_status: f.dataset.mode, p_reason: d.reason || '', p_hours: f.dataset.mode === 'restricted' ? parseInt(d.hours, 10) : null}, f.dataset.mode === 'ok' ? 'Sanction levée.' : f.dataset.mode === 'banned' ? 'Joueur banni.' : 'Joueur restreint.'],
-    'owner-give-vc': ['owner_give_vcoins', {p_player: d.to, p_amount: num(d.amount), p_note: d.note}, (num(d.amount) < 0 ? fmt(Math.abs(num(d.amount))) + ' VC retirés.' : fmt(num(d.amount) || 0) + ' VC donnés.')],
+    'owner-give-vc': ['owner_give_vcoins', {p_player: d.to, p_amount: (d.act === 'remove' ? -1 : 1) * Math.abs(num(d.amount)), p_note: d.note}, (d.act === 'remove' ? fmt(Math.abs(num(d.amount)) || 0) + ' VC retirés.' : fmt(Math.abs(num(d.amount)) || 0) + ' VC donnés.')],
     'admin-give': ['admin_give', {p_player: d.to, p_amount: (f.dataset.mode === 'remove' ? -1 : 1) * Math.abs(num(d.amount)), p_note: d.note}, f.dataset.mode === 'remove' ? cn(Math.abs(num(d.amount)) || 0) + ' retiré(s).' : cn(Math.abs(num(d.amount)) || 0) + ' donné(s).']
   }[kind];
   if (!map) return;
