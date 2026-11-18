@@ -895,8 +895,8 @@ function casFree(){ return Date.now() < CAS_FREE_UNTIL; }
 var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 2, black: 2, green: 36};
 function casColor(n){ return n === 0 ? 'green' : CAS_RED[n] ? 'red' : 'black'; }
 function casStake(){
-  if (casFree()) return CAS.stake === 'all' ? Math.floor(avail(S.me) * 100) / 100 : CAS.stake;   // ce soir : mise libre, all-in = tout le solde disponible
-  return CAS.bet === 'green' ? 0.5 : (CAS.stake === 'all' ? 5 : CAS.stake);
+  if (casFree()) return CAS.stake === 'all' ? Math.floor(avail(S.me) * 100) / 100 : (Math.round(CAS.stake * 100) / 100 || 0);   // ce soir : mise libre, all-in = tout le solde disponible
+  return CAS.bet === 'green' ? 0.5 : ([0.5, 1, 2, 5].indexOf(CAS.stake) < 0 ? 1 : CAS.stake);
 }
 
 function casinoLoad(){
@@ -941,13 +941,14 @@ function casinoHTML(){
   h += '<div class="cas-bets" role="group" aria-label="Choisis ta couleur">' + ['red', 'black', 'green'].map(function(c){
     return '<button type="button" class="cas-col ' + c + (CAS.bet === c ? ' sel' : '') + '" data-cas="bet:' + c + '"' + (vip ? '' : ' disabled') + '>' + CAS_NAME[c].charAt(0).toUpperCase() + CAS_NAME[c].slice(1) + '<small>x' + CAS_MULT[c] + '</small></button>';
   }).join('') + '</div>';
+  var cv = (typeof CAS.stake === 'number' && [0.5, 1, 2, 5].indexOf(CAS.stake) < 0 && CAS.stake > 0) ? String(CAS.stake).replace('.', ',') : '';
   h += '<div class="cas-stakes" role="group" aria-label="Ta mise"><span>Mise</span>' + [0.5, 1, 2, 5].map(function(v){
     var off = !vip || (!casFree() && CAS.bet === 'green' && v > 0.5);
     return '<button type="button" class="cas-chip' + (CAS.stake !== 'all' && st === v ? ' sel' : '') + '" data-cas="stake:' + v + '"' + (off ? ' disabled' : '') + '>' + cn(v) + '</button>';
-  }).join('') + (casFree() ? '<button type="button" class="cas-chip allin' + (CAS.stake === 'all' ? ' sel' : '') + '" data-cas="stake:all"' + (!vip || a < 0.01 ? ' disabled' : '') + '>🔥 ALL-IN</button>' : '') + '</div>';
-  h += '<button type="button" class="btn primary lg cas-go" id="cas-spin" data-cas="spin"' + (!vip || a < st || capped ? ' disabled' : '') + '>🎰 Lancer · ' + cn(st) + '</button>';
+  }).join('') + (casFree() ? '<button type="button" class="cas-chip allin' + (CAS.stake === 'all' ? ' sel' : '') + '" data-cas="stake:all"' + (!vip || a < 0.01 ? ' disabled' : '') + '>🔥 ALL-IN</button><label class="cas-custom' + (cv ? ' sel' : '') + '"><span>ou</span><input id="cas-custom" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 12,5" value="' + cv + '"' + (vip ? '' : ' disabled') + ' aria-label="Montant libre en coins"><em>coins</em></label>' : '') + '</div>';
+  h += '<button type="button" class="btn primary lg cas-go" id="cas-spin" data-cas="spin"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🎰 Lancer · ' + cn(st) + '</button>';
   if (vip) {
-    h += (capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de coins disponibles pour cette mise.</p>' : '<p class="help">Gain possible : <b>+' + cn(st * (CAS_MULT[CAS.bet] - 1)) + '</b> · Disponible : ' + cn(a) + '</p>');
+    h += (capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de coins disponibles pour cette mise.</p>' : '<p class="help" id="cas-gain">Gain possible : <b>+' + cn(st * (CAS_MULT[CAS.bet] - 1)) + '</b> · Disponible : ' + cn(a) + '</p>');
     h += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + cn(Math.abs(CAS.today)) + (casFree() ? ' · 🎉 illimité ce soir' : ' / ' + cn(CAS_CAP)) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + cn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
@@ -994,7 +995,21 @@ function casinoSpin(){
     requestAnimationFrame(frame);
   });
 }
+// mise libre (ce soir) : mise à jour du bouton sans refaire toute la page, pour ne pas perdre le curseur dans le champ
+function casSync(){
+  var st = casStake(), a = avail(S.me), btn = document.getElementById('cas-spin'), g = document.getElementById('cas-gain');
+  [].forEach.call(document.querySelectorAll('.cas-chip'), function(c){ c.classList.remove('sel'); });
+  if (btn && !CAS.busy && !spinLock) { btn.textContent = '🎰 Lancer · ' + cn(st); btn.disabled = !(st >= 0.01) || a < st; }
+  if (g) g.innerHTML = !(st >= 0.01) ? 'Entre un montant à partir de 0,01 coin.' : a < st ? '<span class="cas-warn">Pas assez de coins disponibles (' + cn(a) + ').</span>' : 'Gain possible : <b>+' + cn(st * (CAS_MULT[CAS.bet] - 1)) + '</b> · Disponible : ' + cn(a);
+}
 function casinoInit(){
+  document.addEventListener('input', function(e){
+    if (!e.target || e.target.id !== 'cas-custom') return;
+    var n = parseFloat(String(e.target.value).replace(',', '.'));
+    CAS.stake = isFinite(n) && n >= 0.01 ? Math.round(n * 100) / 100 : 0;
+    casSync();
+    var lab = e.target.parentNode; if (lab) lab.classList.add('sel');
+  });
   document.addEventListener('click', function(e){
     var t = e.target.closest ? e.target.closest('[data-cas]') : null; if (!t || t.disabled) return;
     var v = t.getAttribute('data-cas');
