@@ -897,11 +897,11 @@ function casinoWalletHTML(vip){
     '<button type="button" class="btn sm ghost" data-cas="shop-cc">Échanger en boutique</button></div>';
 }
 function casinoShopHTML(){
-  var cc = ccBal(), done = CAS.exToday || 0, left = Math.max(0, 40 - done);
+  var cc = ccBal(), done = CAS.exToday || 0, left = Math.max(0, 160 - done);
   if (!CAS.loaded) casinoLoad();
-  var packs = [[10, 0.5], [20, 1], [40, 2], [100, 5]];
-  return '<section class="cc-shop"><p class="eyebrow">🎰 V-Coins</p><h2 class="sec shop-h">Échange tes V-Coins</h2><p class="help">Les V-Coins se gagnent au casino (réservé aux VIP). <b>20 VC = 1 coin</b>. Limite : 40 VC échangeables par jour (2 coins).</p>' +
-    '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Ton solde</small><b>' + ccn(cc) + '</b></div></div><small class="cc-next">Échangé aujourd\'hui : ' + fmt(done) + ' / 40 VC</small><a class="btn sm" href="#casino">Aller au casino</a></div>' +
+  var packs = [[40, 0.5], [80, 1], [160, 2], [400, 5]];
+  return '<section class="cc-shop"><p class="eyebrow">🎰 V-Coins</p><h2 class="sec shop-h">Échange tes V-Coins</h2><p class="help">Les V-Coins se gagnent au casino (réservé aux VIP). <b>80 VC = 1 coin</b>. Limite : 160 VC échangeables par jour (2 coins).</p>' +
+    '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Ton solde</small><b>' + ccn(cc) + '</b></div></div><small class="cc-next">Échangé aujourd\'hui : ' + fmt(done) + ' / 160 VC</small><a class="btn sm" href="#casino">Aller au casino</a></div>' +
     '<div class="shop-grid cc-packs">' + packs.map(function(p){ var off = cc < p[0] || p[0] > left; return '<div class="shop-item cc-pack"><b class="cc-in">' + ccn(p[0]) + '</b><span aria-hidden="true">→</span><b class="cc-out">' + cn(p[1]) + '</b><button type="button" class="btn sm primary" data-cas="exch:' + p[0] + '"' + (off ? ' disabled' : '') + '>Échanger</button></div>'; }).join('') + '</div></section>' + casinoTitlesHTML();
 }
 var CASINO_TITLES = {casino_rookie: ['🎲 Joueur du Casino', 50], casino_pro: ['🎰 Pro du Casino', 100], casino_high_roller: ['💎 High Roller', 200], casino_lucky: ['🍀 Lucky Seven', 300], casino_allin: ['🔥 All-In Legend', 500], casino_baron: ['👑 Baron du Casino', 800]};
@@ -982,7 +982,7 @@ function casinoHTML(){
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + ccn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
   }
-  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Tu joues avec des <b>V-Coins (VC)</b> : bonus VIP de 50 VC par jour, échangeables en boutique (20 VC = 1 coin).</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Plafond de gains : <b>' + ccn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Tu joues avec des <b>V-Coins (VC)</b> : bonus VIP de 50 VC par jour, échangeables en boutique (80 VC = 1 coin).</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Plafond de gains : <b>' + ccn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return h + '</div></div>';
 }
 
@@ -2661,10 +2661,24 @@ function giftDialog(defaultItem, locked){
     '<p class="err" role="alert" style="margin-top:10px"></p>' +
     '<div class="actions" style="margin-top:18px"><button class="btn primary lg" type="submit"' + (a < pr ? ' disabled' : '') + '>🎁 Confirmer et offrir</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
 }
+function vcSwitch(pid, cur){
+  if (!isOwner()) return '';
+  return '<div class="actions" style="margin:0 0 12px"><button type="button" class="btn sm' + (cur === 'coins' ? ' primary' : '') + '" data-act="admin-dialog" data-pid="' + esc(pid || '') + '" data-mode="give">🪙 Coins</button><button type="button" class="btn sm' + (cur === 'vc' ? ' primary' : '') + '" data-act="admin-dialog" data-pid="' + esc(pid || '') + '" data-mode="vcoins">💜 V-Coins</button></div>';
+}
+function ownerVcDialog(pid){
+  var all = Object.keys(S.players).sort(function(x, y){ return P(x).pseudo.localeCompare(P(y).pseudo); });
+  return dialogShell('<h2 id="dt">Donner des V-Coins</h2>' + vcSwitch(pid, 'vc') + '<form data-form="owner-give-vc" novalidate>' +
+    '<label for="a-to">Joueur</label><select id="a-to" name="to">' + all.map(function(k){ return '<option value="' + esc(k) + '"' + (k === pid ? ' selected' : '') + '>' + esc(P(k).pseudo) + ' · ' + fmt(P(k).cc || 0) + ' VC</option>'; }).join('') + '</select>' +
+    '<label for="a-amount">V-Coins à donner</label><input id="a-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" value="100" required>' +
+    '<p class="hint">Autant que tu veux (jusqu\'à 1 000 000), avec 2 décimales maximum. Mets un nombre négatif (ex. -50) pour en retirer.</p>' +
+    '<label for="a-note">Raison (facultatif)</label><input id="a-note" name="note" maxlength="60" autocomplete="off" placeholder="Ex. cadeau">' +
+    '<p class="err" role="alert"></p><div class="actions"><button class="btn primary" type="submit">Valider</button><button class="btn ghost" type="button" data-act="close">Annuler</button></div></form>');
+}
 function adminDialog(pid, mode){
+  if (mode === 'vcoins' && isOwner()) return ownerVcDialog(pid);
   var remove = mode === 'remove' && isOwner();
   var all = Object.keys(S.players).filter(function(k){ return isOwner() || (k !== S.me && !P(k).owner); }).sort(function(x, y){ return P(x).pseudo.localeCompare(P(y).pseudo); });
-  return dialogShell('<h2 id="dt">' + (remove ? 'Retirer des coins' : 'Donner des coins') + '</h2><form data-form="admin-give" data-mode="' + (remove ? 'remove' : 'give') + '" novalidate>' +
+  return dialogShell('<h2 id="dt">' + (remove ? 'Retirer des coins' : 'Donner des coins') + '</h2>' + vcSwitch(pid, 'coins') + '<form data-form="admin-give" data-mode="' + (remove ? 'remove' : 'give') + '" novalidate>' +
     '<label for="a-to">Joueur</label><select id="a-to" name="to">' + all.map(function(k){ return '<option value="' + esc(k) + '"' + (k === pid ? ' selected' : '') + '>' + esc(P(k).pseudo) + ' · ' + fmt(avail(k)) + ' coins dispo</option>'; }).join('') + '</select>' +
     '<label for="a-amount">' + (remove ? 'Coins à retirer' : 'Coins à donner') + '</label><input id="a-amount" name="amount" type="number" inputmode="decimal" min="0.5" step="0.5" value="1" required>' +
     (remove ? '<p class="hint">Seuls les coins disponibles peuvent être retirés (pas ceux en jeu dans un match).</p>' : '') +
@@ -3162,6 +3176,7 @@ document.addEventListener('submit', function(e){
     match: ['create_match', {p_mode: d.mode, p_format: d.format, p_bo: d.bo, p_stake: num(d.stake), p_rules: d.rules, p_target: d.target || null, p_team: d.team || null, p_pingpong: !!d.pingpong, p_kill_lead: isNaN(parseInt(d.kill_lead, 10)) ? 0 : parseInt(d.kill_lead, 10), p_no_break: !!d.nobreak}, 'Défi publié. ' + cn(num(d.stake) || 0) + ' mis en jeu.'],
     tip: ['send_tip', {p_to: d.to, p_amount: num(d.amount), p_note: d.note}, cn(num(d.amount) || 0) + ' envoyé(s).'],
     sanction: ['set_player_status', {p_player: f.dataset.pid, p_status: f.dataset.mode, p_reason: d.reason || '', p_hours: f.dataset.mode === 'restricted' ? parseInt(d.hours, 10) : null}, f.dataset.mode === 'ok' ? 'Sanction levée.' : f.dataset.mode === 'banned' ? 'Joueur banni.' : 'Joueur restreint.'],
+    'owner-give-vc': ['owner_give_vcoins', {p_player: d.to, p_amount: num(d.amount), p_note: d.note}, (num(d.amount) < 0 ? fmt(Math.abs(num(d.amount))) + ' VC retirés.' : fmt(num(d.amount) || 0) + ' VC donnés.')],
     'admin-give': ['admin_give', {p_player: d.to, p_amount: (f.dataset.mode === 'remove' ? -1 : 1) * Math.abs(num(d.amount)), p_note: d.note}, f.dataset.mode === 'remove' ? cn(Math.abs(num(d.amount)) || 0) + ' retiré(s).' : cn(Math.abs(num(d.amount)) || 0) + ' donné(s).']
   }[kind];
   if (!map) return;
