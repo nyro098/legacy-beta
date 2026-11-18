@@ -984,6 +984,7 @@ function casinoHTML(){
   if (CAS.game === 'plinko') return plinkoPage();
   if (CAS.game === 'hilo') return hiloPage();
   if (CAS.game === 'tower') return towerPage();
+  if (CAS.game === 'bj21') return bj21Page();
   return rouletteHTML();
 }
 function rouletteHTML(){
@@ -1093,6 +1094,12 @@ function casinoInit(){
     else if (v === 'hllo') hlCall('casino_hilo_guess', {p_dir: 'lo'});
     else if (v === 'hlcash') hlCall('casino_hilo_cashout');
     else if (v === 'twstart') twStart();
+    else if (v.indexOf('b21tie:') === 0) { B21.tie = v.slice(7); render(); }
+    else if (v === 'b21create') b21Call('bj21_create', {p_stake: gStakeVal('b21'), p_tie: B21.tie}, function(m){ b21Set(m); B21.sig = ''; b21Bal(); render(); });
+    else if (v.indexOf('b21join:') === 0) { var jid = v.slice(8); b21Call('bj21_join', {p_id: jid}, function(m){ B21.open = B21.open.filter(function(x){ return x.id !== jid; }); b21Set(m); B21.sig = ''; b21Bal(); tickSound(); render(); }); }
+    else if (v === 'b21cancel') b21Call('bj21_cancel', {p_id: B21.m.id}, function(){ B21.m = null; B21.sig = ''; b21Bal(); toast('Match annulé : mise rendue.'); render(); b21Sync(); });
+    else if (v === 'b21hit' || v === 'b21stand') b21Call('bj21_action', {p_id: B21.m.id, p_act: v === 'b21hit' ? 'hit' : 'stand'}, function(m){ b21Set(m); B21.sig = ''; tickSound(); render(); });
+    else if (v === 'b21back') { B21.m = null; B21.sig = ''; render(); b21Sync(); }
     else if (v === 'twcash') twCash();
     else if (v.indexOf('twpick:') === 0) twPick(parseInt(v.slice(7), 10));
     else if (v.indexOf('twdiff:') === 0) { TW.diff = v.slice(7); render(); }
@@ -1146,7 +1153,7 @@ function casinoInit(){
 
 /* ---------- casino : onglets, machine à sous et poulet qui traverse ---------- */
 function casinoTabsHTML(){
-  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack'], ['mines', '⛏️ Legacy Miner'], ['plinko', '🔻 Plinko'], ['hilo', '↕️ Hi-Lo'], ['tower', '🗼 Tower']];
+  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack'], ['mines', '⛏️ Legacy Miner'], ['plinko', '🔻 Plinko'], ['hilo', '↕️ Hi-Lo'], ['tower', '🗼 Tower'], ['bj21', '🆚 Blackjack 1v1']];
   return '<div class="tabs cas-tabs" role="tablist">' + tabs.map(function(t){ return '<button type="button" role="tab" aria-selected="' + (CAS.game === t[0]) + '" data-cas="game:' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
 }
 function casinoHeroHTML(){
@@ -1159,8 +1166,8 @@ function casinoGameShell(vip, stageHTML, sideHTML, wide){
 }
 
 /* --- mise : jetons, ALL-IN et montant libre (commun aux deux jeux) --- */
-var GS = {slots: 1, chicken: 1, bj: 1, mn: 1, plk: 1, hl: 1, tw: 1};
-var GSYNC = {slots: ['sl-spin', '🎰 LANCER · '], chicken: ['ch-start', '🐔 JOUER · '], bj: ['bj-start', '🃏 DISTRIBUER · '], mn: ['mn-start', '⛏️ JOUER · '], plk: ['plk-go', '🔻 LÂCHER LA BILLE · '], hl: ['hl-start', '↕️ JOUER · '], tw: ['tw-start', '🗼 GRIMPER · ']};
+var GS = {slots: 1, chicken: 1, bj: 1, mn: 1, plk: 1, hl: 1, tw: 1, b21: 1};
+var GSYNC = {slots: ['sl-spin', '🎰 LANCER · '], chicken: ['ch-start', '🐔 JOUER · '], bj: ['bj-start', '🃏 DISTRIBUER · '], mn: ['mn-start', '⛏️ JOUER · '], plk: ['plk-go', '🔻 LÂCHER LA BILLE · '], hl: ['hl-start', '↕️ JOUER · '], tw: ['tw-start', '🗼 GRIMPER · '], b21: ['b21-create', '🆚 CRÉER LE MATCH · ']};
 function gStakeVal(g){ var v = GS[g]; return v === 'all' ? Math.floor(ccBal() * 100) / 100 : (Math.round(v * 100) / 100 || 0); }
 function gStakeHTML(g, vip, lock){
   var cur = GS[g], chips = [1, 2, 5, 10, 25], off = !vip || lock ? ' disabled' : '';
@@ -1836,6 +1843,7 @@ function casinoReset(){
   MN.loaded = false; MN.loading = false; MN.active = false; MN.rev = []; MN.mines = null; MN.res = null; MN.boom = -1; MN.busy = false;
   HL.loaded = false; HL.loading = false; HL.g = null; HL.res = null; HL.hist = []; HL.busy = false;
   TW.loaded = false; TW.loading = false; TW.active = false; TW.traps = null; TW.res = null; TW.picks = []; TW.busy = false;
+  B21.m = null; B21.open = []; B21.sig = ''; B21.loaded = false; B21.loading = false; B21.busy = false;
   SL.res = null; SL.win = 0; SL.spinning = false; PL.res = null; PL.hist = []; PL.busy = false;
 }
 // garde-fou : si une animation du casino reste bloquée plus de 25 s, on débloque le site au lieu de le laisser figé
@@ -1845,6 +1853,112 @@ setInterval(function(){
   if (!spinSince) { spinSince = Date.now(); return; }
   if (Date.now() - spinSince > 25000) { spinLock = false; spinSince = 0; CH.busy = false; PL.busy = false; SL.spinning = false; render(); }
 }, 2000);
+
+/* =================== BLACKJACK 1v1 (joueur contre joueur) =================== */
+var B21 = {open: [], m: null, busy: false, loaded: false, loading: false, tie: 'push', tick: 0, sig: ''};
+var B21_TIE = {push: 'Égalité : mises rendues', creator: 'Égalité : le créateur gagne'};
+function b21Active(){ return !!(B21.m && (B21.m.status === 'open' || B21.m.status === 'live')); }
+function b21Bal(){   // met à jour mon solde de V-Coins (petite requête, pas de rechargement du site)
+  if (!S.me) return;
+  sb.from('profiles').select('casino_coins').eq('id', S.me).maybeSingle().then(function(r){
+    if (r && r.data && me()) { me().cc = Number(r.data.casino_coins) || 0; if (viewName() === 'casino' && !spinLock) render(); }
+  });
+}
+function b21Set(m){
+  var prev = B21.m; B21.m = m;
+  if (prev && prev.id === m.id && prev.status !== m.status) {
+    if (prev.status === 'open' && m.status === 'live') { toast('🆚 Un adversaire a rejoint ! À toi de jouer.'); winSound(0); b21Bal(); }
+    if (m.status === 'done') {
+      b21Bal(); var win = m.result === 'win';
+      toast(m.result === 'push' ? '🤝 Égalité : mises rendues' : win ? '🎉 Tu gagnes ' + ccn(m.stake) + ' !' : 'Perdu, tu laisses ' + ccn(m.stake));
+      if (win) winSound(4); else if (m.result === 'lose') beep(140, 0, 0.35, 'sawtooth', 0.12);
+    }
+    if (m.status === 'cancelled') { b21Bal(); toast('Match annulé : mise rendue.'); }
+  }
+}
+function b21Paint(){
+  var sig = JSON.stringify([B21.open, B21.m]); if (sig === B21.sig) return; B21.sig = sig;
+  if (viewName() === 'casino' && CAS.game === 'bj21' && !spinLock && !(typeof typing === 'function' && typing())) render();
+}
+function b21Sync(){
+  if (B21.busy || B21.loading || !S.me || !me() || !me().vip) return;
+  B21.loading = true;
+  var p = b21Active()
+    ? sb.rpc('bj21_state', {p_id: B21.m.id}).then(function(r){ if (r.error || !r.data) { B21.m = null; return; } b21Set(r.data); })
+    : sb.rpc('bj21_list').then(function(r){
+        var d = r.data || {}; B21.open = d.open || [];
+        if (d.mine) return sb.rpc('bj21_state', {p_id: d.mine}).then(function(r2){ if (!r2.error) b21Set(r2.data); });
+      });
+  Promise.resolve(p).then(function(){ B21.loading = false; B21.loaded = true; b21Paint(); }, function(){ B21.loading = false; });
+}
+setInterval(function(){
+  if (viewName() !== 'casino' || CAS.game !== 'bj21' || document.hidden) return;
+  B21.tick++;
+  if (b21Active() || !B21.loaded || B21.tick % 3 === 0) b21Sync();
+}, 1500);
+
+function b21Seat(m, oppId){
+  var p = oppId ? P(oppId) : null, cards = '', state = '';
+  if (m.status === 'open') state = 'en attente d\'un adversaire…';
+  else if (m.opp) state = 'main terminée';
+  else state = m.oppdone ? 'a fini sa main ✋' : 'réfléchit…';
+  if (m.opp) cards = m.opp.map(function(c, i){ return bjCard(c, i, false); }).join('');
+  else if (m.opp_first != null) { cards = bjCard(m.opp_first, 0, false); for (var k = 1; k < m.opp_count; k++) cards += bjBack(); }
+  return '<div class="bj-seat"><div class="bj-who"><span class="bj-bot">' + (p ? av(p, 'sm') : '⏳') + '</span><b>' + (p ? nm(p) : 'Adversaire') + '</b><small>' + state + '</small></div>' +
+    '<div class="bj-hand">' + (cards || '<span class="bj-empty">Aucune carte pour le moment</span>') + '</div><div class="bj-total">' + (m.opp ? 'Total ' + m.opptotal : m.status === 'live' ? 'Carte visible · ' + m.opp_count + ' carte' + (m.opp_count > 1 ? 's' : '') : '') + '</div></div>';
+}
+function b21Table(m){
+  var oppId = m.me_a ? m.joiner : m.creator, mine = (m.mine || []).map(function(c, i){ return bjCard(c, i, false); }).join('');
+  var mystate = m.status === 'live' ? (m.mydone ? (m.mytotal > 21 ? 'tu as sauté 💥' : 'tu restes ✋') : 'à toi de jouer') : (m.mytotal > 21 ? 'sauté' : 'main terminée');
+  return '<div class="bj-table">' + b21Seat(m, oppId) +
+    '<div class="bj-felt-mid"><img src="logo.svg" alt="" width="46" height="46"><span>LEGACY 21 · 1v1</span><small>Pot ' + ccn(m.stake * 2) + ' · ' + B21_TIE[m.tie] + '</small></div>' +
+    '<div class="bj-seat"><div class="bj-total">' + (m.mine && m.mine.length ? 'Ton total ' + m.mytotal : '') + '</div><div class="bj-hand">' + (mine || '<span class="bj-empty">Tes cartes arriveront quand quelqu\'un rejoint</span>') + '</div>' +
+    '<div class="bj-who"><span class="bj-bot">' + av(me() || {pseudo: '?'}, 'sm') + '</span><b>' + esc((me() || {}).pseudo || 'Toi') + '</b><small>' + mystate + ' · mise ' + ccn(m.stake) + '</small></div></div></div>';
+}
+function b21LobbyHTML(){
+  var rows = B21.open.map(function(x){
+    var p = P(x.creator);
+    return '<li class="b21-row"><span class="b21-who">' + av(p, 'sm') + '<b>' + nm(p) + '</b></span><span class="b21-stake">' + ccn(x.stake) + '</span><small class="b21-rule">' + B21_TIE[x.tie] + '</small>' +
+      '<button type="button" class="btn sm primary" data-cas="b21join:' + esc(x.id) + '"' + (B21.busy || ccBal() < Number(x.stake) ? ' disabled' : '') + '>Rejoindre</button></li>';
+  }).join('');
+  return '<div class="b21-lobby"><div class="mn-title"><span class="g">BLACKJACK</span> <span class="s">1v1</span><i class="mn-ball" aria-hidden="true">🆚</i></div>' +
+    '<h3 class="b21-h">Matchs ouverts</h3>' + (rows ? '<ul class="b21-list">' + rows + '</ul>' : '<div class="empty"><b>Aucun match ouvert pour le moment.</b>Crée le premier : un autre joueur pourra le rejoindre !</div>') +
+    '<p class="help">La liste se met à jour toute seule.</p></div>';
+}
+function bj21Page(){
+  var vip = !!(me() && me().vip), a = ccBal(), m = B21.m, st = gStakeVal('b21');
+  if (vip && !B21.loaded) b21Sync();
+  var stage = m ? b21Table(m) : b21LobbyHTML(), side = '';
+  if (m && m.status === 'done') {
+    var win = m.result === 'win', push = m.result === 'push';
+    side += '<div class="cas-res ' + (push || win ? 'win' : 'lose') + '"><span class="cas-ball ' + (win ? 'green' : push ? 'green' : 'red') + '">🆚</span><div><b>' + (push ? '🤝 Égalité · mise rendue' : win ? '🎉 Gagné · +' + ccn(m.stake) : 'Perdu · −' + ccn(m.stake)) + '</b><small>Toi ' + m.mytotal + ' · adversaire ' + m.opptotal + '</small></div></div>';
+    side += '<button type="button" class="btn primary lg cas-go" data-cas="b21back">↩ Retour aux matchs</button>';
+  } else if (m && m.status === 'cancelled') {
+    side += '<div class="cas-res win"><span class="cas-ball green">↩</span><div><b>Match annulé</b><small>Ta mise t\'a été rendue.</small></div></div><button type="button" class="btn primary lg cas-go" data-cas="b21back">↩ Retour aux matchs</button>';
+  } else if (m && m.status === 'open') {
+    side += '<div class="cas-res win"><span class="cas-ball green">⏳</span><div><b>Ton match attend un adversaire</b><small>Mise ' + ccn(m.stake) + ' bloquée · annulation automatique après 15 min.</small></div></div>';
+    side += '<button type="button" class="btn lg cas-cash" data-cas="b21cancel"' + (B21.busy ? ' disabled' : '') + '>Annuler et récupérer ma mise</button>';
+  } else if (m && m.status === 'live') {
+    side += '<div class="bj-actions"><button type="button" class="btn primary lg" data-cas="b21hit"' + (B21.busy || m.mydone ? ' disabled' : '') + '>🃏 TIRER</button><button type="button" class="btn lg bj-stand" data-cas="b21stand"' + (B21.busy || m.mydone ? ' disabled' : '') + '>✋ RESTER</button></div>';
+    side += '<p class="help">' + (m.mydone ? 'Ta main est terminée. On attend ton adversaire…' : 'Tu vois seulement la 1re carte de ton adversaire et son nombre de cartes. Sans réponse en <b>' + (m.idle_left != null ? m.idle_left : 60) + ' s</b>, tu restes automatiquement.') + '</p>';
+  } else {
+    side += gStakeHTML('b21', vip, false);
+    side += '<div class="cas-stakes" role="group" aria-label="Règle d\'égalité"><span>Égalité</span><button type="button" class="cas-chip' + (B21.tie === 'push' ? ' sel' : '') + '" data-cas="b21tie:push"' + (vip ? '' : ' disabled') + '>Mises rendues</button><button type="button" class="cas-chip' + (B21.tie === 'creator' ? ' sel' : '') + '" data-cas="b21tie:creator"' + (vip ? '' : ' disabled') + '>Le créateur gagne</button></div>';
+    side += '<button type="button" class="btn primary lg cas-go" id="b21-create" data-cas="b21create"' + (!vip || B21.busy || !(st >= 0.1) || a < st ? ' disabled' : '') + '>🆚 CRÉER LE MATCH · ' + ccn(st) + '</button>';
+    side += a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  }
+  side += '<details class="bj-howto"' + (m ? '' : ' open') + '><summary>❓ Comment ça marche ?</summary><ul class="cas-rules"><li>Le <b>créateur</b> choisit la <b>mise</b> et la <b>règle d\'égalité</b>. Quelqu\'un le rejoint et paie la même mise.</li><li>Chacun joue <b>sa propre main</b> de blackjack, en secret. Tu ne vois de l\'adversaire que sa 1re carte.</li><li>Le plus proche de <b>21 sans dépasser</b> gagne les <b>deux mises</b>. Dépasser 21 = perdu (les deux dépassent = mises rendues).</li><li>Un blackjack (As + figure) bat un 21 normal.</li><li>60 s sans jouer : tu restes automatiquement. Aucune commission : le gagnant ramasse tout.</li></ul></details>';
+  return casinoGameShell(vip, stage, side);
+}
+function b21Call(fn, args, after){
+  if (B21.busy || !me() || !me().vip) return;
+  B21.busy = true; audio();
+  sb.rpc(fn, args || {}).then(function(r){
+    B21.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); B21.sig = ''; b21Sync(); return; }
+    after(r.data);
+  });
+}
 
 /* ---------- tournois ---------- */
 var tourId = null;
