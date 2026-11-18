@@ -1123,8 +1123,8 @@ function casinoTabsHTML(){
 function casinoHeroHTML(){
   return '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Roulette, machine à sous, poulet… Joue avec tes <b>V-Coins</b> 💜 : ils n\'ont aucune valeur réelle, joue pour le plaisir.</p></div></section>';
 }
-function casinoGameShell(vip, stageHTML, sideHTML){
-  return casinoHeroHTML() + casinoTabsHTML() + '<div class="cas-wrap' + (vip ? '' : ' locked') + '"><div class="cas-stage cas-stage-wide">' + stageHTML +
+function casinoGameShell(vip, stageHTML, sideHTML, wide){
+  return casinoHeroHTML() + casinoTabsHTML() + '<div class="cas-wrap' + (vip ? '' : ' locked') + (wide ? ' wide' : '') + '"><div class="cas-stage cas-stage-wide">' + stageHTML +
     (vip ? '' : '<div class="cas-lock"><b>🔒 Réservé aux membres VIP</b><p>Le Pass VIP ouvre le casino, booste la roue quotidienne et bien plus.</p><button class="btn primary" data-act="shop-vip">Devenir VIP · ' + cn(20) + '</button></div>') +
     '</div><div class="cas-side">' + casinoWalletHTML(vip) + sideHTML + '</div></div>';
 }
@@ -1598,18 +1598,18 @@ function mnCash(){
 var PL_T = {low: [8.5, 3, 1.6, 1.3, 1.1, 0.9, 0.5, 0.9, 1.1, 1.3, 1.6, 3, 8.5], med: [28, 10, 4, 1.9, 1.1, 0.6, 0.3, 0.6, 1.1, 1.9, 4, 10, 28], high: [140, 22, 8, 1.9, 0.7, 0.2, 0.2, 0.2, 0.7, 1.9, 8, 22, 140]};
 var PL_NAME = {low: 'Faible', med: 'Moyen', high: 'Élevé'};
 var PL = {risk: 'med', busy: false, hist: [], res: null, hit: -1};
-var PL_CX = 320, PL_DX = 40, PL_Y0 = 46, PL_DY = 33;
+var PL_CX = 320, PL_DX = 46, PL_Y0 = 38, PL_DY = 37;
 function plColor(m){ return m >= 10 ? '#ff4d5a' : m >= 3 ? '#ff9a3c' : m >= 1.5 ? '#ffd84a' : m >= 1 ? '#8be28b' : '#6f86a8'; }
 function plMulTxt(m){ return String(m).replace('.', ',') + 'x'; }
 function plinkoPage(){
   var vip = !!(me() && me().vip), st = gStakeVal('plk'), a = ccBal(), capped = CAS.today >= CAS_CAP, tbl = PL_T[PL.risk], i, j, pegs = '', buckets = '';
   if (vip && !CAS.loaded) casinoLoad();
-  for (i = 0; i < 12; i++) for (j = 0; j <= i; j++) pegs += '<circle cx="' + (PL_CX + (j - i / 2) * PL_DX) + '" cy="' + (PL_Y0 + i * PL_DY) + '" r="3.6" fill="#dfe8ff" opacity=".9"/>';
+  for (i = 0; i < 12; i++) for (j = 0; j <= i; j++) pegs += '<circle cx="' + (PL_CX + (j - i / 2) * PL_DX) + '" cy="' + (PL_Y0 + i * PL_DY) + '" r="4.4" fill="#dfe8ff" opacity=".95"/>';
   for (i = 0; i <= 12; i++) {
     var bx = PL_CX + (i - 6) * PL_DX, by = PL_Y0 + 12 * PL_DY - 4;
-    buckets += '<g class="plk-b' + (PL.hit === i ? ' hit' : '') + '" id="plk-b' + i + '"><rect x="' + (bx - 18) + '" y="' + by + '" width="36" height="28" rx="6" fill="' + plColor(tbl[i]) + '"/><text x="' + bx + '" y="' + (by + 19) + '" text-anchor="middle" font-size="' + (tbl[i] >= 100 ? 10 : 11.5) + '" font-weight="800" fill="#10131f">' + plMulTxt(tbl[i]) + '</text></g>';
+    buckets += '<g class="plk-b' + (PL.hit === i ? ' hit' : '') + '" id="plk-b' + i + '"><rect x="' + (bx - 21) + '" y="' + by + '" width="42" height="36" rx="7" fill="' + plColor(tbl[i]) + '"/><text x="' + bx + '" y="' + (by + 24) + '" text-anchor="middle" font-size="' + (tbl[i] >= 100 ? 14 : 16.5) + '" font-weight="800" fill="#10131f">' + plMulTxt(tbl[i]) + '</text></g>';
   }
-  var board = '<div class="plk-scene"><svg viewBox="0 0 640 500" class="plk-svg" role="img" aria-label="Plateau de Plinko">' + pegs + buckets + '<circle id="plk-ball" cx="' + PL_CX + '" cy="12" r="8" fill="#fff" stroke="#8b5cff" stroke-width="3" opacity="' + (PL.busy ? 1 : 0.0) + '"/></svg>' +
+  var board = '<div class="plk-scene"><svg viewBox="0 0 640 540" class="plk-svg" role="img" aria-label="Plateau de Plinko">' + pegs + buckets + '<circle id="plk-ball" cx="' + PL_CX + '" cy="12" r="10" fill="#fff" stroke="#8b5cff" stroke-width="3.5" opacity="' + (PL.busy ? 1 : 0.0) + '"/></svg>' +
     '<div class="plk-hist"><small>Dernières billes</small><div>' + (PL.hist.length ? PL.hist.map(function(m){ return '<span style="background:' + plColor(m) + '">' + plMulTxt(m) + '</span>'; }).join('') : '<em>Aucune bille pour le moment.</em>') + '</div></div></div>';
   var side = '';
   if (PL.res) { var r = PL.res, win = r.net > 0; side += '<div class="cas-res ' + (win ? 'win' : 'lose') + '"><span class="cas-ball ' + (win ? 'green' : 'red') + '">🔻</span><div><b>' + (win ? '🎉 +' + ccn(r.net) : r.net === 0 ? 'Mise récupérée' : 'Perdu · −' + ccn(Math.abs(r.net))) + '</b><small>Case ' + plMulTxt(r.mult) + ' · mise ' + ccn(r.stake) + '</small></div></div>'; }
@@ -1619,7 +1619,7 @@ function plinkoPage(){
   side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
   side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
   side += '<ul class="cas-rules"><li>Ta bille rebondit sur 12 rangées de clous et tombe dans une case : le multiplicateur de la case multiplie ta mise.</li><li><b>Risque faible</b> : gains réguliers. <b>Élevé</b> : souvent perdu, mais jusqu\'à <b>x140</b> sur les bords.</li><li>Le chemin est tiré par le serveur : impossible de tricher.</li><li>Retour moyen d\'environ 95 %. Jeu 100 % virtuel.</li></ul>';
-  return casinoGameShell(vip, board, side);
+  return casinoGameShell(vip, board, side, true);
 }
 function plinkoDrop(){
   if (PL.busy || spinLock || !me() || !me().vip) return;
@@ -1798,6 +1798,24 @@ function twCash(){
     winSound(d.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(d.net)); render(); refresh().then(render, render);
   });
 }
+
+// remise à zéro de tous les jeux du casino (changement ou déconnexion de compte) : évite de voir la partie d'un autre joueur
+function casinoReset(){
+  CAS.loaded = false; CAS.loading = false; CAS.today = 0; CAS.exToday = 0; CAS.res = null; CAS.hist = []; CAS.feed = []; CAS.busy = false;
+  CH.loaded = false; CH.loading = false; CH.active = false; CH.step = 0; CH.res = null; CH.busy = false;
+  BJ.loaded = false; BJ.loading = false; BJ.g = null; BJ.res = null; BJ.busy = false;
+  MN.loaded = false; MN.loading = false; MN.active = false; MN.rev = []; MN.mines = null; MN.res = null; MN.boom = -1; MN.busy = false;
+  HL.loaded = false; HL.loading = false; HL.g = null; HL.res = null; HL.hist = []; HL.busy = false;
+  TW.loaded = false; TW.loading = false; TW.active = false; TW.traps = null; TW.res = null; TW.picks = []; TW.busy = false;
+  SL.res = null; SL.win = 0; SL.spinning = false; PL.res = null; PL.hist = []; PL.busy = false;
+}
+// garde-fou : si une animation du casino reste bloquée plus de 25 s, on débloque le site au lieu de le laisser figé
+var spinSince = 0;
+setInterval(function(){
+  if (!spinLock) { spinSince = 0; return; }
+  if (!spinSince) { spinSince = Date.now(); return; }
+  if (Date.now() - spinSince > 25000) { spinLock = false; spinSince = 0; CH.busy = false; PL.busy = false; SL.spinning = false; render(); }
+}, 2000);
 
 /* ---------- tournois ---------- */
 var tourId = null;
@@ -2320,8 +2338,8 @@ function chatPoll(){   // filet de sécurité si la connexion temps réel s'inte
 }
 function chatTick(){
   var logged = !!(S.me && S.players && S.players[S.me]);
-  if (!logged) { if (CHT.me) { chatReset(); CHT.me = null; } chatApply(); return; }
-  if (CHT.me !== S.me) { chatReset(); CHT.me = S.me; chatSubscribe(); chatLoad(); dmLoadUnread(); }
+  if (!logged) { if (CHT.me) { chatReset(); casinoReset(); CHT.me = null; } chatApply(); return; }
+  if (CHT.me !== S.me) { chatReset(); casinoReset(); CHT.me = S.me; chatSubscribe(); chatLoad(); dmLoadUnread(); }
   chatApply();
 }
 function chatInit(){
