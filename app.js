@@ -890,6 +890,8 @@ var CAS = {bet: 'red', stake: 1, loaded: false, loading: false, hist: [], feed: 
 var CAS_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 var CAS_RED = {1: 1, 3: 1, 5: 1, 7: 1, 9: 1, 12: 1, 14: 1, 16: 1, 18: 1, 19: 1, 21: 1, 23: 1, 25: 1, 27: 1, 30: 1, 32: 1, 34: 1, 36: 1};
 var CAS_SEG = 360 / 37, CAS_CAP = 25, casRot = 0, casHit = -1;
+var CAS_FREE_UNTIL = Date.parse('2026-11-19T03:00:00Z');   // soirée spéciale : pas de plafond de gains jusqu'à 4 h (Paris), même date côté base de données
+function casFree(){ return Date.now() < CAS_FREE_UNTIL; }
 var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 2, black: 2, green: 36};
 function casColor(n){ return n === 0 ? 'green' : CAS_RED[n] ? 'red' : 'black'; }
 function casStake(){ return CAS.bet === 'green' ? 0.5 : CAS.stake; }
@@ -923,7 +925,7 @@ function casinoSVG(){
 }
 
 function casinoHTML(){
-  var vip = !!(me() && me().vip), st = casStake(), a = avail(S.me), capped = CAS.today >= CAS_CAP;
+  var vip = !!(me() && me().vip), st = casStake(), a = avail(S.me), capped = CAS.today >= CAS_CAP && !casFree();
   if (vip && !CAS.loaded) casinoLoad();
   var h = '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Roulette européenne : <b>rouge</b> ou <b>noir</b> pour doubler ta mise, <b>vert</b> pour tenter le x36. Les coins n\'ont aucune valeur réelle : joue pour le plaisir.</p></div></section>';
   h += '<div class="cas-wrap' + (vip ? '' : ' locked') + '"><div class="cas-stage"><div class="cas-box" id="cas-box"><div class="cas-pin" id="cas-pin" aria-hidden="true"></div><div class="cas-wheel">' + casinoSVG() + '</div></div>';
@@ -943,11 +945,11 @@ function casinoHTML(){
   h += '<button type="button" class="btn primary lg cas-go" id="cas-spin" data-cas="spin"' + (!vip || a < st || capped ? ' disabled' : '') + '>🎰 Lancer · ' + cn(st) + '</button>';
   if (vip) {
     h += (capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de coins disponibles pour cette mise.</p>' : '<p class="help">Gain possible : <b>+' + cn(st * (CAS_MULT[CAS.bet] - 1)) + '</b> · Disponible : ' + cn(a) + '</p>');
-    h += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + cn(Math.abs(CAS.today)) + ' / ' + cn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+    h += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + cn(Math.abs(CAS.today)) + (casFree() ? ' · 🎉 illimité ce soir' : ' / ' + cn(CAS_CAP)) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + cn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
   }
-  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Mise max : <b>5 coins</b> sur rouge/noir, <b>0,5</b> sur le vert.</li><li>Plafond de gains : <b>' + cn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Mise max : <b>5 coins</b> sur rouge/noir, <b>0,5</b> sur le vert.</li><li>Plafond de gains : <b>' + cn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + (casFree() ? ' (<b>levé ce soir !</b>)' : '') + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return h + '</div></div>';
 }
 
