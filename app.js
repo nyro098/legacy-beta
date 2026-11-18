@@ -959,6 +959,7 @@ function casinoSVG(){
 function casinoHTML(){
   if (CAS.game === 'slots') return slotsPage();
   if (CAS.game === 'chicken') return chickenPage();
+  if (CAS.game === 'blackjack') return blackjackPage();
   return rouletteHTML();
 }
 function rouletteHTML(){
@@ -1060,6 +1061,10 @@ function casinoInit(){
     else if (v.indexOf('gs:') === 0) { var gp = v.split(':'); GS[gp[1]] = gp[2] === 'all' ? 'all' : parseFloat(gp[2]); render(); }
     else if (v === 'slspin') slotsSpin();
     else if (v === 'chstart') chStart();
+    else if (v === 'bjstart') bjCall('casino_bj_start', {p_stake: gStakeVal('bj')}, true);
+    else if (v === 'bjhit') bjCall('casino_bj_hit');
+    else if (v === 'bjstand') bjCall('casino_bj_stand');
+    else if (v === 'bjdouble') bjCall('casino_bj_double');
     else if (v === 'chgo') chGo();
     else if (v === 'chcash') chCash();
     else if (v === 'claim') {
@@ -1094,7 +1099,7 @@ function casinoInit(){
 
 /* ---------- casino : onglets, machine à sous et poulet qui traverse ---------- */
 function casinoTabsHTML(){
-  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet']];
+  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack']];
   return '<div class="tabs cas-tabs" role="tablist">' + tabs.map(function(t){ return '<button type="button" role="tab" aria-selected="' + (CAS.game === t[0]) + '" data-cas="game:' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
 }
 function casinoHeroHTML(){
@@ -1107,7 +1112,7 @@ function casinoGameShell(vip, stageHTML, sideHTML){
 }
 
 /* --- mise : jetons, ALL-IN et montant libre (commun aux deux jeux) --- */
-var GS = {slots: 1, chicken: 1};
+var GS = {slots: 1, chicken: 1, bj: 1};
 function gStakeVal(g){ var v = GS[g]; return v === 'all' ? Math.floor(ccBal() * 100) / 100 : (Math.round(v * 100) / 100 || 0); }
 function gStakeHTML(g, vip, lock){
   var cur = GS[g], chips = [1, 2, 5, 10, 25], off = !vip || lock ? ' disabled' : '';
@@ -1120,8 +1125,8 @@ function gStakeHTML(g, vip, lock){
 function gSync(g){
   var st = gStakeVal(g), a = ccBal(), capped = CAS.today >= CAS_CAP;
   [].forEach.call(document.querySelectorAll('.cas-stakes .cas-chip'), function(c){ c.classList.remove('sel'); });
-  var btn = document.getElementById(g === 'slots' ? 'sl-spin' : 'ch-start'), led = document.getElementById('led-bet');
-  if (btn && !CAS.busy && !SL.spinning && !spinLock) { btn.textContent = (g === 'slots' ? '🎰 LANCER · ' : '🐔 JOUER · ') + ccn(st); btn.disabled = !(st >= 0.01) || a < st || capped; }
+  var btn = document.getElementById(g === 'slots' ? 'sl-spin' : g === 'bj' ? 'bj-start' : 'ch-start'), led = document.getElementById('led-bet');
+  if (btn && !CAS.busy && !SL.spinning && !spinLock) { btn.textContent = (g === 'slots' ? '🎰 LANCER · ' : g === 'bj' ? '🃏 DISTRIBUER · ' : '🐔 JOUER · ') + ccn(st); btn.disabled = !(st >= 0.01) || a < st || capped; }
   if (led) led.textContent = fmt(st);
 }
 
@@ -1368,6 +1373,96 @@ setInterval(function(){
   });
   if (!CH.busy && track.getAttribute('data-fit') !== CH.step + ':' + view.clientWidth) { track.setAttribute('data-fit', CH.step + ':' + view.clientWidth); chFollow(chX(CH.active ? CH.step : 0)); }
 }, 50);
+
+/* =================== BLACKJACK (contre le croupier bot) =================== */
+var BJ = {g: null, res: null, busy: false, loaded: false, loading: false, nP: 0, nD: 0};
+var BJ_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'], BJ_SUITS = ['♠', '♥', '♦', '♣'];
+function bjCard(c, i, fresh){
+  var s = Math.floor(c / 13), red = s === 1 || s === 2;
+  return '<div class="bj-card ' + (red ? 'red' : 'black') + '"' + (fresh ? ' data-new="' + i + '"' : '') + '><b>' + BJ_RANKS[c % 13] + '</b><i>' + BJ_SUITS[s] + '</i><span class="bj-mid">' + BJ_SUITS[s] + '</span></div>';
+}
+function bjBack(){ return '<div class="bj-card back"><img src="logo.svg" alt="" width="34" height="34"></div>'; }
+function bjLoad(){
+  if (BJ.loaded || BJ.loading || !S.me) return;
+  BJ.loading = true;
+  sb.rpc('casino_bj_state').then(function(r){
+    BJ.loading = false; BJ.loaded = true;
+    if (r.data) { BJ.g = r.data; BJ.nP = r.data.pcards.length; BJ.nD = r.data.dcards.length; }
+    if (viewName() === 'casino' && CAS.game === 'blackjack') render();
+  }).catch(function(){ BJ.loading = false; BJ.loaded = true; });
+}
+function bjResultText(r){
+  if (r.result === 'blackjack') return ['🃏 BLACKJACK ! +' + ccn(r.net), 'win', 'As + figure : payé 6 pour 5.'];
+  if (r.result === 'win') return ['🎉 Gagné · +' + ccn(r.net), 'win', r.dtotal > 21 ? 'Le croupier dépasse 21 !' : 'Tu fais ' + r.ptotal + ' contre ' + r.dtotal + '.'];
+  if (r.result === 'push') return ['🤝 Égalité · mise rendue', 'win', 'Vous avez tous les deux ' + r.ptotal + '.'];
+  return ['Perdu · −' + ccn(r.stake), 'lose', r.ptotal > 21 ? 'Tu dépasses 21 : perdu.' : 'Le croupier fait ' + r.dtotal + ' contre ' + r.ptotal + '.'];
+}
+function blackjackPage(){
+  var vip = !!(me() && me().vip), st = gStakeVal('bj'), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  if (vip) { bjLoad(); if (!CAS.loaded) casinoLoad(); }
+  var g = BJ.g, live = !!(g && !g.done), shownD = g ? g.dcards : [], shownP = g ? g.pcards : [];
+  var dHTML = shownD.map(function(c, i){ return bjCard(c, i, i >= BJ.nD); }).join('') + (g && g.hidden ? bjBack() : '');
+  var pHTML = shownP.map(function(c, i){ return bjCard(c, i, i >= BJ.nP); }).join('');
+  var table = '<div class="bj-table"><div class="bj-seat"><div class="bj-who"><span class="bj-bot">🤖</span><b>Croupier Legacy</b><small>bot · tire jusqu\'à 17</small></div><div class="bj-hand">' + (dHTML || '<span class="bj-empty">Le croupier attend ta mise…</span>') + '</div>' +
+    '<div class="bj-total">' + (g ? (g.hidden ? 'Carte visible' : 'Total ' + g.dtotal) : '') + '</div></div>' +
+    '<div class="bj-felt-mid"><img src="logo.svg" alt="" width="46" height="46"><span>LEGACY BLACKJACK</span><small>Blackjack paye 6 pour 5 · le croupier reste sur 17</small></div>' +
+    '<div class="bj-seat"><div class="bj-total">' + (g ? 'Ton total ' + g.ptotal : '') + '</div><div class="bj-hand">' + (pHTML || '<span class="bj-empty">Ta main apparaîtra ici</span>') + '</div>' +
+    '<div class="bj-who"><span class="bj-bot">🧑</span><b>' + esc((me() || {}).pseudo || 'Toi') + '</b><small>' + (g ? 'mise ' + ccn(g.stake) : 'prêt ?') + '</small></div></div></div>';
+  var side = '';
+  if (BJ.res) { var t = bjResultText(BJ.res); side += '<div class="cas-res ' + t[1] + '"><span class="cas-ball ' + (t[1] === 'win' ? 'green' : 'red') + '">🃏</span><div><b>' + t[0] + '</b><small>' + t[2] + '</small></div></div>'; }
+  if (live) {
+    side += '<div class="bj-actions"><button type="button" class="btn primary lg" data-cas="bjhit"' + (BJ.busy ? ' disabled' : '') + '>🃏 TIRER</button><button type="button" class="btn lg bj-stand" data-cas="bjstand"' + (BJ.busy ? ' disabled' : '') + '>✋ RESTER</button>' +
+      '<button type="button" class="btn lg" data-cas="bjdouble"' + (BJ.busy || !g.can_double || a < g.stake ? ' disabled' : '') + ' title="Tu doubles ta mise et tu reçois une seule carte">✖️2 DOUBLER</button></div>';
+    side += '<p class="help">Mise en jeu : <b>' + ccn(g.stake) + '</b>. <b>Tirer</b> = une carte de plus · <b>Rester</b> = tu gardes ta main · <b>Doubler</b> = mise x2, une seule carte.</p>';
+  } else {
+    side += gStakeHTML('bj', vip, false);
+    side += '<button type="button" class="btn primary lg cas-go" id="bj-start" data-cas="bjstart"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🃏 DISTRIBUER · ' + ccn(st) + '</button>';
+    side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  }
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<details class="bj-howto"><summary>❓ Comment jouer au blackjack ?</summary><ul class="cas-rules"><li>Le but : avoir <b>plus que le croupier sans dépasser 21</b>.</li><li>Les cartes de 2 à 10 valent leur chiffre, <b>J, Q, K valent 10</b>, l\'<b>As vaut 1 ou 11</b> (le mieux pour toi).</li><li>Tu reçois 2 cartes, le croupier en montre 1. <b>Tire</b> pour en demander une autre, <b>reste</b> quand ça te va.</li><li>Si tu dépasses 21, tu perds tout de suite.</li><li>Le croupier (un bot) tire jusqu\'à 17 puis s\'arrête.</li><li>Gagner = tu doubles ta mise. <b>Blackjack</b> (As + figure dès le départ) = x2,2. Égalité = mise rendue.</li></ul></details>';
+  return casinoGameShell(vip, table, side);
+}
+function bjAnimNew(){   // petites cartes qui arrivent en glissant depuis le sabot
+  var els = document.querySelectorAll('.bj-card[data-new]');
+  [].forEach.call(els, function(el, k){
+    var t0 = performance.now() + k * 230; el.style.opacity = '0';
+    casLoop(function(now){
+      var t = Math.max(0, Math.min(1, (now - t0) / 320)), e = 1 - Math.pow(1 - t, 3);
+      el.style.opacity = t > 0 ? '1' : '0';
+      el.style.transform = 'translate(' + ((1 - e) * 140) + 'px,' + (-(1 - e) * 90) + 'px) rotate(' + ((1 - e) * 24) + 'deg)';
+      if (t === 0 && !el.__snd) { return false; }
+      if (t > 0 && !el.__snd) { el.__snd = 1; tickSound(); }
+      if (t >= 1) { el.style.transform = ''; return true; }
+      return false;
+    });
+    el.removeAttribute('data-new');
+  });
+}
+function bjApply(res){   // met à jour l'état puis redessine
+  var wasP = BJ.g ? BJ.g.pcards.length : 0, wasD = BJ.g ? BJ.g.dcards.length : 0;
+  BJ.nP = wasP; BJ.nD = res.hidden ? wasD : Math.min(wasD, 1);
+  BJ.g = res; if (me() && res.balance != null) me().cc = Number(res.balance);
+  if (res.done) { BJ.res = res; CAS.today = Number(res.today) || CAS.today; }
+  render(); bjAnimNew();
+  BJ.nP = res.pcards.length; BJ.nD = res.dcards.length;   // les cartes déjà posées ne rejouent pas l'animation
+  if (res.done) {
+    var win = res.result === 'win' || res.result === 'blackjack';
+    setTimeout(function(){ if (win) winSound(res.result === 'blackjack' ? 5 : 2); else if (res.result === 'lose') beep(140, 0, 0.35, 'sawtooth', 0.12); }, 450);
+    toast(res.result === 'push' ? 'Égalité : mise rendue' : win ? 'Gagné ! +' + ccn(res.net) : 'Perdu, retente ta chance !');
+    BJ.g = res; refresh().then(render, render);
+  }
+}
+function bjCall(fn, args, first){
+  if (BJ.busy || !me() || !me().vip) return;
+  BJ.busy = true; audio();
+  sb.rpc(fn, args || {}).then(function(r){
+    BJ.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    if (first) { BJ.res = null; BJ.g = null; BJ.nP = 0; BJ.nD = 0; }
+    bjApply(r.data);
+  });
+}
 
 /* ---------- tournois ---------- */
 var tourId = null;
