@@ -923,6 +923,11 @@ Object.defineProperty(CAS, 'today', {enumerable: true, get: function(){ return t
 var CAS_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 var CAS_RED = {1: 1, 3: 1, 5: 1, 7: 1, 9: 1, 12: 1, 14: 1, 16: 1, 18: 1, 19: 1, 21: 1, 23: 1, 25: 1, 27: 1, 30: 1, 32: 1, 34: 1, 36: 1};
 var CAS_SEG = 360 / 37, CAS_CAP = 100, casRot = 0, casHit = -1;
+// journée spéciale : plafond de gains levé jusqu'au 19/11/2026 à 4 h (Paris), même date côté base de données
+var CAS_FREE_UNTIL = Date.parse('2026-11-19T03:00:00Z');
+function casCapFree(){ return Date.now() < CAS_FREE_UNTIL; }
+function casCapped(){ return CAS.today >= CAS_CAP && !casCapFree(); }
+function casCapTxt(){ return casCapFree() ? " · 🎉 illimité aujourd'hui" : ' / ' + ccn(CAS_CAP); }
 function casFree(){ return true; }   // mise libre (all-in et montant au choix) en permanence ; le plafond de gains de 100 coins/jour et par jeu s'applique toujours
 var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 1.9, black: 1.9, green: 30}, CAS_MAXWIN = Infinity;
 function casGain(st){ return Math.min(Math.round(st * (CAS_MULT[CAS.bet] - 1) * 100) / 100, CAS_MAXWIN); }
@@ -973,7 +978,7 @@ function casinoHTML(){
   return rouletteHTML();
 }
 function rouletteHTML(){
-  var vip = !!(me() && me().vip), st = casStake(), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  var vip = !!(me() && me().vip), st = casStake(), a = ccBal(), capped = casCapped();
   if (vip && !CAS.loaded) casinoLoad();
   var h = '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Joue avec tes <b>V-Coins</b> 💜 · roulette européenne : <b>rouge</b> ou <b>noir</b> pour presque doubler ta mise (x1,9), <b>vert</b> pour tenter le x30. Les coins n\'ont aucune valeur réelle : joue pour le plaisir.</p></div></section>';
   h += casinoTabsHTML();
@@ -995,7 +1000,7 @@ function rouletteHTML(){
   h += '<button type="button" class="btn primary lg cas-go" id="cas-spin" data-cas="spin"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🎰 Lancer · ' + ccn(st) + '</button>';
   if (vip) {
     h += (capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de coins disponibles pour cette mise.</p>' : '<p class="help" id="cas-gain">Gain possible : <b>+' + ccn(casGain(st)) + '</b> · Disponible : ' + ccn(a) + '</p>');
-    h += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+    h += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + casCapTxt() + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + ccn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
   }
@@ -1157,7 +1162,7 @@ function gStakeHTML(g, vip, lock){
     '<label class="cas-custom' + (cv ? ' sel' : '') + '"><span>ou</span><input id="g-custom" data-game="' + g + '" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 12,5" value="' + cv + '"' + off + ' aria-label="Montant libre en V-Coins"><em>VC</em></label></div>';
 }
 function gSync(g){
-  var st = gStakeVal(g), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  var st = gStakeVal(g), a = ccBal(), capped = casCapped();
   [].forEach.call(document.querySelectorAll('.cas-stakes .cas-chip'), function(c){ c.classList.remove('sel'); });
   var gm = GSYNC[g] || GSYNC.chicken, btn = document.getElementById(gm[0]), led = document.getElementById('led-bet');
   if (btn && !CAS.busy && !SL.spinning && !spinLock) { btn.textContent = gm[1] + ccn(st); btn.disabled = !(st >= 0.01) || a < st || capped; }
@@ -1195,7 +1200,7 @@ function slStickers(){
   }).join('') + '</div>';
 }
 function slotsPage(){
-  var vip = !!(me() && me().vip), st = gStakeVal('slots'), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  var vip = !!(me() && me().vip), st = gStakeVal('slots'), a = ccBal(), capped = casCapped();
   if (vip && !CAS.loaded) casinoLoad();
   var stage = '<div class="slot-stage">' + slStickers() + '<div class="slot-machine' + (SL.win > 0 ? ' win' : '') + '" id="slot-machine">' + slPaytable() +
     '<div class="slot-window"><div class="slot-reels">' + [0, 1, 2].map(function(i){ return '<div class="reel"><div class="reel-strip" id="reel-' + i + '">' + SL.cells[i].map(slCell).join('') + '</div></div>'; }).join('') + '</div><div class="slot-payline"></div></div>' +
@@ -1208,7 +1213,7 @@ function slotsPage(){
   side += gStakeHTML('slots', vip, false);
   side += '<button type="button" class="btn primary lg cas-go" id="sl-spin" data-cas="slspin"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🎰 LANCER · ' + ccn(st) + '</button>';
   side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
-  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + casCapTxt() + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
   side += '<ul class="cas-rules"><li>3 rouleaux : <b>3 symboles identiques</b> = gros gain (3 logos Legacy = x' + SL_TRI.L + ' !).</li><li><b>2 symboles identiques</b> sur la ligne rouge : petit gain.</li><li>Retour moyen d\'environ 91 % : la machine garde un peu d\'avance.</li><li>Un lancer toutes les 3 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return casinoGameShell(vip, stage, side);
 }
@@ -1276,7 +1281,7 @@ function chLoad(){
   }).catch(function(){ CH.loading = false; CH.loaded = true; });
 }
 function chickenPage(){
-  var vip = !!(me() && me().vip), st = gStakeVal('chicken'), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  var vip = !!(me() && me().vip), st = gStakeVal('chicken'), a = ccBal(), capped = casCapped();
   if (vip) { chLoad(); if (!CAS.loaded) casinoLoad(); }
   var track = '', i, cars = '', icons = ['🚗', '🚕', '🚙', '🚌', '🏎️'];
   for (i = 0; i <= CH_STEPS; i++) {
@@ -1304,7 +1309,7 @@ function chickenPage(){
     side += '<button type="button" class="btn primary lg cas-go" id="ch-start" data-cas="chstart"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🐔 JOUER · ' + ccn(st) + '</button>';
     side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
   }
-  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + casCapTxt() + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
   side += '<ul class="cas-rules"><li>Ton poulet traverse les plaques d\'égout : <b>x1,2</b>, <b>x1,4</b>, <b>x1,7</b>… jusqu\'à <b>x10,5</b> !</li><li>À chaque pas, une voiture peut l\'écraser : <b>mise perdue</b>.</li><li>Tu peux <b>encaisser</b> à tout moment, dès la 1re plaque.</li><li>Retour moyen d\'environ 93 %. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return casinoGameShell(vip, scene, side);
 }
@@ -1432,7 +1437,7 @@ function bjResultText(r){
   return ['Perdu · −' + ccn(r.stake), 'lose', r.ptotal > 21 ? 'Tu dépasses 21 : perdu.' : 'Le croupier fait ' + r.dtotal + ' contre ' + r.ptotal + '.'];
 }
 function blackjackPage(){
-  var vip = !!(me() && me().vip), st = gStakeVal('bj'), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  var vip = !!(me() && me().vip), st = gStakeVal('bj'), a = ccBal(), capped = casCapped();
   if (vip) { bjLoad(); if (!CAS.loaded) casinoLoad(); }
   var g = BJ.g, live = !!(g && !g.done), shownD = g ? g.dcards : [], shownP = g ? g.pcards : [];
   var dHTML = shownD.map(function(c, i){ return bjCard(c, i, i >= BJ.nD); }).join('') + (g && g.hidden ? bjBack() : '');
@@ -1453,7 +1458,7 @@ function blackjackPage(){
     side += '<button type="button" class="btn primary lg cas-go" id="bj-start" data-cas="bjstart"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🃏 DISTRIBUER · ' + ccn(st) + '</button>';
     side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
   }
-  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + casCapTxt() + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
   side += '<details class="bj-howto"><summary>❓ Comment jouer au blackjack ?</summary><ul class="cas-rules"><li>Le but : avoir <b>plus que le croupier sans dépasser 21</b>.</li><li>Les cartes de 2 à 10 valent leur chiffre, <b>J, Q, K valent 10</b>, l\'<b>As vaut 1 ou 11</b> (le mieux pour toi).</li><li>Tu reçois 2 cartes, le croupier en montre 1. <b>Tire</b> pour en demander une autre, <b>reste</b> quand ça te va.</li><li>Si tu dépasses 21, tu perds tout de suite.</li><li>Le croupier (un bot) tire jusqu\'à 17 puis s\'arrête.</li><li>Gagner = tu doubles ta mise. <b>Blackjack</b> (As + figure dès le départ) = x2,2. Égalité = mise rendue.</li></ul></details>';
   return casinoGameShell(vip, table, side);
 }
@@ -1517,7 +1522,7 @@ function mnLoad(){
   }).catch(function(){ MN.loading = false; MN.loaded = true; });
 }
 function minesPage(){
-  var vip = !!(me() && me().vip), st = gStakeVal('mn'), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  var vip = !!(me() && me().vip), st = gStakeVal('mn'), a = ccBal(), capped = casCapped();
   if (vip) { mnLoad(); if (!CAS.loaded) casinoLoad(); }
   var tiles = '', i;
   for (i = 0; i < 25; i++) {
@@ -1546,7 +1551,7 @@ function minesPage(){
     side += '<p class="help mn-note">Avec ce nombre de mines, le gain maximum est <b>' + ccn(Math.round(st * maxM * 100) / 100) + '</b> (' + mnTxt(maxM) + ').</p>';
     side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
   }
-  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + casCapTxt() + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
   side += '<ul class="cas-rules"><li>La grille cache <b>1 à 24 mines</b> sur 25 cases. Plus il y a de mines, plus chaque case rapporte.</li><li>Chaque case sûre (💎) multiplie ta mise. Une mine (💣) fait tout perdre.</li><li>Les mines sont placées par le serveur au début de la partie : impossible de tricher.</li><li>Retour moyen d\'environ 96 %. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return casinoGameShell(vip, scene, side);
 }
@@ -1617,7 +1622,7 @@ var PL_CX = 320, PL_DX = 46, PL_Y0 = 38, PL_DY = 37;
 function plColor(m){ return m >= 10 ? '#ff4d5a' : m >= 3 ? '#ff9a3c' : m >= 1.5 ? '#ffd84a' : m >= 1 ? '#8be28b' : '#6f86a8'; }
 function plMulTxt(m){ return String(m).replace('.', ',') + 'x'; }
 function plinkoPage(){
-  var vip = !!(me() && me().vip), st = gStakeVal('plk'), a = ccBal(), capped = CAS.today >= CAS_CAP, tbl = PL_T[PL.risk], i, j, pegs = '', buckets = '';
+  var vip = !!(me() && me().vip), st = gStakeVal('plk'), a = ccBal(), capped = casCapped(), tbl = PL_T[PL.risk], i, j, pegs = '', buckets = '';
   if (vip && !CAS.loaded) casinoLoad();
   for (i = 0; i < 12; i++) for (j = 0; j <= i; j++) pegs += '<circle cx="' + (PL_CX + (j - i / 2) * PL_DX) + '" cy="' + (PL_Y0 + i * PL_DY) + '" r="4.4" fill="#dfe8ff" opacity=".95"/>';
   for (i = 0; i <= 12; i++) {
@@ -1632,7 +1637,7 @@ function plinkoPage(){
   side += gStakeHTML('plk', vip, PL.busy);
   side += '<button type="button" class="btn primary lg cas-go" id="plk-go" data-cas="plkgo"' + (!vip || PL.busy || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🔻 LÂCHER LA BILLE · ' + ccn(st) + '</button>';
   side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
-  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + casCapTxt() + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
   side += '<ul class="cas-rules"><li>Ta bille rebondit sur 12 rangées de clous et tombe dans une case : le multiplicateur de la case multiplie ta mise.</li><li><b>Risque faible</b> : gains réguliers. <b>Élevé</b> : souvent perdu, mais jusqu\'à <b>x140</b> sur les bords.</li><li>Le chemin est tiré par le serveur : impossible de tricher.</li><li>Retour moyen d\'environ 95 %. Jeu 100 % virtuel.</li></ul>';
   return casinoGameShell(vip, board, side, true);
 }
@@ -1683,7 +1688,7 @@ function hlLoad(){
   }).catch(function(){ HL.loading = false; HL.loaded = true; });
 }
 function hiloPage(){
-  var vip = !!(me() && me().vip), st = gStakeVal('hl'), a = ccBal(), capped = CAS.today >= CAS_CAP, g = HL.g, live = !!(g && !g.over);
+  var vip = !!(me() && me().vip), st = gStakeVal('hl'), a = ccBal(), capped = casCapped(), g = HL.g, live = !!(g && !g.over);
   if (vip) { hlLoad(); if (!CAS.loaded) casinoLoad(); }
   var rank = g ? g.card % 13 + 1 : 0;
   var cards = '<div class="hl-table"><div class="hl-hist">' + HL.hist.slice(-6).map(function(c){ return bjCard(c, 0, false); }).join('') + '</div><div class="hl-main">' +
@@ -1703,7 +1708,7 @@ function hiloPage(){
     side += '<button type="button" class="btn primary lg cas-go" id="hl-start" data-cas="hlstart"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>↕️ JOUER · ' + ccn(st) + '</button>';
     side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
   }
-  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + casCapTxt() + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
   side += '<ul class="cas-rules"><li>Une carte est tirée. Devine si la <b>suivante sera plus haute ou plus basse</b> (As = la plus basse, Roi = la plus haute).</li><li>Plus ton choix est risqué, plus il rapporte. Chaque bonne réponse multiplie ton gain.</li><li>Encaisse quand tu veux, dès la 1re bonne réponse. Une égalité = perdu.</li><li>Les cartes sont tirées par le serveur. Jeu 100 % virtuel.</li></ul>';
   return casinoGameShell(vip, cards, side);
 }
@@ -1747,7 +1752,7 @@ function twLoad(){
   }).catch(function(){ TW.loading = false; TW.loaded = true; });
 }
 function towerPage(){
-  var vip = !!(me() && me().vip), st = gStakeVal('tw'), a = ccBal(), capped = CAS.today >= CAS_CAP, cfg = TW_CFG[TW.diff], tiles = TW.active || TW.traps ? TW.tiles : cfg[0], f, k;
+  var vip = !!(me() && me().vip), st = gStakeVal('tw'), a = ccBal(), capped = casCapped(), cfg = TW_CFG[TW.diff], tiles = TW.active || TW.traps ? TW.tiles : cfg[0], f, k;
   if (vip) { twLoad(); if (!CAS.loaded) casinoLoad(); }
   var rows = '';
   for (f = 8; f >= 1; f--) {
@@ -1775,7 +1780,7 @@ function towerPage(){
     side += '<p class="help">' + cfg[3] + ' par étage · sommet <b>' + mnTxt(twMult(TW.diff, 8)) + '</b> (' + ccn(Math.round(st * twMult(TW.diff, 8) * 100) / 100) + ').</p>';
     side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
   }
-  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + casCapTxt() + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
   side += '<ul class="cas-rules"><li>Tu montes une tour de <b>8 étages</b>. À chaque étage, choisis une case : une (ou deux) cache un <b>piège</b>.</li><li>Étage réussi = ton gain monte. Piège = tu perds ta mise.</li><li>Encaisse quand tu veux, dès le 1er étage. Au sommet, c\'est automatique.</li><li>Les pièges sont placés par le serveur dès le départ. Retour moyen d\'environ 96 %.</li></ul>';
   return casinoGameShell(vip, scene, side);
 }
