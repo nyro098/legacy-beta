@@ -913,11 +913,12 @@ function casinoTitlesHTML(){
     return '<div class="title-item casino' + (on ? ' on' : '') + '"><span class="ptitle casino">' + esc(t[0]) + '</span><div class="shop-act-row">' + act + '</div></div>';
   }).join('') + '</div></section>';
 }
-var CAS = {game: 'roulette', bet: 'red', stake: 1, loaded: false, loading: false, hist: [], feed: [], today: 0, exToday: 0, res: null, busy: false};
+var CAS = {game: 'roulette', bet: 'red', stake: 1, loaded: false, loading: false, hist: [], feed: [], by: {}, exToday: 0, res: null, busy: false};
+Object.defineProperty(CAS, 'today', {enumerable: true, get: function(){ return this.by[this.game] || 0; }, set: function(v){ this.by[this.game] = Number(v) || 0; }});   // plafond de gains : par jeu
 var CAS_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 var CAS_RED = {1: 1, 3: 1, 5: 1, 7: 1, 9: 1, 12: 1, 14: 1, 16: 1, 18: 1, 19: 1, 21: 1, 23: 1, 25: 1, 27: 1, 30: 1, 32: 1, 34: 1, 36: 1};
-var CAS_SEG = 360 / 37, CAS_CAP = 25, casRot = 0, casHit = -1;
-function casFree(){ return true; }   // mise libre (all-in et montant au choix) en permanence ; le plafond de gains de 25 coins/jour s'applique toujours
+var CAS_SEG = 360 / 37, CAS_CAP = 100, casRot = 0, casHit = -1;
+function casFree(){ return true; }   // mise libre (all-in et montant au choix) en permanence ; le plafond de gains de 100 coins/jour et par jeu s'applique toujours
 var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 1.9, black: 1.9, green: 30}, CAS_MAXWIN = Infinity;
 function casGain(st){ return Math.min(Math.round(st * (CAS_MULT[CAS.bet] - 1) * 100) / 100, CAS_MAXWIN); }
 function casMultTxt(c){ return 'x' + String(CAS_MULT[c]).replace('.', ','); }
@@ -933,11 +934,11 @@ function casinoLoad(){
   Promise.all([
     sb.from('casino_spins').select('number,at').eq('player', S.me).in('bet', ['red', 'black', 'green']).order('at', {ascending: false}).limit(14),
     sb.from('casino_spins').select('player,payout,stake,bet,at').gt('payout', 0).order('at', {ascending: false}).limit(6),
-    sb.rpc('casino_today'),
+    sb.rpc('casino_today_all'),
     sb.rpc('casino_exchanged_today')
   ]).then(function(r){
     CAS.loading = false; CAS.loaded = true;
-    CAS.hist = r[0].data || []; CAS.feed = (r[1].data || []).filter(function(x){ return Number(x.payout) > Number(x.stake); }); CAS.today = Number(r[2].data) || 0; CAS.exToday = Number(r[3].data) || 0;
+    CAS.hist = r[0].data || []; CAS.feed = (r[1].data || []).filter(function(x){ return Number(x.payout) > Number(x.stake); }); CAS.by = (r[2].data && typeof r[2].data === 'object') ? r[2].data : {}; CAS.exToday = Number(r[3].data) || 0;
     if ((viewName() === 'casino' || viewName() === 'boutique') && !spinLock) render();
   }).catch(function(){ CAS.loading = false; CAS.loaded = true; });
 }
@@ -993,7 +994,7 @@ function rouletteHTML(){
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + ccn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
   }
-  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Tu joues avec des <b>V-Coins (VC)</b> : bonus VIP de 50 VC par jour, échangeables en boutique (80 VC = 1 coin).</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Plafond de gains : <b>' + ccn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Tu joues avec des <b>V-Coins (VC)</b> : bonus VIP de 50 VC par jour, échangeables en boutique (80 VC = 1 coin).</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Plafond de gains : <b>' + ccn(CAS_CAP) + ' par jour et par jeu</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return h + '</div></div>';
 }
 
@@ -1801,7 +1802,7 @@ function twCash(){
 
 // remise à zéro de tous les jeux du casino (changement ou déconnexion de compte) : évite de voir la partie d'un autre joueur
 function casinoReset(){
-  CAS.loaded = false; CAS.loading = false; CAS.today = 0; CAS.exToday = 0; CAS.res = null; CAS.hist = []; CAS.feed = []; CAS.busy = false;
+  CAS.loaded = false; CAS.loading = false; CAS.by = {}; CAS.exToday = 0; CAS.res = null; CAS.hist = []; CAS.feed = []; CAS.busy = false;
   CH.loaded = false; CH.loading = false; CH.active = false; CH.step = 0; CH.res = null; CH.busy = false;
   BJ.loaded = false; BJ.loading = false; BJ.g = null; BJ.res = null; BJ.busy = false;
   MN.loaded = false; MN.loading = false; MN.active = false; MN.rev = []; MN.mines = null; MN.res = null; MN.boom = -1; MN.busy = false;
