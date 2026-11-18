@@ -913,7 +913,7 @@ function casinoTitlesHTML(){
     return '<div class="title-item casino' + (on ? ' on' : '') + '"><span class="ptitle casino">' + esc(t[0]) + '</span><div class="shop-act-row">' + act + '</div></div>';
   }).join('') + '</div></section>';
 }
-var CAS = {bet: 'red', stake: 1, loaded: false, loading: false, hist: [], feed: [], today: 0, exToday: 0, res: null, busy: false};
+var CAS = {game: 'roulette', bet: 'red', stake: 1, loaded: false, loading: false, hist: [], feed: [], today: 0, exToday: 0, res: null, busy: false};
 var CAS_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 var CAS_RED = {1: 1, 3: 1, 5: 1, 7: 1, 9: 1, 12: 1, 14: 1, 16: 1, 18: 1, 19: 1, 21: 1, 23: 1, 25: 1, 27: 1, 30: 1, 32: 1, 34: 1, 36: 1};
 var CAS_SEG = 360 / 37, CAS_CAP = 25, casRot = 0, casHit = -1;
@@ -931,13 +931,13 @@ function casinoLoad(){
   if (CAS.loading || !S.me) return;
   CAS.loading = true;
   Promise.all([
-    sb.from('casino_spins').select('number,at').eq('player', S.me).order('at', {ascending: false}).limit(14),
+    sb.from('casino_spins').select('number,at').eq('player', S.me).in('bet', ['red', 'black', 'green']).order('at', {ascending: false}).limit(14),
     sb.from('casino_spins').select('player,payout,stake,bet,at').gt('payout', 0).order('at', {ascending: false}).limit(6),
     sb.rpc('casino_today'),
     sb.rpc('casino_exchanged_today')
   ]).then(function(r){
     CAS.loading = false; CAS.loaded = true;
-    CAS.hist = r[0].data || []; CAS.feed = r[1].data || []; CAS.today = Number(r[2].data) || 0; CAS.exToday = Number(r[3].data) || 0;
+    CAS.hist = r[0].data || []; CAS.feed = (r[1].data || []).filter(function(x){ return Number(x.payout) > Number(x.stake); }); CAS.today = Number(r[2].data) || 0; CAS.exToday = Number(r[3].data) || 0;
     if ((viewName() === 'casino' || viewName() === 'boutique') && !spinLock) render();
   }).catch(function(){ CAS.loading = false; CAS.loaded = true; });
 }
@@ -957,9 +957,15 @@ function casinoSVG(){
 }
 
 function casinoHTML(){
+  if (CAS.game === 'slots') return slotsPage();
+  if (CAS.game === 'chicken') return chickenPage();
+  return rouletteHTML();
+}
+function rouletteHTML(){
   var vip = !!(me() && me().vip), st = casStake(), a = ccBal(), capped = CAS.today >= CAS_CAP;
   if (vip && !CAS.loaded) casinoLoad();
   var h = '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Joue avec tes <b>V-Coins</b> 💜 · roulette européenne : <b>rouge</b> ou <b>noir</b> pour presque doubler ta mise (x1,9), <b>vert</b> pour tenter le x30. Les coins n\'ont aucune valeur réelle : joue pour le plaisir.</p></div></section>';
+  h += casinoTabsHTML();
   h += '<div class="cas-wrap' + (vip ? '' : ' locked') + '"><div class="cas-stage"><div class="cas-box" id="cas-box"><div class="cas-pin" id="cas-pin" aria-hidden="true"></div><div class="cas-wheel">' + casinoSVG() + '</div></div>';
   if (!vip) h += '<div class="cas-lock"><b>🔒 Réservé aux membres VIP</b><p>Le Pass VIP ouvre le casino, booste la roue quotidienne et bien plus.</p><button class="btn primary" data-act="shop-vip">Devenir VIP · ' + ccn(20) + '</button></div>';
   h += '</div><div class="cas-side">' + casinoWalletHTML(vip);
@@ -1033,6 +1039,13 @@ function casSync(){
 }
 function casinoInit(){
   document.addEventListener('input', function(e){
+    if (e.target && e.target.id === 'g-custom') {
+      var gm = parseFloat(String(e.target.value).replace(',', '.')), gg = e.target.getAttribute('data-game');
+      GS[gg] = isFinite(gm) && gm >= 0.01 ? Math.round(gm * 100) / 100 : 0;
+      gSync(gg);
+      var gl = e.target.parentNode; if (gl) gl.classList.add('sel');
+      return;
+    }
     if (!e.target || e.target.id !== 'cas-custom') return;
     var n = parseFloat(String(e.target.value).replace(',', '.'));
     CAS.stake = isFinite(n) && n >= 0.01 ? Math.round(n * 100) / 100 : 0;
@@ -1043,6 +1056,12 @@ function casinoInit(){
     var t = e.target.closest ? e.target.closest('[data-cas]') : null; if (!t || t.disabled) return;
     var v = t.getAttribute('data-cas');
     if (v === 'spin') casinoSpin();
+    else if (v.indexOf('game:') === 0) { CAS.game = v.slice(5); render(); }
+    else if (v.indexOf('gs:') === 0) { var gp = v.split(':'); GS[gp[1]] = gp[2] === 'all' ? 'all' : parseFloat(gp[2]); render(); }
+    else if (v === 'slspin') slotsSpin();
+    else if (v === 'chstart') chStart();
+    else if (v === 'chgo') chGo();
+    else if (v === 'chcash') chCash();
     else if (v === 'claim') {
       sb.rpc('casino_claim').then(function(r){
         if (r.error) { toast(cleanErr(r.error.message)); return; }
@@ -1072,6 +1091,283 @@ function casinoInit(){
     else if (v.indexOf('stake:') === 0) { CAS.stake = v.slice(6) === 'all' ? 'all' : parseFloat(v.slice(6)); render(); }
   });
 }
+
+/* ---------- casino : onglets, machine à sous et poulet qui traverse ---------- */
+function casinoTabsHTML(){
+  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet']];
+  return '<div class="tabs cas-tabs" role="tablist">' + tabs.map(function(t){ return '<button type="button" role="tab" aria-selected="' + (CAS.game === t[0]) + '" data-cas="game:' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
+}
+function casinoHeroHTML(){
+  return '<section class="hero"><div><p class="eyebrow">👑 Réservé aux VIP · 100 % virtuel</p><h1>Le Casino Legacy.</h1><p class="lead">Roulette, machine à sous, poulet… Joue avec tes <b>V-Coins</b> 💜 : ils n\'ont aucune valeur réelle, joue pour le plaisir.</p></div></section>';
+}
+function casinoGameShell(vip, stageHTML, sideHTML){
+  return casinoHeroHTML() + casinoTabsHTML() + '<div class="cas-wrap' + (vip ? '' : ' locked') + '"><div class="cas-stage cas-stage-wide">' + stageHTML +
+    (vip ? '' : '<div class="cas-lock"><b>🔒 Réservé aux membres VIP</b><p>Le Pass VIP ouvre le casino, booste la roue quotidienne et bien plus.</p><button class="btn primary" data-act="shop-vip">Devenir VIP · ' + cn(20) + '</button></div>') +
+    '</div><div class="cas-side">' + casinoWalletHTML(vip) + sideHTML + '</div></div>';
+}
+
+/* --- mise : jetons, ALL-IN et montant libre (commun aux deux jeux) --- */
+var GS = {slots: 1, chicken: 1};
+function gStakeVal(g){ var v = GS[g]; return v === 'all' ? Math.floor(ccBal() * 100) / 100 : (Math.round(v * 100) / 100 || 0); }
+function gStakeHTML(g, vip, lock){
+  var cur = GS[g], chips = [1, 2, 5, 10, 25], off = !vip || lock ? ' disabled' : '';
+  var cv = (typeof cur === 'number' && chips.indexOf(cur) < 0 && cur > 0) ? String(cur).replace('.', ',') : '';
+  return '<div class="cas-stakes" role="group" aria-label="Ta mise"><span>Mise</span>' + chips.map(function(v){
+    return '<button type="button" class="cas-chip' + (cur === v ? ' sel' : '') + '" data-cas="gs:' + g + ':' + v + '"' + off + '>' + ccn(v) + '</button>';
+  }).join('') + '<button type="button" class="cas-chip allin' + (cur === 'all' ? ' sel' : '') + '" data-cas="gs:' + g + ':all"' + (off || (ccBal() < 0.01 ? ' disabled' : '')) + '>🔥 ALL-IN</button>' +
+    '<label class="cas-custom' + (cv ? ' sel' : '') + '"><span>ou</span><input id="g-custom" data-game="' + g + '" type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 12,5" value="' + cv + '"' + off + ' aria-label="Montant libre en V-Coins"><em>VC</em></label></div>';
+}
+function gSync(g){
+  var st = gStakeVal(g), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  [].forEach.call(document.querySelectorAll('.cas-stakes .cas-chip'), function(c){ c.classList.remove('sel'); });
+  var btn = document.getElementById(g === 'slots' ? 'sl-spin' : 'ch-start'), led = document.getElementById('led-bet');
+  if (btn && !CAS.busy && !SL.spinning && !spinLock) { btn.textContent = (g === 'slots' ? '🎰 LANCER · ' : '🐔 JOUER · ') + ccn(st); btn.disabled = !(st >= 0.01) || a < st || capped; }
+  if (led) led.textContent = fmt(st);
+}
+
+/* =================== MACHINE À SOUS =================== */
+var SL_KEYS = ['L', '7', 'BAR', 'DIA', 'CHE', 'STA', 'COI'];
+var SL_TRI = {L: 200, '7': 60, BAR: 25, DIA: 12, CHE: 8, STA: 6, COI: 5}, SL_PAIR = {L: 8, '7': 5, BAR: 3, DIA: 2, CHE: 1.5, STA: 1, COI: 0.5};
+function slSym(k){
+  if (k === 'L') return '<img class="sy-logo" src="logo.svg" alt="L">';
+  if (k === '7') return '<span class="sy7">7</span>';
+  if (k === 'BAR') return '<span class="sybar">BAR</span>';
+  if (k === 'DIA') return '<span class="syemo">💎</span>';
+  if (k === 'CHE') return '<span class="syemo">🍒</span>';
+  if (k === 'STA') return '<span class="syemo">⭐</span>';
+  return '<span class="sycoin">' + CC_ICON + '</span>';
+}
+function slRnd(){ return SL_KEYS[Math.floor(Math.random() * SL_KEYS.length)]; }
+var SL = {cells: [[slRnd(), '7', slRnd()], [slRnd(), 'L', slRnd()], [slRnd(), 'BAR', slRnd()]], win: 0, res: null, spinning: false};
+function slCell(k){ return '<div class="reel-cell">' + slSym(k) + '</div>'; }
+function slMini(k){ return '<span class="mini">' + slSym(k) + '</span>'; }
+function slPaytable(){
+  var top = ['L', '7', 'BAR', 'DIA', 'CHE', 'STA', 'COI'];
+  return '<div class="slot-top"><div class="sp-head"><span class="sp-jack">JACKPOT</span><b>x' + SL_TRI.L + '</b><span class="sp-logo"><img src="logo.svg" alt="" width="26" height="26"> LEGACY</span></div><div class="sp-grid">' +
+    top.map(function(k){ return '<div class="sp-cell">' + slMini(k) + slMini(k) + slMini(k) + '<b>x' + SL_TRI[k] + '</b></div>'; }).join('') +
+    '<div class="sp-cell sp-free">2 identiques<b>jusqu\'à x' + SL_PAIR.L + '</b></div></div></div>';
+}
+function slStickers(){
+  var logo = '<img src="logo.svg" alt="">';
+  var items = [[logo, '1%', '-3%', -14, 62], ['⭐', '9%', '93%', 16, 38], ['🍒', '24%', '-4%', -20, 44], ['<span class="sy7 s">7</span>', '36%', '95%', 12, 46], ['💎', '52%', '-4%', -10, 42],
+    ['<span class="stk-tag">VIP 👑</span>', '62%', '88%', 9, 0], ['🪙', '72%', '-3%', 14, 40], [logo, '78%', '91%', 10, 54], ['<span class="stk-tag alt">LEGACY</span>', '88%', '-5%', -7, 0], ['🎰', '94%', '90%', -12, 42], ['⭐', '44%', '-2%', 18, 28], ['🍒', '16%', '97%', -14, 34]];
+  return '<div class="slot-stickers" aria-hidden="true">' + items.map(function(s, i){
+    return '<span class="stk" style="top:' + s[1] + ';left:' + s[2] + ';--r:' + s[3] + 'deg;' + (s[4] ? 'font-size:' + s[4] + 'px;width:' + s[4] + 'px;' : '') + 'animation-delay:-' + (i * 0.7).toFixed(1) + 's">' + s[0] + '</span>';
+  }).join('') + '</div>';
+}
+function slotsPage(){
+  var vip = !!(me() && me().vip), st = gStakeVal('slots'), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  if (vip && !CAS.loaded) casinoLoad();
+  var stage = '<div class="slot-stage">' + slStickers() + '<div class="slot-machine' + (SL.win > 0 ? ' win' : '') + '" id="slot-machine">' + slPaytable() +
+    '<div class="slot-window"><div class="slot-reels">' + [0, 1, 2].map(function(i){ return '<div class="reel"><div class="reel-strip" id="reel-' + i + '">' + SL.cells[i].map(slCell).join('') + '</div></div>'; }).join('') + '</div><div class="slot-payline"></div></div>' +
+    '<div class="slot-panel"><div class="led"><small>MISE</small><b id="led-bet">' + fmt(st) + '</b></div><div class="led"><small>CRÉDIT</small><b id="led-credit">' + fmt(a) + '</b></div><div class="led win"><small>GAIN</small><b id="led-win">' + fmt(SL.win) + '</b></div></div></div></div>';
+  var side = '';
+  if (SL.res) {
+    var r = SL.res, win = r.payout > 0;
+    side += '<div class="cas-res ' + (win ? 'win' : 'lose') + '"><span class="cas-ball red">🎰</span><div><b>' + (win ? (r.net >= 0 ? '🎉 Gagné · +' + ccn(r.net) : 'Presque ! Tu récupères ' + ccn(r.payout)) : 'Perdu · −' + ccn(r.stake)) + '</b><small>' + (r.mult ? 'Combinaison x' + String(r.mult).replace('.', ',') : 'Aucune combinaison') + ' · mise ' + ccn(r.stake) + '</small></div></div>';
+  }
+  side += gStakeHTML('slots', vip, false);
+  side += '<button type="button" class="btn primary lg cas-go" id="sl-spin" data-cas="slspin"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🎰 LANCER · ' + ccn(st) + '</button>';
+  side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<ul class="cas-rules"><li>3 rouleaux : <b>3 symboles identiques</b> = gros gain (3 logos Legacy = x' + SL_TRI.L + ' !).</li><li><b>2 symboles identiques</b> sur la ligne rouge : petit gain.</li><li>Retour moyen d\'environ 91 % : la machine garde un peu d\'avance.</li><li>Un lancer toutes les 3 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  return casinoGameShell(vip, stage, side);
+}
+function slotsSpin(){
+  if (spinLock || SL.spinning || !me() || !me().vip) return;
+  var st = gStakeVal('slots'), btn = document.getElementById('sl-spin');
+  audio(); SL.spinning = true; if (btn) { btn.disabled = true; btn.textContent = 'Ça tourne…'; }
+  sb.rpc('casino_slots', {p_stake: st}).then(function(r){
+    if (r.error) { SL.spinning = false; toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    var res = r.data, N = 26, durs = [1500, 2150, 2800], first = document.querySelector('.reel-cell'), H = first ? first.offsetHeight : 92;
+    spinLock = true; SL.win = 0;
+    var machine = document.getElementById('slot-machine'); if (machine) machine.classList.remove('win');
+    var lw = document.getElementById('led-win'); if (lw) lw.textContent = '0';
+    var strips = [0, 1, 2].map(function(i){
+      var el = document.getElementById('reel-' + i); if (!el) return null;
+      var cells = []; for (var k = 0; k < N; k++) cells.push(slRnd());
+      cells[N - 2] = res.reels[i];
+      el.innerHTML = cells.map(slCell).join(''); el.style.transform = 'translateY(0px)';
+      return {el: el, cells: cells};
+    });
+    var t0 = performance.now(), lastTick = 0;
+    function frame(now){
+      var all = true;
+      strips.forEach(function(s, i){
+        if (!s) return;
+        var t = Math.min(1, (now - t0) / durs[i]);
+        s.el.style.transform = 'translateY(' + (-(N - 3) * H * (1 - Math.pow(1 - t, 3))) + 'px)';
+        if (t < 1) all = false;
+      });
+      if (!all && now - lastTick > 75) { lastTick = now; tickSound(); }
+      if (!all) return false;
+      strips.forEach(function(s, i){ if (!s) return; SL.cells[i] = [s.cells[N - 3], res.reels[i], s.cells[N - 1]]; s.el.innerHTML = SL.cells[i].map(slCell).join(''); s.el.style.transform = 'translateY(0px)'; });
+      SL.res = res; SL.win = Number(res.payout) || 0; SL.spinning = false; CAS.today = Number(res.today) || 0;
+      if (me()) me().cc = Number(res.balance);
+      if (machine && SL.win > 0) machine.classList.add('win');
+      if (lw) lw.textContent = fmt(SL.win);
+      var lc = document.getElementById('led-credit'); if (lc) lc.textContent = fmt(res.balance);
+      if (res.payout > 0) winSound(res.mult >= 25 ? 6 : res.mult >= 8 ? 4 : res.net > 0 ? 2 : 0);
+      setTimeout(function(){
+        spinLock = false;
+        toast(res.net > 0 ? 'Gagné ! +' + ccn(res.net) : res.payout > 0 ? 'Presque ! Tu récupères ' + ccn(res.payout) : 'Perdu, retente ta chance !');
+        refresh().then(function(){
+          render();
+          if (res.mult >= 25) { document.body.insertAdjacentHTML('beforeend', winFxHTML('confetti', 'sl' + Date.now())); var fx = document.body.lastElementChild; setTimeout(function(){ if (fx) fx.remove(); }, 5000); }
+        }).catch(function(){ render(); });
+      }, 500);
+      return true;
+    }
+    casLoop(frame);
+  });
+}
+
+/* =================== POULET QUI TRAVERSE =================== */
+var CH_MULT = [1, 1.2, 1.4, 1.7, 2.0, 2.4, 2.9, 3.5, 4.3, 5.3, 6.6, 8.2, 10.5], CH_PITCH = 112, CH_STEPS = 12;
+var CH = {active: false, step: 0, run: 1, busy: false, loaded: false, loading: false, res: null};
+function chX(i){ return 84 + i * CH_PITCH; }
+function chMultTxt(i){ return 'x' + String(CH_MULT[i]).replace('.', ','); }
+function chLoad(){
+  if (CH.loaded || CH.loading || !S.me) return;
+  CH.loading = true;
+  sb.rpc('casino_chicken_state').then(function(r){
+    CH.loading = false; CH.loaded = true;
+    if (r.data) { CH.active = true; CH.step = Number(r.data.step) || 0; CH.run = Number(r.data.stake) || 1; }
+    if (viewName() === 'casino' && CAS.game === 'chicken' && !spinLock) render();
+  }).catch(function(){ CH.loading = false; CH.loaded = true; });
+}
+function chickenPage(){
+  var vip = !!(me() && me().vip), st = gStakeVal('chicken'), a = ccBal(), capped = CAS.today >= CAS_CAP;
+  if (vip) { chLoad(); if (!CAS.loaded) casinoLoad(); }
+  var track = '', i, cars = '', icons = ['🚗', '🚕', '🚙', '🚌', '🏎️'];
+  for (i = 0; i <= CH_STEPS; i++) {
+    track += '<div class="chk-plate' + (CH.active && i <= CH.step ? ' done' : '') + (CH.active && i === CH.step ? ' cur' : '') + (i === CH_STEPS ? ' end' : '') + '" style="left:' + chX(i) + 'px"><span>' + (i === 0 ? 'DÉPART' : chMultTxt(i)) + '</span></div>';
+    if (i >= 1) {
+      track += '<div class="chk-lane" style="left:' + (chX(i) - CH_PITCH / 2) + 'px"></div>';
+      cars += '<span class="chk-car decor" data-lane="' + i + '" data-spd="' + (0.22 + (i * 37 % 11) / 30).toFixed(2) + '" data-off="' + ((i * 53 % 17) / 17).toFixed(2) + '" style="left:' + (chX(i) - CH_PITCH / 2 + 27) + 'px">' + icons[i % icons.length] + '</span>';
+    }
+  }
+  var scene = '<div class="chk-scene"><div class="chk-view" id="chk-view"><div class="chk-track" id="chk-track" style="width:' + (chX(CH_STEPS) + 90) + 'px">' + track + cars +
+    '<div class="chk-chicken" id="chk-chicken" style="left:' + chX(CH.active ? CH.step : 0) + 'px">🐔</div></div></div>' +
+    '<div class="chk-hud"><span>' + (CH.active ? 'Mise ' + ccn(CH.run) : 'Prêt à traverser ?') + '</span><b id="chk-mult">' + chMultTxt(CH.active ? CH.step : 0) + '</b><span>' + (CH.active ? 'Gain actuel ' + ccn(Math.round(CH.run * CH_MULT[CH.step] * 100) / 100) : 'Chaque plaque multiplie ta mise') + '</span></div></div>';
+  var side = '';
+  if (CH.res) {
+    var r = CH.res;
+    side += '<div class="cas-res ' + (r.dead ? 'lose' : 'win') + '"><span class="cas-ball ' + (r.dead ? 'red' : 'green') + '">' + (r.dead ? '💥' : '💰') + '</span><div><b>' + (r.dead ? 'Écrasé ! −' + ccn(r.stake) : '🎉 Encaissé · +' + ccn(r.net)) + '</b><small>' + (r.dead ? 'La voiture a gagné cette fois.' : 'Tu repars avec ' + chMultTxt(r.step) + ' (' + ccn(r.payout) + ')') + '</small></div></div>';
+  }
+  if (CH.active) {
+    var nxt = CH.step < CH_STEPS ? CH_MULT[CH.step + 1] : null;
+    side += '<button type="button" class="btn primary lg cas-go" id="ch-go" data-cas="chgo"' + (CH.busy ? ' disabled' : '') + '>🐔 AVANCER' + (nxt ? ' · prochaine plaque ' + chMultTxt(CH.step + 1) : '') + '</button>';
+    side += '<button type="button" class="btn lg cas-cash" id="ch-cash" data-cas="chcash"' + (CH.step < 1 || CH.busy ? ' disabled' : '') + '>💰 ENCAISSER · ' + ccn(Math.round(CH.run * CH_MULT[CH.step] * 100) / 100) + '</button>';
+    side += '<p class="help">Mise en jeu : <b>' + ccn(CH.run) + '</b>. Si une voiture t\'écrase, tu perds tout. Encaisse quand tu veux !</p>';
+  } else {
+    side += gStakeHTML('chicken', vip, false);
+    side += '<button type="button" class="btn primary lg cas-go" id="ch-start" data-cas="chstart"' + (!vip || !(st >= 0.01) || a < st || capped ? ' disabled' : '') + '>🐔 JOUER · ' + ccn(st) + '</button>';
+    side += capped ? '<p class="help cas-warn">Plafond de gains du jour atteint : le casino rouvre demain à minuit.</p>' : a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  }
+  side += '<div class="cas-meter" title="Bénéfice net du jour"><div class="cas-meter-top"><span>Gains du jour</span><b>' + (CAS.today > 0 ? '+' : CAS.today < 0 ? '−' : '') + ccn(Math.abs(CAS.today)) + ' / ' + ccn(CAS_CAP) + '</b></div><div class="cas-bar"><i style="width:' + Math.max(0, Math.min(100, CAS.today / CAS_CAP * 100)) + '%"></i></div></div>';
+  side += '<ul class="cas-rules"><li>Ton poulet traverse les plaques d\'égout : <b>x1,2</b>, <b>x1,4</b>, <b>x1,7</b>… jusqu\'à <b>x10,5</b> !</li><li>À chaque pas, une voiture peut l\'écraser : <b>mise perdue</b>.</li><li>Tu peux <b>encaisser</b> à tout moment, dès la 1re plaque.</li><li>Retour moyen d\'environ 93 %. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  return casinoGameShell(vip, scene, side);
+}
+// boucle d'animation : image par image + minuterie de secours (le navigateur suspend requestAnimationFrame quand la page n'est pas affichée)
+function casLoop(fn){
+  var fin = false, iv = null;
+  function step(){ if (fin) return; if (fn(performance.now())) { fin = true; clearInterval(iv); } }
+  iv = setInterval(step, 30);
+  (function loop(){ if (fin) return; step(); requestAnimationFrame(loop); })();
+}
+function chTween(ms, fn, done){
+  var t0 = performance.now();
+  casLoop(function(now){ var t = Math.min(1, (now - t0) / ms); fn(t); if (t < 1) return false; if (done) done(); return true; });
+}
+function chFollow(x){
+  var view = document.getElementById('chk-view'), track = document.getElementById('chk-track'); if (!view || !track) return;
+  var vw = view.clientWidth, tw = track.offsetWidth, tx = Math.max(vw - tw, Math.min(0, -(x - vw * 0.4)));
+  track.style.transform = 'translateX(' + tx + 'px)';
+}
+function chStart(){
+  if (CH.active || CH.busy || spinLock || !me() || !me().vip) return;
+  var st = gStakeVal('chicken'); CH.busy = true; audio();
+  sb.rpc('casino_chicken_start', {p_stake: st}).then(function(r){
+    CH.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    CH.active = true; CH.step = 0; CH.run = Number(r.data.stake); CH.res = null;
+    if (me()) me().cc = Number(r.data.balance);
+    render();
+  });
+}
+function chEnd(res){   // fin de partie : met l'écran à jour
+  CH.active = false; CH.step = 0; CH.busy = false; CH.res = res; spinLock = false;
+  refresh().then(render, render);
+}
+function chGo(){
+  if (!CH.active || CH.busy || spinLock) return;
+  CH.busy = true; audio();
+  var b1 = document.getElementById('ch-go'), b2 = document.getElementById('ch-cash'); if (b1) b1.disabled = true; if (b2) b2.disabled = true;
+  sb.rpc('casino_chicken_step').then(function(r){
+    if (r.error) { CH.busy = false; toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    var res = r.data, from = CH.step, xa = chX(from), xb = chX(from + 1), lane = (xa + xb) / 2;
+    var el = document.getElementById('chk-chicken'), track = document.getElementById('chk-track'), view = document.getElementById('chk-view');
+    if (!el || !track || !view) { if (res.dead) chEnd({dead: true, stake: CH.run}); else { CH.step = res.step; CH.busy = false; render(); } return; }
+    spinLock = true;
+    var H = view.clientHeight;
+    function put(x, up){ el.style.left = x + 'px'; el.style.transform = 'translateY(' + (-up) + 'px) scaleX(-1)'; chFollow(x); }
+    function car(){ var c = document.createElement('span'); c.className = 'chk-car hit'; c.textContent = '🚗'; c.style.left = (lane - 0) + 'px'; c.style.top = '-70px'; track.appendChild(c); return c; }
+    var decor = track.querySelector('.chk-car.decor[data-lane="' + (from + 1) + '"]'); if (decor) decor.style.display = 'none';
+    if (res.dead) {
+      tickSound();
+      chTween(380, function(t){ put(xa + (lane - xa) * t, Math.sin(Math.PI * t) * 30); }, function(){
+        var c = car(), target = H * 0.5 - 40;
+        chTween(380, function(t){ c.style.top = (-70 + (target + 70) * t * t) + 'px'; }, function(){
+          el.textContent = '💥'; beep(110, 0, 0.45, 'sawtooth', 0.16); beep(70, 0.05, 0.5, 'square', 0.1);
+          chTween(900, function(t){ c.style.top = (target + (H + 80 - target) * t * t) + 'px'; }, function(){
+            if (me()) me().cc = Number(res.balance);
+            toast('Écrasé ! Tu perds ' + ccn(CH.run));
+            chEnd({dead: true, stake: CH.run, step: res.step});
+          });
+        });
+      });
+      return;
+    }
+    var c = car();
+    chTween(520, function(t){ c.style.top = (-70 + (H + 140) * t) + 'px'; }, function(){
+      c.remove();
+      chTween(460, function(t){ put(xa + (xb - xa) * t, Math.sin(Math.PI * t) * 34); if (t > 0.5 && t < 0.56) tickSound(); }, function(){
+        CH.step = res.step;
+        var m = document.getElementById('chk-mult'); if (m) m.textContent = chMultTxt(res.step);
+        if (res.done) {
+          if (me()) me().cc = Number(res.balance);
+          winSound(4); toast('Arrivé au bout ! +' + ccn(res.net));
+          chEnd({dead: false, stake: CH.run, step: res.step, payout: res.payout, net: res.net});
+        } else {
+          winSound(0); CH.busy = false; spinLock = false; render();
+        }
+      });
+    });
+  });
+}
+function chCash(){
+  if (!CH.active || CH.busy || spinLock || CH.step < 1) return;
+  CH.busy = true; audio();
+  sb.rpc('casino_chicken_cashout').then(function(r){
+    if (r.error) { CH.busy = false; toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
+    var res = r.data; if (me()) me().cc = Number(res.balance); CAS.today = Number(res.today) || 0;
+    winSound(res.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(res.net));
+    chEnd({dead: false, stake: CH.run, step: res.step, payout: res.payout, net: res.net});
+  });
+}
+// voitures décoratives qui traversent la route en boucle + cadrage du poulet
+setInterval(function(){
+  var track = document.getElementById('chk-track'); if (!track) return;
+  var view = document.getElementById('chk-view'), H = view.clientHeight, t = performance.now() / 1000;
+  [].forEach.call(track.querySelectorAll('.chk-car.decor'), function(c){
+    if (CH.busy && Number(c.getAttribute('data-lane')) === CH.step + 1) return;
+    c.style.display = (CH.active && Number(c.getAttribute('data-lane')) === CH.step + 1) ? 'none' : '';
+    var ph = ((t * parseFloat(c.getAttribute('data-spd')) + parseFloat(c.getAttribute('data-off'))) % 1);
+    c.style.top = (-70 + ph * (H + 140)) + 'px';
+  });
+  if (!CH.busy && track.getAttribute('data-fit') !== CH.step + ':' + view.clientWidth) { track.setAttribute('data-fit', CH.step + ':' + view.clientWidth); chFollow(chX(CH.active ? CH.step : 0)); }
+}, 50);
 
 /* ---------- tournois ---------- */
 var tourId = null;

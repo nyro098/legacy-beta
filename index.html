@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794965436">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1794966588">
 </head><body>
 <title>Legacy · Défis Fortnite gratuits (bêta)</title><link rel="icon" type="image/svg+xml" href="logo.svg"><meta name="description" content="Legacy : défis Fortnite entre joueurs, 100 % gratuits. Lance un 1v1, 2v2 ou 3v3, mise des coins sans valeur réelle et grimpe au classement."><meta property="og:title" content="Legacy · Défis Fortnite gratuits"><meta property="og:description" content="Défis Fortnite entre joueurs, 100 % gratuits. Coins sans valeur réelle, classement, chat de match."><meta property="og:image" content="https://nyro098.github.io/legacy-beta/logo.svg"><link rel="canonical" href="https://nyro098.github.io/legacy-beta/">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -972,6 +972,64 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 .cc-pack{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:18px 14px;text-align:center}
 .cc-in{color:#c4b0ff;font-size:18px}.cc-out{color:#ffc93c;font-size:18px}
 .cc-pack .btn{flex-basis:100%}
+.cas-tabs{margin-bottom:18px}
+.cas-stage-wide{display:block;place-items:initial}
+.cas-side .cas-go,.cas-side .cas-cash{flex:none}
+.mini .sycoin .coin{width:16px;height:16px}.mini .sycoin{display:grid;place-items:center}
+.cas-cash{background:linear-gradient(135deg,#12a35c,#0c7a45);color:#fff;border:0;width:100%;padding-block:14px;font-size:17px}
+.cas-cash:disabled{opacity:.45}
+/* ---- machine à sous ---- */
+.slot-stage{position:relative;max-width:560px;margin:0 auto;padding:6px 26px 6px}
+.slot-machine{--cell:92px;position:relative;z-index:1;border-radius:22px;overflow:hidden;background:linear-gradient(180deg,#171230,#0b0a1c);border:3px solid #241a52;box-shadow:0 0 0 3px rgba(139,92,255,.55),0 24px 60px rgba(0,0,0,.65),0 0 70px rgba(139,92,255,.38)}
+.slot-machine.win{box-shadow:0 0 0 3px #ffc93c,0 24px 60px rgba(0,0,0,.65),0 0 90px rgba(255,201,60,.7)}
+@media (max-width:560px){.slot-machine{--cell:70px}.slot-stage{padding-inline:14px}}
+.slot-top{padding:10px 10px 12px;background:linear-gradient(180deg,#e8fbff,#b9e8f3);color:#0c2b3a}
+.sp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.sp-jack{font:900 22px var(--f-head,system-ui);letter-spacing:.06em;color:#d4a000;text-shadow:0 1px 0 #fff,0 0 12px rgba(255,201,60,.8)}
+.sp-head b{font:900 28px var(--f-head,system-ui);color:#c8283c}
+.sp-logo{display:flex;align-items:center;gap:5px;font:900 13px var(--f-body,system-ui);letter-spacing:.14em;color:#3a1d8a}
+.sp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.sp-cell{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 1px;background:#fff;border:2px solid #7fc9db;border-radius:7px;padding:3px 2px;font-weight:800;color:#c8283c;font-size:12px}
+.sp-cell b{flex-basis:100%;text-align:center;font-size:13px}
+.sp-cell.sp-free{grid-column:span 2;flex-direction:column;color:#26506a}
+.mini{display:inline-grid;place-items:center;width:20px;height:20px}.mini .sy-logo{width:18px;height:18px}.mini .sy7{font-size:18px}.mini .sybar{font-size:7px;padding:1px 2px;border-width:1.5px}.mini .syemo{font-size:15px}.mini .coin{width:16px;height:16px}
+.slot-window{position:relative;margin:10px 12px;padding:10px;border-radius:16px;background:linear-gradient(180deg,#6fdcff,#d1f5ff);box-shadow:inset 0 0 30px rgba(255,255,255,.85),0 0 34px rgba(70,200,255,.55)}
+.slot-reels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.reel{position:relative;height:calc(var(--cell) * 3);overflow:hidden;border-radius:10px;background:linear-gradient(180deg,#bfe6f3,#f8fdff 28%,#f8fdff 72%,#bfe6f3);box-shadow:inset 0 0 0 3px rgba(35,120,170,.35),inset 0 10px 14px rgba(0,60,100,.25),inset 0 -10px 14px rgba(0,60,100,.25)}
+.reel-strip{will-change:transform}
+.reel-cell{height:var(--cell);display:grid;place-items:center;overflow:hidden}
+.slot-payline{position:absolute;left:6px;right:6px;top:50%;height:4px;margin-top:-2px;background:rgba(255,40,70,.85);box-shadow:0 0 10px #ff2846;border-radius:2px;pointer-events:none}
+.sy7{font:italic 900 calc(var(--cell) * .74)/1 var(--f-head,system-ui);color:#2c73d6;text-shadow:2px 2px 0 #fff,0 0 12px rgba(44,115,214,.6)}.sy7.s{font-size:inherit;color:#ffcf2e;text-shadow:2px 2px 0 #7a2b00}
+.sybar{font:900 calc(var(--cell) * .26)/1 var(--f-head,system-ui);color:#17719c;background:#fff;border:3px solid #17719c;padding:5px 10px;letter-spacing:.06em;border-radius:4px}
+.syemo{font-size:calc(var(--cell) * .58);line-height:1}
+.sy-logo{width:calc(var(--cell) * .7);height:calc(var(--cell) * .7);filter:drop-shadow(0 2px 4px rgba(60,20,140,.55))}
+.sycoin .coin{width:calc(var(--cell) * .6);height:calc(var(--cell) * .6)}
+.slot-panel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px;background:linear-gradient(180deg,#8a44e8,#5a22b8)}
+.led{background:#0a0614;border:2px solid #2a1850;border-radius:9px;padding:6px 8px;text-align:center;box-shadow:inset 0 0 12px rgba(0,0,0,.7)}
+.led small{display:block;color:#c7b4ff;font-size:10px;letter-spacing:.14em}
+.led b{display:block;font:800 22px var(--f-mono,monospace);color:#ffb52e;text-shadow:0 0 9px rgba(255,160,40,.85);overflow:hidden;text-overflow:ellipsis}
+.led.win b{color:#ffe36b}
+.slot-stickers{position:absolute;inset:0;z-index:2;pointer-events:none}
+.stk{position:absolute;display:inline-block;transform:rotate(var(--r));filter:drop-shadow(0 5px 6px rgba(0,0,0,.55));animation:stkFloat 4.2s ease-in-out infinite;line-height:1}
+.stk img{width:100%;height:auto;display:block}
+@keyframes stkFloat{50%{transform:rotate(var(--r)) translateY(-7px)}}
+.stk-tag{display:inline-block;background:linear-gradient(135deg,#8b5cff,#ff4d9a);color:#fff;font:900 13px var(--f-body,system-ui);padding:5px 11px;border-radius:9px;letter-spacing:.12em;border:2px solid #fff;white-space:nowrap}
+.stk-tag.alt{background:linear-gradient(135deg,#ffc93c,#ff7a18);color:#2a1470}
+/* ---- poulet ---- */
+.chk-scene{border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#14151f;box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.chk-view{position:relative;height:270px;overflow:hidden;background:linear-gradient(180deg,#2b2140 0,#1b1730 100%)}
+.chk-track{position:absolute;left:0;top:0;height:100%}
+.chk-plate{position:absolute;top:50%;width:78px;height:78px;margin:-39px 0 0 -39px;border-radius:50%;z-index:3;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#9696a6,#52525f 58%,#2e2e38);border:4px solid #1d1d26;box-shadow:inset 0 0 0 6px rgba(0,0,0,.22),0 6px 10px rgba(0,0,0,.5);font:800 14px var(--f-mono,monospace);color:#d9d9ea}
+.chk-plate::before{content:"";position:absolute;inset:11px;border-radius:50%;border:2px dashed rgba(255,255,255,.18)}
+.chk-plate.done{background:radial-gradient(circle at 35% 30%,#d9c6ff,#8b5cff 60%,#4a22b8);color:#fff;border-color:#2a1470}
+.chk-plate.cur{box-shadow:0 0 0 4px #ffc93c,0 0 28px #ffc93c}
+.chk-plate.end{border-color:#ffc93c;color:#ffe9a0}
+.chk-lane{position:absolute;top:0;bottom:0;width:54px;margin-left:-27px;z-index:1;background:linear-gradient(90deg,#3a3a47,#2d2d38 20%,#2d2d38 80%,#3a3a47);border-left:3px dashed rgba(255,255,255,.35);border-right:3px dashed rgba(255,255,255,.35)}
+.chk-chicken{position:absolute;top:50%;z-index:6;margin:-66px 0 0 -30px;font-size:58px;line-height:1;transform:scaleX(-1);filter:drop-shadow(0 7px 5px rgba(0,0,0,.55))}
+.chk-car{position:absolute;z-index:4;margin-left:-22px;font-size:42px;line-height:1;transform:rotate(-90deg);filter:drop-shadow(0 4px 4px rgba(0,0,0,.5));top:-70px}
+.chk-car.hit{z-index:7}
+.chk-hud{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:#0e0f18;border-top:1px solid var(--line);color:var(--fg-2);font-size:13px}
+.chk-hud b{font:900 30px var(--f-head,system-ui);color:#ffc93c;text-shadow:0 0 14px rgba(255,201,60,.55)}
 .cas-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:28px;align-items:start}
 @media (max-width:900px){.cas-wrap{grid-template-columns:1fr}}
 .cas-stage{position:relative;display:grid;place-items:center}
@@ -1082,6 +1140,6 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1794965436"></script>
-<script src="app.js?v=1794965436"></script>
+<script src="config.js?v=1794966588"></script>
+<script src="app.js?v=1794966588"></script>
 </body></html>
