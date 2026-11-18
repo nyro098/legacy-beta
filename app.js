@@ -926,6 +926,8 @@ var CAS_SEG = 360 / 37, CAS_CAP = 100, casRot = 0, casHit = -1;
 // journée spéciale : plafond de gains levé jusqu'au 19/11/2026 à 4 h (Paris), même date côté base de données
 var CAS_FREE_UNTIL = Date.parse('2026-11-19T03:00:00Z');
 function casCapFree(){ return Date.now() < CAS_FREE_UNTIL; }
+// après une partie, le serveur a déjà donné le nouveau solde : inutile de recharger tout le site (c'était lent)
+function quick(){ return Promise.resolve(); }
 function casCapped(){ return CAS.today >= CAS_CAP && !casCapFree(); }
 function casCapTxt(){ return casCapFree() ? " · 🎉 illimité aujourd'hui" : ' / ' + ccn(CAS_CAP); }
 function casFree(){ return true; }   // mise libre (all-in et montant au choix) en permanence ; le plafond de gains de 100 coins/jour et par jeu s'applique toujours
@@ -1018,7 +1020,7 @@ function casinoSpin(){
     var res = r.data, idx = CAS_ORDER.indexOf(res.number);
     var start = casRot, cur = ((start % 360) + 360) % 360, target = (360 - idx * CAS_SEG) % 360;
     var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var end = start + 360 * (reduce ? 4 : 7) + ((target - cur + 360) % 360) + (Math.random() * 0.6 - 0.3) * CAS_SEG, D = reduce ? 3500 : 6000;
+    var end = start + 360 * (reduce ? 3 : 5) + ((target - cur + 360) % 360) + (Math.random() * 0.6 - 0.3) * CAS_SEG, D = reduce ? 2500 : 3800;
     var g = document.getElementById('cas-g'), pin = document.getElementById('cas-pin'), box = document.getElementById('cas-box');
     var t0 = performance.now(), lastSeg = null, lastTick = 0;
     spinLock = true; casHit = -1; CAS.res = null; if (box) box.classList.add('spinning');
@@ -1037,7 +1039,7 @@ function casinoSpin(){
         if (res.payout > 0) CAS.feed.unshift({player: S.me, payout: res.payout, stake: res.stake, bet: res.bet}); CAS.feed = CAS.feed.slice(0, 6);
         spinLock = false;
         toast(res.payout > 0 ? 'Gagné ! +' + ccn(res.net) : 'Perdu, retente ta chance !');
-        refresh().then(function(){
+        quick().then(function(){
           render();
           if (res.color === 'green' && res.payout > 0) { document.body.insertAdjacentHTML('beforeend', winFxHTML('confetti', 'cas' + Date.now())); var fx = document.body.lastElementChild; setTimeout(function(){ if (fx) fx.remove(); }, 5000); }
         }).catch(function(){ render(); });
@@ -1110,7 +1112,7 @@ function casinoInit(){
         if (r.error) { toast(cleanErr(r.error.message)); return; }
         var p2 = me(); if (p2) { p2.cc = Number(r.data.cc) || 0; p2.owned = (p2.owned || []).concat(['title:' + tk]); }
         toast('Titre acheté : ' + CASINO_TITLES[tk][0] + ' ! Équipe-le juste en dessous.');
-        refresh().then(render, render);
+        quick().then(render, render);
       });
     }
     else if (v.indexOf('buy:') === 0) {
@@ -1223,7 +1225,7 @@ function slotsSpin(){
   audio(); SL.spinning = true; if (btn) { btn.disabled = true; btn.textContent = 'Ça tourne…'; }
   sb.rpc('casino_slots', {p_stake: st}).then(function(r){
     if (r.error) { SL.spinning = false; toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
-    var res = r.data, N = 26, durs = [1500, 2150, 2800], first = document.querySelector('.reel-cell'), H = first ? first.offsetHeight : 92;
+    var res = r.data, N = 26, durs = [900, 1250, 1650], first = document.querySelector('.reel-cell'), H = first ? first.offsetHeight : 92;
     spinLock = true; SL.win = 0;
     var machine = document.getElementById('slot-machine'); if (machine) machine.classList.remove('win');
     var lw = document.getElementById('led-win'); if (lw) lw.textContent = '0';
@@ -1255,7 +1257,7 @@ function slotsSpin(){
       setTimeout(function(){
         spinLock = false;
         toast(res.net > 0 ? 'Gagné ! +' + ccn(res.net) : res.payout > 0 ? 'Presque ! Tu récupères ' + ccn(res.payout) : 'Perdu, retente ta chance !');
-        refresh().then(function(){
+        quick().then(function(){
           render();
           if (res.mult >= 25) { document.body.insertAdjacentHTML('beforeend', winFxHTML('confetti', 'sl' + Date.now())); var fx = document.body.lastElementChild; setTimeout(function(){ if (fx) fx.remove(); }, 5000); }
         }).catch(function(){ render(); });
@@ -1342,7 +1344,7 @@ function chStart(){
 }
 function chEnd(res){   // fin de partie : met l'écran à jour
   CH.active = false; CH.step = 0; CH.busy = false; CH.res = res; spinLock = false;
-  refresh().then(render, render);
+  quick().then(render, render);
 }
 function chGo(){
   if (!CH.active || CH.busy || spinLock) return;
@@ -1489,7 +1491,7 @@ function bjApply(res){   // met à jour l'état puis redessine
     var win = res.result === 'win' || res.result === 'blackjack';
     setTimeout(function(){ if (win) winSound(res.result === 'blackjack' ? 5 : 2); else if (res.result === 'lose') beep(140, 0, 0.35, 'sawtooth', 0.12); }, 450);
     toast(res.result === 'push' ? 'Égalité : mise rendue' : win ? 'Gagné ! +' + ccn(res.net) : 'Perdu, retente ta chance !');
-    BJ.g = res; refresh().then(render, render);
+    BJ.g = res; quick().then(render, render);
   }
 }
 function bjCall(fn, args, first){
@@ -1589,7 +1591,7 @@ function mnPick(i){
       MN.mines = d.mines; MN.rev = d.revealed || []; MN.boom = d.cell; MN.active = false; MN.res = {boom: true, stake: MN.run};
       if (me()) me().cc = Number(d.balance);
       render(); mnShake(); beep(120, 0, 0.5, 'sawtooth', 0.16); beep(70, 0.06, 0.55, 'square', 0.1);
-      toast('BOUM ! Tu perds ' + ccn(MN.run)); refresh().then(render, render); return;
+      toast('BOUM ! Tu perds ' + ccn(MN.run)); quick().then(render, render); return;
     }
     MN.rev = d.revealed; MN.mult = Number(d.mult); MN.next = Number(d.next) || MN.next; MN.pop = d.cell;
     if (me()) me().cc = Number(d.balance);
@@ -1598,7 +1600,7 @@ function mnPick(i){
       winSound(5); toast('Grille nettoyée ! +' + ccn(d.net));
     } else beep(520 + MN.rev.length * 45, 0, 0.14, 'triangle', 0.12);
     render(); mnAnim(); MN.pop = -1;
-    if (d.done) refresh().then(render, render);
+    if (d.done) quick().then(render, render);
   });
 }
 function mnCash(){
@@ -1610,7 +1612,7 @@ function mnCash(){
     var d = r.data; MN.active = false; MN.mines = d.mines; MN.res = {boom: false, mult: Number(d.mult), payout: d.payout, net: d.net};
     if (me()) me().cc = Number(d.balance); CAS.today = Number(d.today) || CAS.today;
     winSound(d.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(d.net));
-    render(); refresh().then(render, render);
+    render(); quick().then(render, render);
   });
 }
 
@@ -1653,7 +1655,7 @@ function plinkoDrop(){
     for (i = 0; i < 12; i++) { pts.push({x: PL_CX + (R - i / 2) * PL_DX, y: PL_Y0 + i * PL_DY - 11}); R += res.path[i]; }
     pts.push({x: PL_CX + (R - 6) * PL_DX, y: PL_Y0 + 12 * PL_DY + 10});
     if (ball) ball.setAttribute('opacity', '1');
-    var seg = 0, SEG = 92;
+    var seg = 0, SEG = 70;
     function finish(){
       PL.busy = false; PL.res = res; PL.hit = res.bucket; PL.hist.unshift(Number(res.mult)); PL.hist = PL.hist.slice(0, 12);
       CAS.today = Number(res.today) || 0; if (me()) me().cc = Number(res.balance);
@@ -1661,7 +1663,7 @@ function plinkoDrop(){
       if (res.net > 0) winSound(res.mult >= 10 ? 5 : res.mult >= 3 ? 3 : 2); else beep(180, 0, 0.25, 'triangle', 0.1);
       setTimeout(function(){
         spinLock = false; toast(res.net > 0 ? 'Gagné ! +' + ccn(res.net) : res.net === 0 ? 'Mise récupérée' : 'Perdu, retente ta chance !');
-        refresh().then(render, render);
+        quick().then(render, render);
       }, 450);
     }
     (function nextSeg(){
@@ -1720,12 +1722,12 @@ function hlApply(res, first){
   if (res.balance != null && me()) me().cc = Number(res.balance);
   if (res.correct === false) {
     HL.g = {card: res.card, mult: 1, steps: res.steps, stake: res.stake, over: true}; HL.res = {won: false, stake: res.stake};
-    render(); bjAnimNew(); beep(140, 0, 0.35, 'sawtooth', 0.12); toast('Raté ! Tu perds ' + ccn(res.stake)); refresh().then(render, render); return;
+    render(); bjAnimNew(); beep(140, 0, 0.35, 'sawtooth', 0.12); toast('Raté ! Tu perds ' + ccn(res.stake)); quick().then(render, render); return;
   }
   HL.g = res; if (res.done) { HL.res = {won: true, mult: res.mult, net: res.net, payout: res.payout}; CAS.today = Number(res.today) || CAS.today; HL.g.over = true; winSound(5); toast('Maximum atteint ! +' + ccn(res.net)); }
   else if (!first) winSound(0);
   render(); bjAnimNew(); HL.fresh = false;
-  if (res.done) refresh().then(render, render);
+  if (res.done) quick().then(render, render);
 }
 function hlCall(fn, args, first){
   if (HL.busy || !me() || !me().vip) return;
@@ -1733,7 +1735,7 @@ function hlCall(fn, args, first){
   sb.rpc(fn, args || {}).then(function(r){
     HL.busy = false;
     if (r.error) { toast(cleanErr(r.error.message)); refresh().then(render, render); return; }
-    if (fn === 'casino_hilo_cashout') { var d = r.data; HL.g.over = true; HL.res = {won: true, mult: d.mult, net: d.net, payout: d.payout}; if (me()) me().cc = Number(d.balance); CAS.today = Number(d.today) || CAS.today; winSound(d.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(d.net)); render(); refresh().then(render, render); return; }
+    if (fn === 'casino_hilo_cashout') { var d = r.data; HL.g.over = true; HL.res = {won: true, mult: d.mult, net: d.net, payout: d.payout}; if (me()) me().cc = Number(d.balance); CAS.today = Number(d.today) || CAS.today; winSound(d.mult >= 3 ? 4 : 2); toast('Encaissé ! +' + ccn(d.net)); render(); quick().then(render, render); return; }
     hlApply(r.data, first);
   });
 }
@@ -1803,12 +1805,12 @@ function twPick(k){
   twCall('casino_tower_pick', {p_tile: k}, function(d){
     if (d.boom) {
       TW.active = false; TW.traps = d.traps; TW.boomLevel = TW.level + 1; TW.boomTile = d.tile; TW.res = {boom: true, stake: TW.stake, level: TW.level};
-      render(); beep(120, 0, 0.5, 'sawtooth', 0.16); beep(70, 0.06, 0.55, 'square', 0.1); toast('Piège ! Tu perds ' + ccn(TW.stake)); refresh().then(render, render); return;
+      render(); beep(120, 0, 0.5, 'sawtooth', 0.16); beep(70, 0.06, 0.55, 'square', 0.1); toast('Piège ! Tu perds ' + ccn(TW.stake)); quick().then(render, render); return;
     }
     TW.picks[TW.level] = d.tile; TW.level = d.level; TW.mult = Number(d.mult);
     if (d.done) { TW.active = false; TW.traps = d.traps; TW.res = {boom: false, level: d.level, mult: Number(d.mult), payout: d.payout, net: d.net}; CAS.today = Number(d.today) || CAS.today; winSound(5); toast('Sommet atteint ! +' + ccn(d.net)); }
     else beep(480 + d.level * 55, 0, 0.14, 'triangle', 0.12);
-    render(); if (d.done) refresh().then(render, render);
+    render(); if (d.done) quick().then(render, render);
   });
 }
 function twCash(){
