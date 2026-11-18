@@ -1843,7 +1843,7 @@ function notifRow(n){
   else if (n.kind === 'double_go') { txt = '🔥 <b>' + a + '</b> a accepté le <b>Double</b> ! La revanche (' + mDesc + ') est lancée.'; if (m) act = '<button class="btn sm primary" data-act="open-match" data-id="' + esc(m.id) + '">Aller au match</button>'; }
   else if (n.kind === 'gift') {
     var parts = (n.note || '').split('|'), gItem = parts[0] || '', gMsg = parts[1] || '';
-    var iLabel = gItem === 'vip' ? 'le Pass VIP (1 mois)' : itemName(gItem);
+    var iLabel = gItem.indexOf('vcoins:') === 0 ? fmt(parseFloat(gItem.slice(7)) || 0) + ' V-Coins' : gItem === 'vip' ? 'le Pass VIP (1 mois)' : itemName(gItem);
     txt = '🎁 <b>' + a + '</b> t\'a offert <b>' + esc(iLabel) + '</b> en cadeau !' + (gMsg ? '<br><small style="color:var(--accent);font-style:italic">« ' + esc(gMsg) + ' »</small>' : '');
     act = '<button class="btn sm primary" data-act="shop-tab" data-tab="profil">Voir dans la boutique</button>';
   }
@@ -2099,6 +2099,7 @@ function shopTabForItem(i){
 }
 function giftRevealPreview(item){
   var p = me() || {pseudo: 'Toi', avatar: ''};
+  if (item.indexOf('vcoins:') === 0) return '<div class="gr-pv-vc">' + CC_ICON + '<b>+' + fmt(parseFloat(item.slice(7)) || 0) + '</b><small>V-Coins</small></div>';
   if (item === 'vip') {
     return '<div class="gr-pv-vip"><span class="gr-crown" aria-hidden="true">👑</span><span class="gr-vip-lbl">PASS VIP</span><small>Accès illimité 30 jours</small></div>';
   }
@@ -2135,8 +2136,8 @@ function checkGiftReveal(){
   var seen = giftSeenGet();
   (S.notifs || []).slice().reverse().forEach(function(n){
     if (!n || n.kind !== 'gift') return;
-    if (n.actor === S.me) return;
     var item = String(n.note || '').split('|')[0] || '';
+    if (n.actor === S.me && item.indexOf('vcoins:') !== 0) return;
     if (item === 'banner:oriong') return; // la bannière ORIONG a son propre pop-up
     if (seen[n.id] || giftSeenMem[n.id]) return;
     // Si la notif est déjà lue et date de plus de 7 jours, on l'ignore
@@ -2161,7 +2162,7 @@ function showNextGift(){
   var item = (parts[0] || '').trim();
   var msg = parts.slice(1).join('|').trim();
   var from = P(n.actor) || {pseudo: 'Un joueur', avatar: ''};
-  var name = item === 'vip' ? 'Pass VIP (1 mois)' : (item.indexOf('title:') === 0 && WHEEL_TITLES[item.slice(6)] ? 'Titre « ' + WHEEL_TITLES[item.slice(6)] + ' »' : itemName(item));
+  var vcGift = item.indexOf('vcoins:') === 0, name = vcGift ? fmt(parseFloat(item.slice(7)) || 0) + ' V-Coins' : item === 'vip' ? 'Pass VIP (1 mois)' : (item.indexOf('title:') === 0 && WHEEL_TITLES[item.slice(6)] ? 'Titre « ' + WHEEL_TITLES[item.slice(6)] + ' »' : itemName(item));
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   var burst = '', rain = '';
@@ -2198,9 +2199,11 @@ function showNextGift(){
     }
   } else if (item === 'vip') {
     actHtml += '<button type="button" class="btn primary lg" data-act="gift-reveal-profile">👑 Voir mon statut VIP</button>';
+  } else if (vcGift) {
+    actHtml += '<button type="button" class="btn primary lg" data-act="gift-reveal-vc">🎰 Aller au casino</button>';
   }
   actHtml += '<button type="button" class="btn ghost" data-act="gift-reveal-close">Trop bien, merci ! 🎉</button>';
-  actHtml += '<button type="button" class="btn ghost sm" data-act="gift-reveal-shop" data-item="' + esc(item) + '">Voir dans la boutique</button>';
+  if (!vcGift) actHtml += '<button type="button" class="btn ghost sm" data-act="gift-reveal-shop" data-item="' + esc(item) + '">Voir dans la boutique</button>';
 
   var html = '<div class="gift-reveal' + (reduce ? ' gr-reduce gr-opened gr-s2on' : '') + '" role="dialog" aria-modal="true" aria-label="Cadeau reçu">' +
     '<div class="gr-bg" data-act="gift-reveal-close" title="Fermer"></div>' +
@@ -2908,6 +2911,13 @@ function act(name, el){
       window.scrollTo(0, 0);
       break;
     }
+    case 'gift-reveal-vc':
+      closeGiftReveal();
+      if (dlg) closeDialog();
+      location.hash = '#casino';
+      render();
+      window.scrollTo(0, 0);
+      break;
     case 'gift-reveal-close':
       closeGiftReveal();
       break;
