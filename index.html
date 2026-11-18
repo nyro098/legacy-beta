@@ -1,4 +1,4 @@
-﻿<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1795047398">
+﻿<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1795049091">
 </head><body>
 <title>Legacy Â· DÃ©fis Fortnite gratuits (bÃªta)</title><link rel="icon" type="image/svg+xml" href="logo.svg"><meta name="description" content="Legacy : dÃ©fis Fortnite entre joueurs, 100 % gratuits. Lance un 1v1, 2v2 ou 3v3, mise des coins sans valeur rÃ©elle et grimpe au classement."><meta property="og:title" content="Legacy Â· DÃ©fis Fortnite gratuits"><meta property="og:description" content="DÃ©fis Fortnite entre joueurs, 100 % gratuits. Coins sans valeur rÃ©elle, classement, chat de match."><meta property="og:image" content="https://nyro098.github.io/legacy-beta/logo.svg"><link rel="canonical" href="https://nyro098.github.io/legacy-beta/">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -1127,6 +1127,35 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 .hist-tabs{margin-bottom:4px}
 .hist-games{margin:8px 0 12px}
 .hist-sum{margin-bottom:12px}
+/* ---- Mini-jeux en duel ---- */
+.dl-table{border-radius:18px;padding:16px;background:linear-gradient(180deg,#2a2150,#17142e);border:1px solid #3a2f6e;box-shadow:0 18px 44px rgba(0,0,0,.5);display:grid;gap:14px}
+.dl-vs{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dl-side{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.dl-side b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dl-side small{color:var(--fg-2);flex-basis:100%}
+.dl-score{font:900 26px var(--f-head,system-ui);color:#ffc93c;font-style:normal;margin-left:4px}
+.dl-x{font:900 16px var(--f-head,system-ui);color:var(--fg-2)}
+.dl-body{display:grid;gap:14px;justify-items:center;padding:8px 0}
+.dl-picks{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.dl-pick{border:2px solid rgba(255,255,255,.15);background:linear-gradient(180deg,#3a2f78,#261e57);color:#fff;border-radius:16px;padding:14px 18px;min-width:110px;display:grid;gap:4px;justify-items:center;cursor:pointer;transition:transform .12s}
+.dl-pick span{font-size:44px;line-height:1}.dl-pick b{font-size:14px}
+.dl-pick:not(:disabled):hover{transform:translateY(-3px);border-color:#ffc93c}
+.dl-pick.sel{border-color:#35d6a1;box-shadow:0 0 18px rgba(53,214,161,.5)}
+.dl-pick:disabled{opacity:.55;cursor:default}
+.dl-note{margin:0;color:var(--fg-2);font-size:13px;text-align:center}
+.dl-cards{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}.dl-cards>div{display:grid;gap:6px;justify-items:center}.dl-cards small{color:var(--fg-2)}
+.dl-dicerow{display:flex;align-items:center;gap:6px;min-height:64px}
+.dl-dice{font-size:58px;line-height:1;color:#fff;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}.dl-dice.back{opacity:.35}
+.dl-sum{font:900 22px var(--f-mono,monospace);color:#ffc93c;margin-left:6px}
+.dl-coin{display:grid;gap:6px;justify-items:center}
+.dl-coinface{font-size:90px;line-height:1;filter:drop-shadow(0 8px 10px rgba(0,0,0,.5))}.dl-coinface.done{animation:dlSpin .8s ease-out}
+@keyframes dlSpin{from{transform:rotateY(0)}to{transform:rotateY(1080deg)}}
+.dl-coinres{font:900 36px var(--f-head,system-ui);color:#ffc93c}
+.dl-hist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.dl-h{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.05);font-size:14px}
+.dl-h.win{background:rgba(53,214,161,.12)}.dl-h.lose{background:rgba(255,77,122,.12)}
+.dl-games{display:grid;gap:8px}
+.dl-game{display:grid;grid-template-columns:54px 1fr;grid-template-areas:"i t" "i d";align-items:center;column-gap:10px;text-align:left;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);border-radius:12px;padding:10px 12px;cursor:pointer}
+.dl-game span{grid-area:i;font-size:30px;text-align:center}.dl-game b{grid-area:t}.dl-game small{grid-area:d;color:var(--fg-2)}
+.dl-game.sel{border-color:#8b5cff;background:rgba(139,92,255,.2)}.dl-game:disabled{opacity:.5}
 .cas-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:28px;align-items:start}
 @media (max-width:900px){.cas-wrap{grid-template-columns:1fr}}
 .cas-stage{position:relative;display:grid;place-items:center}
@@ -1237,6 +1266,6 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1795047398"></script>
-<script src="app.js?v=1795047398"></script>
+<script src="config.js?v=1795049091"></script>
+<script src="app.js?v=1795049091"></script>
 </body></html>

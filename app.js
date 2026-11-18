@@ -986,6 +986,7 @@ function casinoHTML(){
   if (CAS.game === 'hilo') return hiloPage();
   if (CAS.game === 'tower') return towerPage();
   if (CAS.game === 'bj21') return bj21Page();
+  if (CAS.game === 'duel') return duelPage();
   return rouletteHTML();
 }
 function rouletteHTML(){
@@ -1101,6 +1102,13 @@ function casinoInit(){
     else if (v === 'b21cancel') b21Call('bj21_cancel', {p_id: B21.m.id}, function(){ B21.m = null; B21.sig = ''; b21Bal(); toast('Match annulé : mise rendue.'); render(); b21Sync(); });
     else if (v === 'b21hit' || v === 'b21stand') b21Call('bj21_action', {p_id: B21.m.id, p_act: v === 'b21hit' ? 'hit' : 'stand'}, function(m){ b21Set(m); B21.sig = ''; tickSound(); render(); });
     else if (v === 'b21back') { B21.m = null; B21.sig = ''; render(); b21Sync(); }
+    else if (v.indexOf('dlgame:') === 0) { DL.game = v.slice(7); render(); }
+    else if (v.indexOf('dlside:') === 0) { DL.side = v.slice(7); render(); }
+    else if (v === 'dlcreate') dlCall('duel_create', {p_game: DL.game, p_stake: gStakeVal('dl'), p_opt: DL.game === 'coin' ? DL.side : null}, function(m){ dlSet(m); DL.sig = ''; b21Bal(); render(); });
+    else if (v.indexOf('dljoin:') === 0) { var did = v.slice(7); dlCall('duel_join', {p_id: did}, function(m){ DL.open = DL.open.filter(function(x){ return x.id !== did; }); dlSet(m); DL.sig = ''; b21Bal(); tickSound(); render(); if (m.status === 'done') { toast(m.result === 'win' ? '🎉 Tu gagnes ' + ccn(m.stake) + ' !' : 'Perdu, tu laisses ' + ccn(m.stake)); } }); }
+    else if (v === 'dlcancel') dlCall('duel_cancel', {p_id: DL.m.id}, function(){ DL.m = null; DL.sig = ''; b21Bal(); toast('Duel annulé : mise rendue.'); render(); dlSync(); });
+    else if (v.indexOf('dlpick:') === 0 || v === 'dldraw' || v === 'dlroll') dlCall('duel_action', {p_id: DL.m.id, p_act: v === 'dldraw' ? 'draw' : v === 'dlroll' ? 'roll' : v.slice(7)}, function(m){ dlSet(m); DL.sig = ''; tickSound(); render(); });
+    else if (v === 'dlback') { DL.m = null; DL.sig = ''; render(); dlSync(); }
     else if (v === 'twcash') twCash();
     else if (v.indexOf('twpick:') === 0) twPick(parseInt(v.slice(7), 10));
     else if (v.indexOf('twdiff:') === 0) { TW.diff = v.slice(7); render(); }
@@ -1154,7 +1162,7 @@ function casinoInit(){
 
 /* ---------- casino : onglets, machine à sous et poulet qui traverse ---------- */
 function casinoTabsHTML(){
-  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack'], ['mines', '⛏️ Legacy Miner'], ['plinko', '🔻 Plinko'], ['hilo', '↕️ Hi-Lo'], ['tower', '🗼 Tower'], ['bj21', '🆚 Blackjack 1v1']];
+  var tabs = [['roulette', '🎡 Roulette'], ['slots', '🎰 Machine à sous'], ['chicken', '🐔 Poulet'], ['blackjack', '🃏 Blackjack'], ['mines', '⛏️ Legacy Miner'], ['plinko', '🔻 Plinko'], ['hilo', '↕️ Hi-Lo'], ['tower', '🗼 Tower'], ['bj21', '🆚 Blackjack 1v1'], ['duel', '🎭 Mini-jeux 1v1']];
   return '<div class="tabs cas-tabs" role="tablist">' + tabs.map(function(t){ return '<button type="button" role="tab" aria-selected="' + (CAS.game === t[0]) + '" data-cas="game:' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
 }
 function casinoHeroHTML(){
@@ -1167,8 +1175,8 @@ function casinoGameShell(vip, stageHTML, sideHTML, wide){
 }
 
 /* --- mise : jetons, ALL-IN et montant libre (commun aux deux jeux) --- */
-var GS = {slots: 1, chicken: 1, bj: 1, mn: 1, plk: 1, hl: 1, tw: 1, b21: 1};
-var GSYNC = {slots: ['sl-spin', '🎰 LANCER · '], chicken: ['ch-start', '🐔 JOUER · '], bj: ['bj-start', '🃏 DISTRIBUER · '], mn: ['mn-start', '⛏️ JOUER · '], plk: ['plk-go', '🔻 LÂCHER LA BILLE · '], hl: ['hl-start', '↕️ JOUER · '], tw: ['tw-start', '🗼 GRIMPER · '], b21: ['b21-create', '🆚 CRÉER LE MATCH · ']};
+var GS = {slots: 1, chicken: 1, bj: 1, mn: 1, plk: 1, hl: 1, tw: 1, b21: 1, dl: 1};
+var GSYNC = {slots: ['sl-spin', '🎰 LANCER · '], chicken: ['ch-start', '🐔 JOUER · '], bj: ['bj-start', '🃏 DISTRIBUER · '], mn: ['mn-start', '⛏️ JOUER · '], plk: ['plk-go', '🔻 LÂCHER LA BILLE · '], hl: ['hl-start', '↕️ JOUER · '], tw: ['tw-start', '🗼 GRIMPER · '], b21: ['b21-create', '🆚 CRÉER LE MATCH · '], dl: ['dl-create', '🎭 LANCER LE DUEL · ']};
 function gStakeVal(g){ var v = GS[g]; return v === 'all' ? Math.floor(ccBal() * 100) / 100 : (Math.round(v * 100) / 100 || 0); }
 function gStakeHTML(g, vip, lock){
   var cur = GS[g], chips = [1, 2, 5, 10, 25], off = !vip || lock ? ' disabled' : '';
@@ -1846,6 +1854,7 @@ function casinoReset(){
   HL.loaded = false; HL.loading = false; HL.g = null; HL.res = null; HL.hist = []; HL.busy = false;
   TW.loaded = false; TW.loading = false; TW.active = false; TW.traps = null; TW.res = null; TW.picks = []; TW.busy = false;
   B21.m = null; B21.open = []; B21.sig = ''; B21.loaded = false; B21.loading = false; B21.busy = false;
+  DL.m = null; DL.open = []; DL.sig = ''; DL.loaded = false; DL.loading = false; DL.busy = false;
   SL.res = null; SL.win = 0; SL.spinning = false; PL.res = null; PL.hist = []; PL.busy = false;
 }
 // garde-fou : si une animation du casino reste bloquée plus de 25 s, on débloque le site au lieu de le laisser figé
@@ -1964,7 +1973,7 @@ function b21Call(fn, args, after){
 
 /* ---------- historique casino (onglet du profil) ---------- */
 var histTab = 'coins', histGame = 'all', casHistCache = {};
-var HIST_GAMES = {roulette: '🎡 Roulette', slots: '🎰 Machine à sous', chicken: '🐔 Poulet', blackjack: '🃏 Blackjack', mines: '⛏️ Legacy Miner', plinko: '🔻 Plinko', hilo: '↕️ Hi-Lo', tower: '🗼 Tower', bj21: '🆚 Blackjack 1v1'};
+var HIST_GAMES = {roulette: '🎡 Roulette', slots: '🎰 Machine à sous', chicken: '🐔 Poulet', blackjack: '🃏 Blackjack', mines: '⛏️ Legacy Miner', plinko: '🔻 Plinko', hilo: '↕️ Hi-Lo', tower: '🗼 Tower', bj21: '🆚 Blackjack 1v1', duel: '🎭 Mini-jeux 1v1'};
 function histGameKey(bet){ return (bet === 'red' || bet === 'black' || bet === 'green') ? 'roulette' : bet; }
 function loadCasHist(pid){
   var c = casHistCache[pid]; if (c && c.loading) return;
@@ -2000,6 +2009,133 @@ function casinoHistHTML(pid){
   return html;
 }
 function tx0(pid){ return !!txCache[pid]; }
+
+/* =================== MINI-JEUX EN DUEL 1v1 (Caca-Pipi-Prout, carte, dés, pile ou face) =================== */
+var DL_GAMES = {
+  rps: ['💩💦💨', 'Caca-Pipi-Prout', 'Pierre-feuille-ciseaux version caca : le pipi lave le caca, le caca écrase le prout, le prout sèche le pipi. Premier à 2 manches.'],
+  card: ['🃏', 'Plus haute carte', 'Chacun tire une carte, la plus haute gagne (l\'As est la plus forte). Égalité : on retire.'],
+  dice: ['🎲', 'Duel de dés', 'Chacun lance 2 dés, le plus gros total gagne. Égalité : on relance.'],
+  coin: ['🪙', 'Pile ou face', 'Le créateur choisit pile ou face, la pièce décide tout de suite.']
+};
+var DL_RPS = {caca: ['💩', 'Caca'], pipi: ['💦', 'Pipi'], prout: ['💨', 'Prout']}, DL_DICE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+var DL = {open: [], m: null, busy: false, loaded: false, loading: false, game: 'rps', side: 'pile', tick: 0, sig: ''};
+function dlActive(){ return !!(DL.m && (DL.m.status === 'open' || DL.m.status === 'live')); }
+function dlSet(m){
+  var prev = DL.m; DL.m = m;
+  if (prev && prev.id === m.id && prev.status !== m.status) {
+    if (prev.status === 'open' && m.status === 'live') { toast('🎭 Un adversaire a rejoint ! À toi de jouer.'); winSound(0); b21Bal(); }
+    if (m.status === 'done') {
+      b21Bal(); var win = m.result === 'win';
+      toast(win ? '🎉 Tu gagnes ' + ccn(m.stake) + ' !' : 'Perdu, tu laisses ' + ccn(m.stake));
+      if (win) winSound(4); else beep(140, 0, 0.35, 'sawtooth', 0.12);
+    }
+    if (m.status === 'cancelled') { b21Bal(); toast('Duel annulé : mise rendue.'); }
+  }
+}
+function dlPaint(){
+  var sig = JSON.stringify([DL.open, DL.m]); if (sig === DL.sig) return; DL.sig = sig;
+  if (viewName() === 'casino' && CAS.game === 'duel' && !spinLock && !(typeof typing === 'function' && typing())) render();
+}
+function dlSync(){
+  if (DL.busy || DL.loading || !S.me || !me() || !me().vip) return;
+  DL.loading = true;
+  var p = dlActive()
+    ? sb.rpc('duel_state', {p_id: DL.m.id}).then(function(r){ if (r.error || !r.data) { DL.m = null; return; } dlSet(r.data); })
+    : sb.rpc('duel_list').then(function(r){
+        var d = r.data || {}; DL.open = d.open || [];
+        if (d.mine) return sb.rpc('duel_state', {p_id: d.mine}).then(function(r2){ if (!r2.error && r2.data) dlSet(r2.data); });
+      });
+  Promise.resolve(p).then(function(){ DL.loading = false; DL.loaded = true; dlPaint(); }, function(){ DL.loading = false; });
+}
+setInterval(function(){
+  if (viewName() !== 'casino' || CAS.game !== 'duel' || document.hidden) return;
+  DL.tick++;
+  if (dlActive() || !DL.loaded || DL.tick % 3 === 0) dlSync();
+}, 1500);
+function dlCall(fn, args, after){
+  if (DL.busy || !me() || !me().vip) return;
+  DL.busy = true; audio();
+  sb.rpc(fn, args || {}).then(function(r){
+    DL.busy = false;
+    if (r.error) { toast(cleanErr(r.error.message)); DL.sig = ''; dlSync(); return; }
+    after(r.data);
+  });
+}
+
+function dlDiceHTML(roll){ return roll ? '<span class="dl-dice">' + DL_DICE[roll[0] - 1] + '</span><span class="dl-dice">' + DL_DICE[roll[1] - 1] + '</span><b class="dl-sum">= ' + (roll[0] + roll[1]) + '</b>' : '<span class="dl-dice back">?</span><span class="dl-dice back">?</span>'; }
+function dlHistRow(game, h){
+  var l, mid = h.w === 'win' ? '✅' : h.w === 'lose' ? '❌' : '🤝';
+  if (game === 'rps') l = DL_RPS[h.mine][0] + ' contre ' + DL_RPS[h.opp][0];
+  else if (game === 'card') l = BJ_RANKS[h.mine % 13] + BJ_SUITS[Math.floor(h.mine / 13)] + ' contre ' + BJ_RANKS[h.opp % 13] + BJ_SUITS[Math.floor(h.opp / 13)];
+  else l = (h.mine[0] + h.mine[1]) + ' contre ' + (h.opp[0] + h.opp[1]);
+  return '<li class="dl-h ' + h.w + '"><span>' + l + '</span><b>' + mid + (h.w === 'win' ? ' gagné' : h.w === 'lose' ? ' perdu' : ' égalité') + '</b></li>';
+}
+function dlStage(m){
+  var oppId = m.me_a ? m.joiner : m.creator, p = oppId ? P(oppId) : null, g = m.game, top = '', body = '', hist = m.hist || [], last = hist.length ? hist[hist.length - 1] : null;
+  var oppState = m.status === 'open' ? 'en attente…' : m.status === 'done' ? 'terminé' : (g === 'coin' ? '' : (m.opp_ready ? 'a joué ✅' : 'réfléchit…'));
+  top = '<div class="dl-vs"><div class="dl-side">' + av(me() || {pseudo: '?'}, 'sm') + '<b>' + esc((me() || {}).pseudo || 'Toi') + '</b>' + (g === 'rps' ? '<i class="dl-score">' + (m.mine_score || 0) + '</i>' : '') + '</div><span class="dl-x">🆚</span><div class="dl-side">' +
+    (p ? av(p, 'sm') + '<b>' + nm(p) + '</b>' : '<b>⏳ Adversaire</b>') + (g === 'rps' ? '<i class="dl-score">' + (m.opp_score || 0) + '</i>' : '') + '<small>' + oppState + '</small></div></div>';
+  if (g === 'rps') {
+    body = '<div class="dl-picks">' + Object.keys(DL_RPS).map(function(k){
+      var sel = m.mypick === k, off = m.status !== 'live' || !!m.mypick || DL.busy;
+      return '<button type="button" class="dl-pick' + (sel ? ' sel' : '') + '" data-cas="dlpick:' + k + '"' + (off ? ' disabled' : '') + '><span>' + DL_RPS[k][0] + '</span><b>' + DL_RPS[k][1] + '</b></button>';
+    }).join('') + '</div><p class="dl-note">' + (m.status === 'live' ? (m.mypick ? 'Tu as choisi ' + DL_RPS[m.mypick][0] + ' · on attend ton adversaire…' : 'Choisis en secret : ton adversaire ne voit pas ton choix.') : '') + '</p>';
+  } else if (g === 'card') {
+    var showLast = !!last && ((m.mycard == null && !m.opp_ready) || m.status === 'done');
+    var mineC = m.mycard != null ? bjCard(m.mycard, 0, false) : (showLast ? bjCard(last.mine, 0, false) : bjBack());
+    var oppC = showLast ? bjCard(last.opp, 0, false) : bjBack();
+    body = '<div class="dl-cards"><div><small>Ta carte</small>' + mineC + '</div><span class="dl-x">VS</span><div><small>Sa carte</small>' + oppC + '</div></div>' +
+      '<div class="dl-picks"><button type="button" class="dl-pick" data-cas="dldraw"' + (m.status !== 'live' || m.mycard != null || DL.busy ? ' disabled' : '') + '><span>🃏</span><b>Tirer ma carte</b></button></div>';
+  } else if (g === 'dice') {
+    var showLastR = !!last && ((!m.myroll && !m.opp_ready) || m.status === 'done');
+    var mineR = m.myroll || (showLastR ? last.mine : null), oppR = showLastR ? last.opp : null;
+    body = '<div class="dl-cards"><div><small>Tes dés</small><div class="dl-dicerow">' + dlDiceHTML(mineR) + '</div></div><span class="dl-x">VS</span><div><small>Ses dés</small><div class="dl-dicerow">' + dlDiceHTML(oppR) + '</div></div></div>' +
+      '<div class="dl-picks"><button type="button" class="dl-pick" data-cas="dlroll"' + (m.status !== 'live' || m.myroll || DL.busy ? ' disabled' : '') + '><span>🎲</span><b>Lancer mes dés</b></button></div>';
+  } else {
+    var res = m.res, shown = m.status === 'done' ? (res === 'pile' ? 'PILE' : 'FACE') : '?';
+    body = '<div class="dl-coin"><div class="dl-coinface ' + (m.status === 'done' ? 'done' : '') + '">🪙</div><b class="dl-coinres">' + shown + '</b><p class="dl-note">Le créateur a pris <b>' + (m.opt === 'pile' ? 'PILE' : 'FACE') + '</b>.</p></div>';
+  }
+  var histHTML = hist.length ? '<ul class="dl-hist">' + hist.slice(-6).map(function(h){ return dlHistRow(g, h); }).join('') + '</ul>' : '';
+  return '<div class="dl-table">' + top + '<div class="dl-body">' + body + '</div>' + histHTML + '</div>';
+}
+function dlLobbyHTML(){
+  var rows = DL.open.map(function(x){
+    var p = P(x.creator), G = DL_GAMES[x.game] || ['🎮', x.game, ''];
+    return '<li class="b21-row"><span class="b21-who">' + av(p, 'sm') + '<b>' + nm(p) + '</b></span><span class="b21-stake">' + ccn(x.stake) + '</span><small class="b21-rule">' + G[0] + ' ' + G[1] + (x.game === 'coin' ? ' · il prend ' + (x.opt === 'pile' ? 'pile' : 'face') : '') + '</small>' +
+      '<button type="button" class="btn sm primary" data-cas="dljoin:' + esc(x.id) + '"' + (DL.busy || ccBal() < Number(x.stake) ? ' disabled' : '') + '>Rejoindre</button></li>';
+  }).join('');
+  return '<div class="b21-lobby"><div class="mn-title"><span class="g">MINI-JEUX</span> <span class="s">1v1</span><i class="mn-ball" aria-hidden="true">🎭</i></div>' +
+    '<h3 class="b21-h">Duels ouverts</h3>' + (rows ? '<ul class="b21-list">' + rows + '</ul>' : '<div class="empty"><b>Aucun duel ouvert pour le moment.</b>Lance le premier : un autre joueur pourra te défier !</div>') +
+    '<p class="help">La liste se met à jour toute seule.</p></div>';
+}
+function duelPage(){
+  var vip = !!(me() && me().vip), a = ccBal(), m = DL.m, st = gStakeVal('dl');
+  if (vip && !DL.loaded) dlSync();
+  var stage = m ? dlStage(m) : dlLobbyHTML(), side = '';
+  if (m && m.status === 'done') {
+    var win = m.result === 'win';
+    side += '<div class="cas-res ' + (win ? 'win' : 'lose') + '"><span class="cas-ball ' + (win ? 'green' : 'red') + '">' + DL_GAMES[m.game][0].slice(0, 2) + '</span><div><b>' + (win ? '🎉 Gagné · +' + ccn(m.stake) : 'Perdu · −' + ccn(m.stake)) + '</b><small>' + DL_GAMES[m.game][1] + '</small></div></div>';
+    side += '<button type="button" class="btn primary lg cas-go" data-cas="dlback">↩ Retour aux duels</button>';
+  } else if (m && m.status === 'cancelled') {
+    side += '<div class="cas-res win"><span class="cas-ball green">↩</span><div><b>Duel annulé</b><small>Ta mise t\'a été rendue.</small></div></div><button type="button" class="btn primary lg cas-go" data-cas="dlback">↩ Retour aux duels</button>';
+  } else if (m && m.status === 'open') {
+    side += '<div class="cas-res win"><span class="cas-ball green">⏳</span><div><b>Ton duel attend un adversaire</b><small>' + DL_GAMES[m.game][1] + ' · mise ' + ccn(m.stake) + ' bloquée · annulation automatique après 15 min.</small></div></div>';
+    side += '<button type="button" class="btn lg cas-cash" data-cas="dlcancel"' + (DL.busy ? ' disabled' : '') + '>Annuler et récupérer ma mise</button>';
+  } else if (m && m.status === 'live') {
+    side += '<div class="cas-res win"><span class="cas-ball green">' + DL_GAMES[m.game][0].slice(0, 2) + '</span><div><b>' + DL_GAMES[m.game][1] + '</b><small>Pot ' + ccn(m.stake * 2) + ' · le gagnant ramasse tout</small></div></div>';
+    side += '<p class="help">' + (m.idle_left != null ? 'Sans réponse en <b>' + m.idle_left + ' s</b>, un choix est fait au hasard pour toi.' : 'On attend ton adversaire…') + '</p>';
+  } else {
+    side += '<div class="dl-games" role="group" aria-label="Choisis ton mini-jeu">' + Object.keys(DL_GAMES).map(function(k){
+      return '<button type="button" class="dl-game' + (DL.game === k ? ' sel' : '') + '" data-cas="dlgame:' + k + '"' + (vip ? '' : ' disabled') + '><span>' + DL_GAMES[k][0] + '</span><b>' + DL_GAMES[k][1] + '</b><small>' + DL_GAMES[k][2] + '</small></button>';
+    }).join('') + '</div>';
+    if (DL.game === 'coin') side += '<div class="cas-stakes" role="group" aria-label="Ton côté"><span>Tu prends</span><button type="button" class="cas-chip' + (DL.side === 'pile' ? ' sel' : '') + '" data-cas="dlside:pile"' + (vip ? '' : ' disabled') + '>🪙 Pile</button><button type="button" class="cas-chip' + (DL.side === 'face' ? ' sel' : '') + '" data-cas="dlside:face"' + (vip ? '' : ' disabled') + '>🪙 Face</button></div>';
+    side += gStakeHTML('dl', vip, false);
+    side += '<button type="button" class="btn primary lg cas-go" id="dl-create" data-cas="dlcreate"' + (!vip || DL.busy || !(st >= 0.1) || a < st ? ' disabled' : '') + '>🎭 LANCER LE DUEL · ' + ccn(st) + '</button>';
+    side += a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
+  }
+  side += '<details class="bj-howto"' + (m ? '' : ' open') + '><summary>❓ Comment ça marche ?</summary><ul class="cas-rules"><li>Tu choisis un <b>mini-jeu</b> et une <b>mise</b>. Un autre joueur te défie avec la même mise.</li><li>Le gagnant ramasse <b>les deux mises</b>. Aucune commission.</li><li>Les choix sont secrets jusqu\'à ce que les deux aient joué.</li><li>60 s sans jouer : un choix au hasard est fait pour toi. Pas de réponse en 15 min : duel annulé, mise rendue.</li></ul></details>';
+  return casinoGameShell(vip, stage, side);
+}
 
 /* ---------- tournois ---------- */
 var tourId = null;
