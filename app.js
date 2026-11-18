@@ -41,7 +41,7 @@ var S = {players: {}, matches: {}, bets: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, cc: Number(p.casino_coins) || 0, ccClaim: p.casino_claim_at ? Date.parse(p.casino_claim_at) : 0, lfm: p.lfm_until ? Date.parse(p.lfm_until) : 0, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || ''), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, esport: !!p.is_esport, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, cc: Number(p.casino_coins) || 0, ccClaim: p.casino_claim_at ? Date.parse(p.casino_claim_at) : 0, lfm: p.lfm_until ? Date.parse(p.lfm_until) : 0, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || (CASINO_TITLES[p.title] ? CASINO_TITLES[p.title][0] : '')), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, esport: !!p.is_esport, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, noBreak: !!m.no_break, killLead: m.kill_lead != null ? Number(m.kill_lead) : 1, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -902,14 +902,23 @@ function casinoShopHTML(){
   var packs = [[10, 0.5], [20, 1], [40, 2], [100, 5]];
   return '<section class="cc-shop"><p class="eyebrow">🎰 V-Coins</p><h2 class="sec shop-h">Échange tes V-Coins</h2><p class="help">Les V-Coins se gagnent au casino (réservé aux VIP). <b>20 VC = 1 coin</b>. Limite : 40 VC échangeables par jour (2 coins).</p>' +
     '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Ton solde</small><b>' + ccn(cc) + '</b></div></div><small class="cc-next">Échangé aujourd\'hui : ' + fmt(done) + ' / 40 VC</small><a class="btn sm" href="#casino">Aller au casino</a></div>' +
-    '<div class="shop-grid cc-packs">' + packs.map(function(p){ var off = cc < p[0] || p[0] > left; return '<div class="shop-item cc-pack"><b class="cc-in">' + ccn(p[0]) + '</b><span aria-hidden="true">→</span><b class="cc-out">' + cn(p[1]) + '</b><button type="button" class="btn sm primary" data-cas="exch:' + p[0] + '"' + (off ? ' disabled' : '') + '>Échanger</button></div>'; }).join('') + '</div></section>';
+    '<div class="shop-grid cc-packs">' + packs.map(function(p){ var off = cc < p[0] || p[0] > left; return '<div class="shop-item cc-pack"><b class="cc-in">' + ccn(p[0]) + '</b><span aria-hidden="true">→</span><b class="cc-out">' + cn(p[1]) + '</b><button type="button" class="btn sm primary" data-cas="exch:' + p[0] + '"' + (off ? ' disabled' : '') + '>Échanger</button></div>'; }).join('') + '</div></section>' + casinoTitlesHTML();
+}
+var CASINO_TITLES = {casino_rookie: ['🎲 Joueur du Casino', 50], casino_pro: ['🎰 Pro du Casino', 100], casino_high_roller: ['💎 High Roller', 200], casino_lucky: ['🍀 Lucky Seven', 300], casino_allin: ['🔥 All-In Legend', 500], casino_baron: ['👑 Baron du Casino', 800]};
+function casinoTitlesHTML(){
+  var p = me(), cc = ccBal();
+  return '<section><h2 class="sec shop-h">Titres exclusifs du casino</h2><p class="help" style="margin-bottom:12px">Impossibles à avoir autrement : ils s\'achètent uniquement en V-Coins, et s\'équipent comme les autres titres.</p><div class="title-grid">' + Object.keys(CASINO_TITLES).map(function(k){
+    var t = CASINO_TITLES[k], own = (p.owned || []).indexOf('title:' + k) >= 0, on = p.titleKey === k;   // pas hasItem : le VIP ne donne pas ces titres
+    var act = own ? (on ? '<button class="btn sm ghost" data-act="equip-title" data-key="">Retirer</button>' : '<button class="btn sm" data-act="equip-title" data-key="' + k + '">Équiper</button>') : '<button type="button" class="btn sm primary" data-cas="title:' + k + '"' + (cc < t[1] ? ' disabled' : '') + '>' + ccn(t[1]) + '</button>';
+    return '<div class="title-item casino' + (on ? ' on' : '') + '"><span class="ptitle casino">' + esc(t[0]) + '</span><div class="shop-act-row">' + act + '</div></div>';
+  }).join('') + '</div></section>';
 }
 var CAS = {bet: 'red', stake: 1, loaded: false, loading: false, hist: [], feed: [], today: 0, exToday: 0, res: null, busy: false};
 var CAS_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 var CAS_RED = {1: 1, 3: 1, 5: 1, 7: 1, 9: 1, 12: 1, 14: 1, 16: 1, 18: 1, 19: 1, 21: 1, 23: 1, 25: 1, 27: 1, 30: 1, 32: 1, 34: 1, 36: 1};
 var CAS_SEG = 360 / 37, CAS_CAP = 25, casRot = 0, casHit = -1;
 function casFree(){ return true; }   // mise libre (all-in et montant au choix) en permanence ; le plafond de gains de 25 coins/jour s'applique toujours
-var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 1.9, black: 1.9, green: 30}, CAS_MAXWIN = 10;
+var CAS_NAME = {red: 'rouge', black: 'noir', green: 'vert'}, CAS_MULT = {red: 1.9, black: 1.9, green: 30}, CAS_MAXWIN = Infinity;
 function casGain(st){ return Math.min(Math.round(st * (CAS_MULT[CAS.bet] - 1) * 100) / 100, CAS_MAXWIN); }
 function casMultTxt(c){ return 'x' + String(CAS_MULT[c]).replace('.', ','); }
 function casColor(n){ return n === 0 ? 'green' : CAS_RED[n] ? 'red' : 'black'; }
@@ -973,7 +982,7 @@ function casinoHTML(){
     h += '<div class="cas-hist"><small>Tes derniers numéros</small><div>' + (CAS.hist.length ? CAS.hist.map(function(x){ return '<span class="cas-ball sm ' + casColor(x.number) + '">' + x.number + '</span>'; }).join('') : '<em>Aucun lancer pour le moment.</em>') + '</div></div>';
     h += '<div class="cas-feed"><small>Derniers gains du casino</small>' + (CAS.feed.length ? '<ul>' + CAS.feed.filter(function(x){ return S.players[x.player]; }).map(function(x){ return '<li>' + av(P(x.player), 'sm') + '<span>' + nm(P(x.player)) + '</span><b>+' + ccn(Number(x.payout) - Number(x.stake)) + '</b></li>'; }).join('') + '</ul>' : '<em>Personne n\'a encore gagné aujourd\'hui.</em>') + '</div>';
   }
-  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Tu joues avec des <b>V-Coins (VC)</b> : bonus VIP de 50 VC par jour, échangeables en boutique (20 VC = 1 coin).</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Gain maximum par lancer : <b>' + ccn(CAS_MAXWIN) + '</b>.</li><li>Plafond de gains : <b>' + ccn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
+  h += '<ul class="cas-rules"><li>Roulette européenne : 37 cases (0 à 36). Le 0 est vert.</li><li>Tu joues avec des <b>V-Coins (VC)</b> : bonus VIP de 50 VC par jour, échangeables en boutique (20 VC = 1 coin).</li><li>Mise libre : choisis un montant (même avec des décimales) ou fais <b>🔥 ALL-IN</b>.</li><li>Plafond de gains : <b>' + ccn(CAS_CAP) + ' par jour</b>, pour garder une économie équilibrée' + '' + '.</li><li>Un lancer toutes les 4 secondes. Jeu 100 % virtuel, sans valeur réelle.</li></ul>';
   return h + '</div></div>';
 }
 
@@ -1042,6 +1051,15 @@ function casinoInit(){
       });
     }
     else if (v === 'shop-cc') { shopTab = 'casino'; if (viewName() === 'boutique') render(); else location.hash = '#boutique'; }
+    else if (v.indexOf('title:') === 0) {
+      var tk = v.slice(6);
+      sb.rpc('casino_buy_title', {p_key: tk}).then(function(r){
+        if (r.error) { toast(cleanErr(r.error.message)); return; }
+        var p2 = me(); if (p2) { p2.cc = Number(r.data.cc) || 0; p2.owned = (p2.owned || []).concat(['title:' + tk]); }
+        toast('Titre acheté : ' + CASINO_TITLES[tk][0] + ' ! Équipe-le juste en dessous.');
+        refresh().then(render, render);
+      });
+    }
     else if (v.indexOf('exch:') === 0) {
       sb.rpc('casino_exchange', {p_cc: parseInt(v.slice(5), 10)}).then(function(r){
         if (r.error) { toast(cleanErr(r.error.message)); return; }
@@ -1868,7 +1886,7 @@ var RARE_TITLES = {intouchable: ['Intouchable', 10], predateur: ['Prédateur', 1
   prodige: ['Prodige', 18], demi_dieu: ['Demi-Dieu', 20], inarretable: ['L\'Inarrêtable', 20], legende_vivante: ['Légende vivante', 25], patron: ['Le Patron', 25], champion_legacy: ['Champion de Legacy', 30],
   empereur: ['L\'Empereur', 35], maitre_du_jeu: ['Maître du jeu', 35], prince_legacy: ['Prince de Legacy', 40], seigneur_arene: ['Seigneur de l\'arène', 45], goat: ['Le G.O.A.T', 50], main_de_dieu: ['Main de Dieu', 60],
   immortel: ['Immortel', 75], divin: ['Divin', 100], roi_legacy: ['Roi de Legacy', 150], reine_legacy: ['Reine de Legacy', 150], eternel: ['L\'Éternel', 175]};
-function titleTier(k){ var r = RARE_TITLES[k]; return !r ? '' : r[1] >= 75 ? ' mythic' : r[1] >= 35 ? ' legend' : ' rare'; }
+function titleTier(k){ if (CASINO_TITLES[k]) return ' casino'; var r = RARE_TITLES[k]; return !r ? '' : r[1] >= 75 ? ' mythic' : r[1] >= 35 ? ' legend' : ' rare'; }
 Object.keys(RARE_TITLES).forEach(function(k){ TITLES[k] = RARE_TITLES[k][0]; });
 var LIMITED_UNTIL = Date.parse('2027-01-01T00:00:00+01:00');
 var CATALOG = {
