@@ -672,7 +672,8 @@ function profileHTML(){
   }
   if (isOwner()) html += ownerPanelHTML(pid);
   if (!own && !isOwner()) return html;
-  html += '<section><h2 class="sec" style="margin-bottom:14px">Historique des coins</h2>' + (own ? '<p class="help" style="margin:-6px 0 12px">Privé : toi seul vois ton historique.</p>' : '');
+  html += '<section><div class="tabs hist-tabs" role="tablist"><button type="button" role="tab" aria-selected="' + (histTab === 'coins') + '" data-act="hist-tab" data-tab="coins">🪙 Historique des coins</button><button type="button" role="tab" aria-selected="' + (histTab === 'casino') + '" data-act="hist-tab" data-tab="casino">🎰 Historique casino</button></div>' + (own ? '<p class="help" style="margin:10px 0 12px">Privé : toi seul vois ton historique.</p>' : '');
+  if (histTab === 'casino') return html + casinoHistHTML(pid) + '</section>';
   var tx = txCache[pid];
   if (!tx) { loadTx(pid); tx = 'loading'; }
   if (tx === 'loading') html += '<div class="empty">Chargement…</div>';
@@ -1837,6 +1838,7 @@ function twCash(){
 
 // remise à zéro de tous les jeux du casino (changement ou déconnexion de compte) : évite de voir la partie d'un autre joueur
 function casinoReset(){
+  casHistCache = {}; histTab = 'coins'; histGame = 'all';
   CAS.loaded = false; CAS.loading = false; CAS.by = {}; CAS.exToday = 0; CAS.res = null; CAS.hist = []; CAS.feed = []; CAS.busy = false;
   CH.loaded = false; CH.loading = false; CH.active = false; CH.step = 0; CH.res = null; CH.busy = false;
   BJ.loaded = false; BJ.loading = false; BJ.g = null; BJ.res = null; BJ.busy = false;
@@ -1959,6 +1961,45 @@ function b21Call(fn, args, after){
     after(r.data);
   });
 }
+
+/* ---------- historique casino (onglet du profil) ---------- */
+var histTab = 'coins', histGame = 'all', casHistCache = {};
+var HIST_GAMES = {roulette: '🎡 Roulette', slots: '🎰 Machine à sous', chicken: '🐔 Poulet', blackjack: '🃏 Blackjack', mines: '⛏️ Legacy Miner', plinko: '🔻 Plinko', hilo: '↕️ Hi-Lo', tower: '🗼 Tower', bj21: '🆚 Blackjack 1v1'};
+function histGameKey(bet){ return (bet === 'red' || bet === 'black' || bet === 'green') ? 'roulette' : bet; }
+function loadCasHist(pid){
+  var c = casHistCache[pid]; if (c && c.loading) return;
+  casHistCache[pid] = {rows: c ? c.rows : null, at: c ? c.at : 0, loading: true};
+  sb.from('casino_spins').select('id,bet,stake,payout,at').eq('player', pid).order('at', {ascending: false}).limit(300).then(function(r){
+    casHistCache[pid] = {rows: r.data || [], at: Date.now(), loading: false};
+    if (viewName() === 'profil' && histTab === 'casino') render();
+  });
+}
+function casinoHistHTML(pid){
+  var c = casHistCache[pid];
+  if (!c || (!c.loading && Date.now() - c.at > 15000)) loadCasHist(pid);
+  if (!c || !c.rows) return '<div class="empty">Chargement…</div>';
+  if (!tx0(pid)) loadTx(pid);
+  var rows = c.rows.map(function(x){ var k = histGameKey(x.bet); return {k: k, t: Date.parse(x.at), stake: Number(x.stake), pay: Number(x.payout), bet: x.bet}; });
+  var all = rows.length;
+  if (histGame !== 'all') rows = rows.filter(function(x){ return x.k === histGame; });
+  var staked = 0, back = 0; rows.forEach(function(x){ staked += x.stake; back += x.pay; });
+  var net = back - staked, wins = rows.filter(function(x){ return x.pay > x.stake; }).length;
+  var chips = '<div class="cas-stakes hist-games" role="group" aria-label="Filtrer par jeu"><button type="button" class="cas-chip' + (histGame === 'all' ? ' sel' : '') + '" data-act="hist-game" data-g="all">Tous</button>' +
+    Object.keys(HIST_GAMES).map(function(g){ return '<button type="button" class="cas-chip' + (histGame === g ? ' sel' : '') + '" data-act="hist-game" data-g="' + g + '">' + HIST_GAMES[g] + '</button>'; }).join('') + '</div>';
+  var html = chips + '<div class="pstats hist-sum"><div><b>' + rows.length + '</b><span>Parties</span></div><div><b>' + wins + '</b><span>Gagnées</span></div><div><b>' + fmt(staked) + '</b><span>VC misés</span></div><div><b>' + fmt(back) + '</b><span>VC récupérés</span></div><div><b class="' + (net > 0 ? 'pos' : net < 0 ? 'neg' : '') + '">' + (net > 0 ? '+' : net < 0 ? '−' : '') + fmt(Math.abs(net)) + '</b><span>Bilan</span></div></div>';
+  var ex = (txCache[pid] && txCache[pid] !== 'loading' ? txCache[pid] : []).filter(function(e){ return e.kind === 'casino_exchange' || e.kind === 'casino_buy'; }).map(function(e){ return {ex: e, t: Date.parse(e.at)}; });
+  var list = rows.map(function(x){ return {spin: x, t: x.t}; });
+  if (histGame === 'all') list = list.concat(ex);
+  list.sort(function(a, b){ return b.t - a.t; });
+  if (!list.length) return html + '<div class="empty"><b>Aucune partie pour le moment</b>Tes parties de casino apparaîtront ici.</div>';
+  html += '<ul class="hist">' + list.slice(0, 200).map(function(it){
+    if (it.ex) { var d = Number(it.ex.delta); return '<li><div class="t"><b>' + esc(TX_LABEL[it.ex.kind] || it.ex.kind) + '</b><small>' + (it.ex.note ? esc(it.ex.note) + ' · ' : '') + ago(it.t) + '</small></div><span class="amt ' + (d > 0 ? 'pos' : 'neg') + '">' + (d > 0 ? '+' : '−') + fmt(Math.abs(d)) + ' ' + COIN + '</span></li>'; }
+    var x = it.spin, n = x.pay - x.stake, lab = HIST_GAMES[x.k] + (x.k === 'roulette' ? ' · ' + (x.bet === 'red' ? 'rouge' : x.bet === 'black' ? 'noir' : 'vert') : '');
+    return '<li><div class="t"><b>' + lab + '</b><small>Mise ' + fmt(x.stake) + ' VC' + (x.pay > 0 ? ' · reçu ' + fmt(x.pay) + ' VC' : '') + ' · ' + ago(it.t) + '</small></div><span class="amt ' + (n > 0 ? 'pos' : n < 0 ? 'neg' : 'gift-cls') + '">' + (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n)) + ' VC</span></li>';
+  }).join('') + '</ul>' + (list.length > 200 ? '<p class="help">Les 200 plus récentes sont affichées.</p>' : '');
+  return html;
+}
+function tx0(pid){ return !!txCache[pid]; }
 
 /* ---------- tournois ---------- */
 var tourId = null;
@@ -3735,6 +3776,8 @@ function act(name, el){
     case 'custom-delete': if (!confirm('Supprimer DÉFINITIVEMENT cette partie perso ? Elle disparaîtra complètement.')) break; customId = null; doRpc('delete_custom', {cid: d.id}, 'Partie perso supprimée définitivement.'); break;
     case 'tour-win': if (!confirm(P(d.pid).pseudo + ' a gagné ce match ?')) break; doRpc('set_tournament_winner', {tid: d.id, p_round: parseInt(d.round, 10), p_slot: parseInt(d.slot, 10), p_winner: d.pid}, P(d.pid).pseudo + ' passe au tour suivant !'); break;
     case 'shop-tab': shopTab = d.tab; render(); break;
+    case 'hist-tab': histTab = d.tab; render(); break;
+    case 'hist-game': histGame = d.g; render(); break;
     case 'equip': doRpc('set_equip', {p_slot: d.slot, p_item: d.item || null}, d.item ? itemName(d.item) + ' équipé !' : 'Retiré.'); break;
     case 'pin': if (!confirm('Épingler ce défi en haut de l\'arène pendant 1 heure pour ' + cn(3) + ' ?')) break; doRpc('pin_match', {mid: d.id}, 'Défi épinglé pour 1 heure !'); break;
     case 'buy-item':
