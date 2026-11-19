@@ -910,11 +910,11 @@ function casinoShopHTML(){
     var left = CASINO_SHOP_CLOSED_UNTIL - Date.now(), hh = Math.floor(left / 3600e3), mm = Math.ceil((left % 3600e3) / 60e3);
     return '<section class="cc-shop"><p class="eyebrow">🎰 V-Coins</p><h2 class="sec shop-h">🔒 La boutique du casino est fermée ce soir</h2><div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Tes V-Coins</small><b>' + ccn(ccBal()) + '</b></div></div><small class="cc-next">Réouverture dans environ ' + (hh ? hh + ' h ' : '') + mm + ' min (à 3 h 47)</small><a class="btn sm" href="#casino">Aller au casino</a></div><p class="help">Les échanges de V-Coins, les achats de V-Coins et les titres du casino sont indisponibles pour le moment. Le casino, lui, reste ouvert.</p></section>';
   }
-  var cc = ccBal(), done = CAS.exToday || 0, left = Math.max(0, 160 - done);
+  var cc = ccBal(), done = CAS.exToday || 0, left = 1e9;
   if (!CAS.loaded) casinoLoad();
   var packs = [[40, 0.5], [80, 1], [160, 2], [400, 5]];
-  return '<section class="cc-shop"><p class="eyebrow">🎰 V-Coins</p><h2 class="sec shop-h">Échange tes V-Coins</h2><p class="help">Les V-Coins se gagnent au casino (réservé aux VIP). <b>80 VC = 1 coin</b>. Limite : 160 VC échangeables par jour (2 coins).</p>' +
-    '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Ton solde</small><b>' + ccn(cc) + '</b></div></div><small class="cc-next">Échangé aujourd\'hui : ' + fmt(done) + ' / 160 VC</small><a class="btn sm" href="#casino">Aller au casino</a></div>' +
+  return '<section class="cc-shop"><p class="eyebrow">🎰 V-Coins</p><h2 class="sec shop-h">Échange tes V-Coins</h2><p class="help">Les V-Coins se gagnent au casino (réservé aux VIP). <b>80 VC = 1 coin</b>. Aucune limite par jour.</p>' +
+    '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Ton solde</small><b>' + ccn(cc) + '</b></div></div><small class="cc-next">Échangé aujourd\'hui : ' + fmt(done) + ' VC · sans limite</small><a class="btn sm" href="#casino">Aller au casino</a></div>' +
     '<div class="shop-grid cc-packs">' + packs.map(function(p){ var off = cc < p[0] || p[0] > left; return '<div class="shop-item cc-pack"><b class="cc-in">' + ccn(p[0]) + '</b><span aria-hidden="true">→</span><b class="cc-out">' + cn(p[1]) + '</b><button type="button" class="btn sm primary" data-cas="exch:' + p[0] + '"' + (off ? ' disabled' : '') + '>Échanger</button></div>'; }).join('') + '</div></section>' + casinoBuyHTML() + casinoTitlesHTML();
 }
 var CASINO_TITLES = {casino_rookie: ['🎲 Joueur du Casino', 150], casino_pro: ['🎰 Pro du Casino', 300], casino_high_roller: ['💎 High Roller', 600], casino_lucky: ['🍀 Lucky Seven', 900], casino_allin: ['🔥 All-In Legend', 1500], casino_baron: ['👑 Baron du Casino', 2400]};
