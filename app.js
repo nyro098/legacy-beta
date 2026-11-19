@@ -1104,10 +1104,12 @@ function casinoInit(){
     else if (v === 'b21back') { B21.m = null; B21.sig = ''; render(); b21Sync(); }
     else if (v.indexOf('dlgame:') === 0) { DL.game = v.slice(7); render(); }
     else if (v.indexOf('dlside:') === 0) { DL.side = v.slice(7); render(); }
-    else if (v === 'dlcreate') dlCall('duel_create', {p_game: DL.game, p_stake: gStakeVal('dl'), p_opt: DL.game === 'coin' ? DL.side : null}, function(m){ dlSet(m); DL.sig = ''; b21Bal(); render(); });
-    else if (v.indexOf('dljoin:') === 0) { var did = v.slice(7); dlCall('duel_join', {p_id: did}, function(m){ DL.open = DL.open.filter(function(x){ return x.id !== did; }); dlSet(m); DL.sig = ''; b21Bal(); tickSound(); render(); if (m.status === 'done') { toast(m.result === 'win' ? '🎉 Tu gagnes ' + ccn(m.stake) + ' !' : 'Perdu, tu laisses ' + ccn(m.stake)); } }); }
+    else if (v.indexOf('dlchick:') === 0) { DL.chick = v.slice(8); render(); }
+    else if (v.indexOf('dlact:') === 0) dlCall('duel_action', {p_id: DL.m.id, p_act: v.slice(6)}, function(m){ dlSet(m); DL.sig = dlSigNow(); tickSound(); render(); });
+    else if (v === 'dlcreate') dlCall('duel_create', {p_game: DL.game, p_stake: gStakeVal('dl'), p_opt: DL.game === 'coin' ? DL.side : DL.game === 'race' ? DL.chick : null}, function(m){ dlSet(m); DL.sig = dlSigNow(); b21Bal(); render(); });
+    else if (v.indexOf('dljoin:') === 0) { var did = v.slice(7); dlCall('duel_join', {p_id: did}, function(m){ DL.open = DL.open.filter(function(x){ return x.id !== did; }); dlSet(m); DL.sig = dlSigNow(); if (m.status !== 'done') b21Bal(); tickSound(); render(); }); }
     else if (v === 'dlcancel') dlCall('duel_cancel', {p_id: DL.m.id}, function(){ DL.m = null; DL.sig = ''; b21Bal(); toast('Duel annulé : mise rendue.'); render(); dlSync(); });
-    else if (v.indexOf('dlpick:') === 0 || v === 'dldraw' || v === 'dlroll') dlCall('duel_action', {p_id: DL.m.id, p_act: v === 'dldraw' ? 'draw' : v === 'dlroll' ? 'roll' : v.slice(7)}, function(m){ dlSet(m); DL.sig = ''; tickSound(); render(); });
+    else if (v.indexOf('dlpick:') === 0 || v === 'dldraw' || v === 'dlroll') dlCall('duel_action', {p_id: DL.m.id, p_act: v === 'dldraw' ? 'draw' : v === 'dlroll' ? 'roll' : v.slice(7)}, function(m){ dlSet(m); DL.sig = dlSigNow(); tickSound(); render(); });
     else if (v === 'dlback') { DL.m = null; DL.sig = ''; render(); dlSync(); }
     else if (v === 'twcash') twCash();
     else if (v.indexOf('twpick:') === 0) twPick(parseInt(v.slice(7), 10));
@@ -2010,31 +2012,51 @@ function casinoHistHTML(pid){
 }
 function tx0(pid){ return !!txCache[pid]; }
 
-/* =================== MINI-JEUX EN DUEL 1v1 (Caca-Pipi-Prout, carte, dés, pile ou face) =================== */
+/* =================== MINI-JEUX EN DUEL 1v1 (animés) =================== */
 var DL_GAMES = {
-  rps: ['💩💦💨', 'Caca-Pipi-Prout', 'Pierre-feuille-ciseaux version caca : le pipi lave le caca, le caca écrase le prout, le prout sèche le pipi. Premier à 2 manches.'],
-  card: ['🃏', 'Plus haute carte', 'Chacun tire une carte, la plus haute gagne (l\'As est la plus forte). Égalité : on retire.'],
+  race: ['🐔🏁', 'Course de poulets', 'Tu choisis ton poulet, l\'adversaire en reçoit un autre. 4 poulets courent : le mieux classé des deux gagne.'],
+  darts: ['🎯', 'Fléchettes', '3 fléchettes chacun, le plus gros score gagne. Le centre vaut 10 points !'],
+  west: ['🤠', 'Duel du Far West', 'Attends le signal FEU ! puis tire avant l\'autre. Tirer trop tôt = perdu.'],
+  gun: ['💦', 'Pistolet à eau', 'À tour de rôle, on appuie sur la gâchette : 1 coup sur 6 est chargé. Celui qui se mouille perd.'],
+  balloon: ['🎈', 'Le ballon', 'À tour de rôle on gonfle de 1, 2 ou 3 coups. Celui qui fait éclater le ballon perd !'],
+  wheel: ['🎡', 'Roue de la fortune', 'Chacun fait tourner la roue (de 5 à 100). Le plus gros score gagne.'],
   dice: ['🎲', 'Duel de dés', 'Chacun lance 2 dés, le plus gros total gagne. Égalité : on relance.'],
-  coin: ['🪙', 'Pile ou face', 'Le créateur choisit pile ou face, la pièce décide tout de suite.']
+  coin: ['🪙', 'Pile ou face', 'Le créateur choisit pile ou face, la pièce décide tout de suite.'],
+  card: ['🃏', 'Plus haute carte', 'Chacun tire une carte, la plus haute gagne (l\'As est la plus forte). Égalité : on retire.'],
+  rps: ['💩💦💨', 'Caca-Pipi-Prout', 'Le pipi lave le caca, le caca écrase le prout, le prout sèche le pipi. Premier à 2 manches.']
 };
+var DL_ORDER = ['race', 'darts', 'west', 'gun', 'balloon', 'wheel', 'dice', 'coin', 'card', 'rps'];
+var DL_HOLD = {rps: 1500, card: 1500, dice: 1700, coin: 1800, race: 5400, darts: 3000, west: 1600, gun: 1800, balloon: 1500, wheel: 3600};
 var DL_RPS = {caca: ['💩', 'Caca'], pipi: ['💦', 'Pipi'], prout: ['💨', 'Prout']}, DL_DICE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-var DL = {open: [], m: null, busy: false, loaded: false, loading: false, game: 'rps', side: 'pile', tick: 0, sig: ''};
+var DL_CHICK = {red: ['#ff4d7a', 'Rouge'], blue: ['#3aa0ff', 'Bleu'], green: ['#35d6a1', 'Vert'], yellow: ['#ffc93c', 'Jaune']};
+var DL_WV = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 100];
+var DL = {open: [], m: null, busy: false, loaded: false, loading: false, game: 'race', side: 'pile', chick: 'red', tick: 0, sig: '', played: {}, shown: {}, bp: {}, hold: 0, heldOnce: false};
 function dlActive(){ return !!(DL.m && (DL.m.status === 'open' || DL.m.status === 'live')); }
+function dlSigNow(){ return JSON.stringify([DL.open, DL.m]); }
+function dlOnPage(){ return viewName() === 'casino' && CAS.game === 'duel' && !spinLock && !(typeof typing === 'function' && typing()); }
+function dlFresh(k){ return !DL.played[k]; }
+function dlFxA(k){ return ' data-fxkey="' + k + '"'; }
 function dlSet(m){
   var prev = DL.m; DL.m = m;
-  if (prev && prev.id === m.id && prev.status !== m.status) {
-    if (prev.status === 'open' && m.status === 'live') { toast('🎭 Un adversaire a rejoint ! À toi de jouer.'); winSound(0); b21Bal(); }
-    if (m.status === 'done') {
-      b21Bal(); var win = m.result === 'win';
+  if (prev && prev.id === m.id && prev.status === 'open' && m.status === 'live') { toast('🎭 Un adversaire a rejoint ! À toi de jouer.'); winSound(0); b21Bal(); }
+  if (m.game === 'west' && prev && prev.id === m.id && !prev.go && m.go && m.status === 'live') beep(880, 0, 0.3, 'square', 0.2);
+  if (m.status === 'done' && !DL.shown[m.id] && !(prev && prev.id === m.id && prev.status === 'done')) {
+    DL.shown[m.id] = 1; var T = DL_HOLD[m.game] || 1500; DL.hold = Date.now() + T; DL.heldOnce = false;
+    setTimeout(function(){
+      DL.hold = 0; b21Bal();
+      var win = m.result === 'win';
       toast(win ? '🎉 Tu gagnes ' + ccn(m.stake) + ' !' : 'Perdu, tu laisses ' + ccn(m.stake));
       if (win) winSound(4); else beep(140, 0, 0.35, 'sawtooth', 0.12);
-    }
-    if (m.status === 'cancelled') { b21Bal(); toast('Duel annulé : mise rendue.'); }
+      if (dlOnPage()) { render(); DL.sig = dlSigNow(); }
+    }, T);
   }
+  if (m.status === 'cancelled' && prev && prev.status !== 'cancelled') { b21Bal(); toast('Duel annulé : mise rendue.'); }
 }
 function dlPaint(){
-  var sig = JSON.stringify([DL.open, DL.m]); if (sig === DL.sig) return; DL.sig = sig;
-  if (viewName() === 'casino' && CAS.game === 'duel' && !spinLock && !(typeof typing === 'function' && typing())) render();
+  var sig = dlSigNow(); if (sig === DL.sig) return;
+  if (DL.hold > Date.now()) { if (DL.heldOnce) return; DL.heldOnce = true; }
+  DL.sig = sig;
+  if (dlOnPage()) render();
 }
 function dlSync(){
   if (DL.busy || DL.loading || !S.me || !me() || !me().vip) return;
@@ -2052,6 +2074,9 @@ setInterval(function(){
   DL.tick++;
   if (dlActive() || !DL.loaded || DL.tick % 3 === 0) dlSync();
 }, 1500);
+setInterval(function(){   /* Far West : on guette le signal de très près */
+  if (viewName() === 'casino' && CAS.game === 'duel' && !document.hidden && DL.m && DL.m.game === 'west' && DL.m.status === 'live' && !DL.m.go) dlSync();
+}, 350);
 function dlCall(fn, args, after){
   if (DL.busy || !me() || !me().vip) return;
   DL.busy = true; audio();
@@ -2061,41 +2086,156 @@ function dlCall(fn, args, after){
     after(r.data);
   });
 }
+function dlFx(){
+  var els = document.querySelectorAll('[data-fxkey]'), i;
+  for (i = 0; i < els.length; i++) DL.played[els[i].getAttribute('data-fxkey')] = 1;
+  var bp = document.querySelectorAll('[data-bp]');
+  for (i = 0; i < bp.length; i++) DL.bp[bp[i].getAttribute('data-bpm')] = +bp[i].getAttribute('data-bp');
+  var cy = document.querySelectorAll('.dl-dice[data-cyc]');
+  for (i = 0; i < cy.length; i++) (function(e){
+    var f = +e.getAttribute('data-cyc'), t0 = Date.now(), iv = setInterval(function(){
+      if (!document.body.contains(e)) { clearInterval(iv); return; }
+      if (Date.now() - t0 > 900) { clearInterval(iv); e.textContent = DL_DICE[f]; beep(260, 0, 0.07, 'square', 0.07); return; }
+      e.textContent = DL_DICE[Math.floor(Math.random() * 6)];
+    }, 85);
+  })(cy[i]);
+  var rc = document.querySelectorAll('.dl-chick.go');
+  if (rc.length) beep(420, 0, 0.12, 'square', 0.08);
+}
 
-function dlDiceHTML(roll){ return roll ? '<span class="dl-dice">' + DL_DICE[roll[0] - 1] + '</span><span class="dl-dice">' + DL_DICE[roll[1] - 1] + '</span><b class="dl-sum">= ' + (roll[0] + roll[1]) + '</b>' : '<span class="dl-dice back">?</span><span class="dl-dice back">?</span>'; }
+function dlDiceHTML(roll, key){
+  if (!roll) return '<span class="dl-dice back">?</span><span class="dl-dice back">?</span>';
+  var fresh = dlFresh(key);
+  return roll.map(function(v, i){
+    return '<span class="dl-dice' + (fresh ? ' tumble' : '') + '"' + (fresh ? ' data-cyc="' + (v - 1) + '"' : '') + dlFxA(key) + ' style="animation-delay:' + (i * 0.14) + 's">' + (fresh ? DL_DICE[Math.floor(Math.random() * 6)] : DL_DICE[v - 1]) + '</span>';
+  }).join('') + '<b class="dl-sum' + (fresh ? ' late' : '') + '">= ' + (roll[0] + roll[1]) + '</b>';
+}
+function dlBoardHTML(mineD, oppD, kb){
+  var R = 90, rings = [1.0, 0.8, 0.55, 0.3, 0.12], cols = ['#2b2468', '#3a2f8a', '#5b3fc4', '#8b5cff', '#ffc93c'], s = '<svg class="dl-board" viewBox="-102 -102 204 204" aria-hidden="true">';
+  rings.forEach(function(r, i){ s += '<circle r="' + (r * R) + '" fill="' + cols[i] + '" stroke="rgba(255,255,255,.25)" stroke-width="1"/>'; });
+  function darts(o, col, key, d0){
+    if (!o) return ''; var fresh = dlFresh(key);
+    return o.d.map(function(x, i){
+      return '<circle class="dl-dart' + (fresh ? ' go' : '') + '"' + dlFxA(key) + ' cx="' + (Math.sin(x.t) * x.r * R).toFixed(1) + '" cy="' + (-Math.cos(x.t) * x.r * R).toFixed(1) + '" r="5" fill="' + col + '" stroke="#fff" stroke-width="1.6" style="animation-delay:' + (d0 + i * 0.55) + 's"/>';
+    }).join('');
+  }
+  s += darts(oppD, '#ff4d7a', kb + ':op', 0.3) + darts(mineD, '#35d6a1', kb + ':me', 0);
+  return s + '</svg>';
+}
+function dlWheelHTML(roll, key){
+  var fresh = !!roll && dlFresh(key), rot = roll ? 360 - (roll.i * 30 + 15) : 0, s = '<svg class="dl-wheel" viewBox="-110 -122 220 232" aria-hidden="true"><g class="dl-wg' + (fresh ? ' go' : '') + '"' + (roll ? dlFxA(key) : '') + ' style="--to:' + (rot + 1800) + 'deg;transform:rotate(' + rot + 'deg)">';
+  for (var i = 0; i < 12; i++) {
+    var a0 = i * 30 * Math.PI / 180, a1 = (i + 1) * 30 * Math.PI / 180, am = (i * 30 + 15), R = 100;
+    s += '<path d="M0,0 L' + (R * Math.sin(a0)).toFixed(1) + ',' + (-R * Math.cos(a0)).toFixed(1) + ' A' + R + ',' + R + ' 0 0 1 ' + (R * Math.sin(a1)).toFixed(1) + ',' + (-R * Math.cos(a1)).toFixed(1) + ' Z" fill="' + (DL_WV[i] === 100 ? '#ffc93c' : i % 2 ? '#5b3fc4' : '#3a2f8a') + '" stroke="rgba(255,255,255,.3)" stroke-width="1"/>';
+    s += '<text transform="rotate(' + am + ') translate(0,-72)" text-anchor="middle" font-size="15" font-weight="900" fill="' + (DL_WV[i] === 100 ? '#2a1d00' : '#fff') + '">' + DL_WV[i] + '</text>';
+  }
+  return s + '</g><circle r="9" fill="#fff"/><path d="M-10,-120 L10,-120 L0,-98 Z" fill="#ff4d7a" stroke="#fff" stroke-width="1.5"/></svg>';
+}
+function dlRaceHTML(m){
+  var done = m.status === 'done', key = m.id + ':race', fresh = done && dlFresh(key), mine = m.mine || m.opt, opp = m.oppchick, medals = ['🥇', '🥈', '🥉', '4️⃣'];
+  return '<div class="dl-race">' + ['red', 'blue', 'green', 'yellow'].map(function(c){
+    var place = done && m.order ? m.order.indexOf(c) : 0, d = 3 + place * 0.8, cls = c === mine ? ' me' : c === opp ? ' opp' : '';
+    return '<div class="dl-lane"><span class="dl-lbl" style="color:' + DL_CHICK[c][0] + '">' + DL_CHICK[c][1] + (c === mine ? '<small>TOI</small>' : c === opp ? '<small>LUI</small>' : '') + '</span>' +
+      '<div class="dl-track' + cls + '"><span class="dl-chick' + (!done ? ' start' : fresh ? ' go' : '') + '"' + (fresh ? dlFxA(key) : '') + ' style="--c:' + DL_CHICK[c][0] + ';--d:' + d + 's"><i class="dl-hop" style="--n:' + Math.ceil(d / 0.44) + '">🐔</i></span></div>' +
+      '<i class="dl-place' + (fresh ? ' late' : '') + '" style="animation-delay:' + d + 's">' + (done ? medals[place] : '') + '</i></div>';
+  }).join('') + '</div>' + (done ? '' : '<p class="dl-note">Ton poulet : <b style="color:' + DL_CHICK[mine][0] + '">' + DL_CHICK[mine][1] + '</b> · le poulet de ton adversaire sera tiré au sort.</p>');
+}
+function dlWestHTML(m){
+  var done = m.status === 'done', win = m.result === 'win', txt, cls = '', note = '';
+  if (!done) { txt = m.go ? '🔥 FEU ! 🔥' : '…'; cls = m.go ? ' fire' : ''; note = m.go ? 'TIRE !!!' : 'Attends le signal… Tirer trop tôt, tu perds !'; }
+  else if (m.early === true) { txt = '😬 Trop tôt !'; note = 'Tu as tiré avant le signal : faux départ.'; }
+  else if (m.early === false) { txt = '😂 Faux départ !'; note = 'Ton adversaire a tiré avant le signal.'; }
+  else if (m.first_me === true) { txt = '⚡ Plus rapide !'; note = 'Tu as tiré en ' + m.rt + ' ms.'; }
+  else if (m.first_me === false) { txt = '💨 Trop lent !'; note = 'Il a tiré en ' + m.rt + ' ms.'; }
+  else { txt = '🎲 Personne n\'ose'; note = 'Le hasard a tranché.'; }
+  var fresh = done && dlFresh(m.id + ':w');
+  function cow(lose){ return '<span class="dl-cow' + (done && lose ? ' lose' + (fresh ? ' go' : '') : '') + '"' + (done && lose && fresh ? dlFxA(m.id + ':w') : '') + '>🤠' + (done && lose ? '<i class="dl-boom' + (fresh ? ' go' : '') + '">💥</i>' : '') + '</span>'; }
+  return '<div class="dl-west">' + cow(!win) + '<div class="dl-wmid' + cls + '">' + txt + '</div>' + cow(win) + '</div><p class="dl-note">' + note + '</p>' +
+    (m.status === 'live' ? '<div class="dl-picks"><button type="button" class="dl-pick dl-shoot" data-cas="dlact:shoot"' + (DL.busy ? ' disabled' : '') + '><span>🔫</span><b>TIRER !</b></button></div>' : '');
+}
+function dlChips(hist, fmt){ return hist.length ? '<div class="dl-chips">' + hist.map(fmt).join('') + '</div>' : ''; }
+function dlGunHTML(m){
+  var pos = m.pos || 0, key = m.id + ':g' + pos, fresh = dlFresh(key), hist = m.hist || [], done = m.status === 'done', s = '', lastH = hist.length ? hist[hist.length - 1] : null;
+  s = '<svg class="dl-cyl" viewBox="-62 -66 124 128" aria-hidden="true"><g class="dl-cg' + (fresh && pos > 0 ? ' go' : '') + '"' + dlFxA(key) + ' style="--from:' + (-(pos - 1) * 60) + 'deg;--to:' + (-pos * 60) + 'deg;transform:rotate(' + (-pos * 60) + 'deg)"><circle r="50" fill="#2a2150" stroke="#8b5cff" stroke-width="2"/>';
+  for (var k = 0; k < 6; k++) {
+    var a = k * 60 * Math.PI / 180, fired = k < pos, bad = done && m.loaded === k;
+    s += '<circle cx="' + (34 * Math.sin(a)).toFixed(1) + '" cy="' + (-34 * Math.cos(a)).toFixed(1) + '" r="12" fill="' + (bad ? '#ff4d7a' : fired ? '#3aa0ff' : '#120f2a') + '" stroke="#fff" stroke-opacity=".5" stroke-width="1.5"/>';
+  }
+  s += '</g><circle r="6" fill="#8b5cff"/><path d="M-9,-64 L9,-64 L0,-48 Z" fill="#ffc93c"/></svg>';
+  var wetMe = done && lastH && lastH.who === 'me' && lastH.ok === false, wetOpp = done && lastH && lastH.who === 'opp' && lastH.ok === false;
+  s += '<div class="dl-faces"><span class="dl-face' + (wetMe ? ' wet' : '') + '">' + (wetMe ? '💦😵' : done ? '😎' : '😐') + '</span><span class="dl-face' + (wetOpp ? ' wet' : '') + '">' + (wetOpp ? '💦😵' : done ? '😎' : '😐') + '</span></div>';
+  s += dlChips(hist, function(h){ return '<span class="dl-chip' + (h.ok ? '' : ' ko') + '">' + (h.who === 'me' ? 'Toi' : 'Lui') + ' : ' + (h.ok ? 'clic 💧' : 'SPLASH 💦') + '</span>'; });
+  s += '<p class="dl-note">' + (m.status === 'live' ? (m.turn_me ? 'À toi ! Appuie sur la gâchette… 6 chambres, 1 seule chargée.' : 'Au tour de ton adversaire…') : done ? 'La chambre chargée était la n°' + (m.loaded + 1) + '.' : '') + '</p>';
+  if (m.status === 'live') s += '<div class="dl-picks"><button type="button" class="dl-pick" data-cas="dlact:pull"' + (!m.turn_me || DL.busy ? ' disabled' : '') + '><span>💦</span><b>Appuyer sur la gâchette</b></button></div>';
+  return s;
+}
+function dlBalloonHTML(m){
+  var pumps = m.pumps || 0, done = m.status === 'done', prev = DL.bp[m.id] || 0, hist = m.hist || [], fresh = !done && prev !== pumps, sc = 1 + pumps * 0.11, from = 1 + prev * 0.11;
+  var hue = Math.max(0, 150 - pumps * 7), col = 'hsl(' + hue + ',85%,55%)', s;
+  var popKey = m.id + ':pop', popFresh = done && dlFresh(popKey);
+  if (done) {
+    s = '<div class="dl-bwrap"' + (popFresh ? dlFxA(popKey) : '') + '><i class="dl-boomb' + (popFresh ? ' go' : '') + '">💥</i><b class="dl-popped' + (popFresh ? ' late' : '') + '">POP !</b></div>';
+  } else {
+    s = '<div class="dl-bwrap" data-bp="' + pumps + '" data-bpm="' + m.id + '"><div class="dl-bal' + (fresh ? ' go' : pumps >= 10 ? ' tense' : '') + '" style="--t:' + sc.toFixed(2) + ';--f:' + from.toFixed(2) + ';--bc:' + col + ';background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.55),transparent 38%),' + col + ';transform:scale(' + sc.toFixed(2) + ')"></div></div>';
+  }
+  s += dlChips(hist.slice(-8), function(h){ return '<span class="dl-chip">' + (h.who === 'me' ? 'Toi' : 'Lui') + ' +' + h.n + '</span>'; });
+  s += '<p class="dl-note">' + (m.status === 'live' ? (m.turn_me ? 'À toi : gonfle de 1, 2 ou 3 coups. Le ballon éclate à une taille secrète !' : 'Au tour de ton adversaire…') : done ? 'Le ballon tenait ' + m.limit + ' coups.' : '') + '</p>';
+  if (m.status === 'live') s += '<div class="dl-picks">' + [1, 2, 3].map(function(n){ return '<button type="button" class="dl-pick" data-cas="dlact:pump' + n + '"' + (!m.turn_me || DL.busy ? ' disabled' : '') + '><span>🎈</span><b>+' + n + ' coup' + (n > 1 ? 's' : '') + '</b></button>'; }).join('') + '</div>';
+  return s;
+}
 function dlHistRow(game, h){
   var l, mid = h.w === 'win' ? '✅' : h.w === 'lose' ? '❌' : '🤝';
   if (game === 'rps') l = DL_RPS[h.mine][0] + ' contre ' + DL_RPS[h.opp][0];
   else if (game === 'card') l = BJ_RANKS[h.mine % 13] + BJ_SUITS[Math.floor(h.mine / 13)] + ' contre ' + BJ_RANKS[h.opp % 13] + BJ_SUITS[Math.floor(h.opp / 13)];
+  else if (game === 'darts') l = h.mine.sum + ' pts contre ' + h.opp.sum + ' pts';
+  else if (game === 'wheel') l = h.mine.v + ' contre ' + h.opp.v;
   else l = (h.mine[0] + h.mine[1]) + ' contre ' + (h.opp[0] + h.opp[1]);
   return '<li class="dl-h ' + h.w + '"><span>' + l + '</span><b>' + mid + (h.w === 'win' ? ' gagné' : h.w === 'lose' ? ' perdu' : ' égalité') + '</b></li>';
 }
 function dlStage(m){
-  var oppId = m.me_a ? m.joiner : m.creator, p = oppId ? P(oppId) : null, g = m.game, top = '', body = '', hist = m.hist || [], last = hist.length ? hist[hist.length - 1] : null;
-  var oppState = m.status === 'open' ? 'en attente…' : m.status === 'done' ? 'terminé' : (g === 'coin' ? '' : (m.opp_ready ? 'a joué ✅' : 'réfléchit…'));
-  top = '<div class="dl-vs"><div class="dl-side">' + av(me() || {pseudo: '?'}, 'sm') + '<b>' + esc((me() || {}).pseudo || 'Toi') + '</b>' + (g === 'rps' ? '<i class="dl-score">' + (m.mine_score || 0) + '</i>' : '') + '</div><span class="dl-x">🆚</span><div class="dl-side">' +
+  var oppId = m.me_a ? m.joiner : m.creator, p = oppId ? P(oppId) : null, g = m.game, body = '', hist = m.hist || [], last = hist.length ? hist[hist.length - 1] : null, i;
+  var turnGame = (g === 'gun' || g === 'balloon');
+  var oppState = m.status === 'open' ? 'en attente…' : m.status === 'done' ? 'terminé' : (turnGame ? (m.turn_me ? 'attend ton coup' : 'son tour') : (g === 'coin' || g === 'race' || g === 'west') ? '' : (m.opp_ready ? 'a joué ✅' : 'réfléchit…'));
+  var top = '<div class="dl-vs"><div class="dl-side">' + av(me() || {pseudo: '?'}, 'sm') + '<b>' + esc((me() || {}).pseudo || 'Toi') + '</b>' + (g === 'rps' ? '<i class="dl-score">' + (m.mine_score || 0) + '</i>' : '') + '</div><span class="dl-x">🆚</span><div class="dl-side">' +
     (p ? av(p, 'sm') + '<b>' + nm(p) + '</b>' : '<b>⏳ Adversaire</b>') + (g === 'rps' ? '<i class="dl-score">' + (m.opp_score || 0) + '</i>' : '') + '<small>' + oppState + '</small></div></div>';
+  var histHTML = (hist.length && !turnGame && g !== 'race' && g !== 'west' && g !== 'coin') ? '<ul class="dl-hist">' + hist.slice(-6).map(function(h){ return dlHistRow(g, h); }).join('') + '</ul>' : '';
   if (g === 'rps') {
-    body = '<div class="dl-picks">' + Object.keys(DL_RPS).map(function(k){
+    var ck = last ? m.id + ':r' + (hist.length - 1) : '', cf = last && dlFresh(ck);
+    var clash = last && !m.mypick ? '<div class="dl-clash' + (cf ? ' go' : '') + '"' + (last ? dlFxA(ck) : '') + '><span class="l">' + DL_RPS[last.mine][0] + '</span><b>' + (last.w === 'win' ? '✅ Manche gagnée' : last.w === 'lose' ? '❌ Manche perdue' : '🤝 Égalité') + '</b><span class="r">' + DL_RPS[last.opp][0] + '</span></div>' : '';
+    body = clash + '<div class="dl-picks">' + Object.keys(DL_RPS).map(function(k){
       var sel = m.mypick === k, off = m.status !== 'live' || !!m.mypick || DL.busy;
       return '<button type="button" class="dl-pick' + (sel ? ' sel' : '') + '" data-cas="dlpick:' + k + '"' + (off ? ' disabled' : '') + '><span>' + DL_RPS[k][0] + '</span><b>' + DL_RPS[k][1] + '</b></button>';
     }).join('') + '</div><p class="dl-note">' + (m.status === 'live' ? (m.mypick ? 'Tu as choisi ' + DL_RPS[m.mypick][0] + ' · on attend ton adversaire…' : 'Choisis en secret : ton adversaire ne voit pas ton choix.') : '') + '</p>';
   } else if (g === 'card') {
-    var showLast = !!last && ((m.mycard == null && !m.opp_ready) || m.status === 'done');
-    var mineC = m.mycard != null ? bjCard(m.mycard, 0, false) : (showLast ? bjCard(last.mine, 0, false) : bjBack());
-    var oppC = showLast ? bjCard(last.opp, 0, false) : bjBack();
+    var showLast = !!last && ((m.mycard == null && !m.opp_ready) || m.status === 'done'), ri = showLast ? hist.length - 1 : hist.length, kb = m.id + ':c' + ri;
+    function flip(idx, k, d2){ if (idx == null) return bjBack(); var f = dlFresh(k); return '<div class="dl-flip' + (f ? (d2 ? ' go2' : ' go') : '') + '"' + dlFxA(k) + '>' + bjCard(idx, 0, false) + '</div>'; }
+    var mineC = m.mycard != null ? flip(m.mycard, kb + ':me') : (showLast ? flip(last.mine, kb + ':me') : bjBack());
+    var oppC = showLast ? flip(last.opp, kb + ':op', 1) : bjBack();
     body = '<div class="dl-cards"><div><small>Ta carte</small>' + mineC + '</div><span class="dl-x">VS</span><div><small>Sa carte</small>' + oppC + '</div></div>' +
       '<div class="dl-picks"><button type="button" class="dl-pick" data-cas="dldraw"' + (m.status !== 'live' || m.mycard != null || DL.busy ? ' disabled' : '') + '><span>🃏</span><b>Tirer ma carte</b></button></div>';
   } else if (g === 'dice') {
-    var showLastR = !!last && ((!m.myroll && !m.opp_ready) || m.status === 'done');
+    var showLastR = !!last && ((!m.myroll && !m.opp_ready) || m.status === 'done'), rj = showLastR ? hist.length - 1 : hist.length, kd = m.id + ':d' + rj;
     var mineR = m.myroll || (showLastR ? last.mine : null), oppR = showLastR ? last.opp : null;
-    body = '<div class="dl-cards"><div><small>Tes dés</small><div class="dl-dicerow">' + dlDiceHTML(mineR) + '</div></div><span class="dl-x">VS</span><div><small>Ses dés</small><div class="dl-dicerow">' + dlDiceHTML(oppR) + '</div></div></div>' +
+    body = '<div class="dl-cards"><div><small>Tes dés</small><div class="dl-dicerow">' + dlDiceHTML(mineR, kd + ':me') + '</div></div><span class="dl-x">VS</span><div><small>Ses dés</small><div class="dl-dicerow">' + dlDiceHTML(oppR, kd + ':op') + '</div></div></div>' +
       '<div class="dl-picks"><button type="button" class="dl-pick" data-cas="dlroll"' + (m.status !== 'live' || m.myroll || DL.busy ? ' disabled' : '') + '><span>🎲</span><b>Lancer mes dés</b></button></div>';
-  } else {
-    var res = m.res, shown = m.status === 'done' ? (res === 'pile' ? 'PILE' : 'FACE') : '?';
-    body = '<div class="dl-coin"><div class="dl-coinface ' + (m.status === 'done' ? 'done' : '') + '">🪙</div><b class="dl-coinres">' + shown + '</b><p class="dl-note">Le créateur a pris <b>' + (m.opt === 'pile' ? 'PILE' : 'FACE') + '</b>.</p></div>';
+  } else if (g === 'darts') {
+    var sl = !!last && ((!m.myroll && !m.opp_ready) || m.status === 'done'), rt = sl ? hist.length - 1 : hist.length, kt = m.id + ':t' + rt;
+    var mD = m.myroll || (sl ? last.mine : null), oD = sl ? last.opp : null;
+    body = dlBoardHTML(mD, oD, kt) + '<div class="dl-legend"><span><i style="background:#35d6a1"></i>Toi' + (mD ? ' · <b class="dl-sum' + (dlFresh(kt + ':me') ? ' late' : '') + '" style="animation-delay:1.9s">' + mD.sum + ' pts</b>' : '') + '</span><span><i style="background:#ff4d7a"></i>Lui' + (oD ? ' · <b class="dl-sum' + (dlFresh(kt + ':op') ? ' late' : '') + '" style="animation-delay:2.4s">' + oD.sum + ' pts</b>' : '') + '</span></div>' +
+      '<div class="dl-picks"><button type="button" class="dl-pick" data-cas="dlact:throw"' + (m.status !== 'live' || m.myroll || DL.busy ? ' disabled' : '') + '><span>🎯</span><b>Lancer mes 3 fléchettes</b></button></div>';
+  } else if (g === 'wheel') {
+    var sw = !!last && ((!m.myroll && !m.opp_ready) || m.status === 'done'), rw = sw ? hist.length - 1 : hist.length, kw = m.id + ':w' + rw;
+    var mW = m.myroll || (sw ? last.mine : null), oW = sw ? last.opp : null;
+    body = '<div class="dl-cards"><div><small>Ta roue</small>' + dlWheelHTML(mW, kw + ':me') + (mW ? '<b class="dl-sum' + (dlFresh(kw + ':me') ? ' late' : '') + '" style="animation-delay:3.1s">' + mW.v + '</b>' : '') + '</div><span class="dl-x">VS</span><div><small>Sa roue</small>' + dlWheelHTML(oW, kw + ':op') + (oW ? '<b class="dl-sum' + (dlFresh(kw + ':op') ? ' late' : '') + '" style="animation-delay:3.1s">' + oW.v + '</b>' : '') + '</div></div>' +
+      '<div class="dl-picks"><button type="button" class="dl-pick" data-cas="dlact:spin"' + (m.status !== 'live' || m.myroll || DL.busy ? ' disabled' : '') + '><span>🎡</span><b>Tourner la roue</b></button></div>';
+  } else if (g === 'race') body = dlRaceHTML(m);
+  else if (g === 'west') body = dlWestHTML(m);
+  else if (g === 'gun') body = dlGunHTML(m);
+  else if (g === 'balloon') body = dlBalloonHTML(m);
+  else {
+    var kc = m.id + ':coin', cfr = m.status === 'done' && dlFresh(kc), shown = m.status === 'done' ? (m.res === 'pile' ? 'PILE' : 'FACE') : '?';
+    body = '<div class="dl-coin"><div class="dl-coinface' + (cfr ? ' done' : '') + '"' + (m.status === 'done' ? dlFxA(kc) : '') + '>🪙</div><b class="dl-coinres' + (cfr ? ' late' : '') + '">' + shown + '</b><p class="dl-note">Le créateur a pris <b>' + (m.opt === 'pile' ? 'PILE' : 'FACE') + '</b>.</p></div>';
   }
-  var histHTML = hist.length ? '<ul class="dl-hist">' + hist.slice(-6).map(function(h){ return dlHistRow(g, h); }).join('') + '</ul>' : '';
   return '<div class="dl-table">' + top + '<div class="dl-body">' + body + '</div>' + histHTML + '</div>';
 }
 function dlLobbyHTML(){
@@ -2111,8 +2251,11 @@ function dlLobbyHTML(){
 function duelPage(){
   var vip = !!(me() && me().vip), a = ccBal(), m = DL.m, st = gStakeVal('dl');
   if (vip && !DL.loaded) dlSync();
-  var stage = m ? dlStage(m) : dlLobbyHTML(), side = '';
-  if (m && m.status === 'done') {
+  var stage = m ? dlStage(m) : dlLobbyHTML(), side = '', holding = !!(m && m.status === 'done' && DL.hold > Date.now());
+  if (m) setTimeout(dlFx, 40);
+  if (holding) {
+    side += '<div class="cas-res win"><span class="cas-ball green">🎬</span><div><b>Résultat en cours…</b><small>' + DL_GAMES[m.game][1] + ' · pot ' + ccn(m.stake * 2) + '</small></div></div>';
+  } else if (m && m.status === 'done') {
     var win = m.result === 'win';
     side += '<div class="cas-res ' + (win ? 'win' : 'lose') + '"><span class="cas-ball ' + (win ? 'green' : 'red') + '">' + DL_GAMES[m.game][0].slice(0, 2) + '</span><div><b>' + (win ? '🎉 Gagné · +' + ccn(m.stake) : 'Perdu · −' + ccn(m.stake)) + '</b><small>' + DL_GAMES[m.game][1] + '</small></div></div>';
     side += '<button type="button" class="btn primary lg cas-go" data-cas="dlback">↩ Retour aux duels</button>';
@@ -2123,17 +2266,18 @@ function duelPage(){
     side += '<button type="button" class="btn lg cas-cash" data-cas="dlcancel"' + (DL.busy ? ' disabled' : '') + '>Annuler et récupérer ma mise</button>';
   } else if (m && m.status === 'live') {
     side += '<div class="cas-res win"><span class="cas-ball green">' + DL_GAMES[m.game][0].slice(0, 2) + '</span><div><b>' + DL_GAMES[m.game][1] + '</b><small>Pot ' + ccn(m.stake * 2) + ' · le gagnant ramasse tout</small></div></div>';
-    side += '<p class="help">' + (m.idle_left != null ? 'Sans réponse en <b>' + m.idle_left + ' s</b>, un choix est fait au hasard pour toi.' : 'On attend ton adversaire…') + '</p>';
+    side += '<p class="help">' + (m.game === 'west' ? 'Reste concentré : tire dès que tu vois <b>FEU !</b>' : m.idle_left != null ? 'Sans réponse en <b>' + m.idle_left + ' s</b>, un choix est fait au hasard pour toi.' : 'On attend ton adversaire…') + '</p>';
   } else {
-    side += '<div class="dl-games" role="group" aria-label="Choisis ton mini-jeu">' + Object.keys(DL_GAMES).map(function(k){
+    side += '<div class="dl-games" role="group" aria-label="Choisis ton mini-jeu">' + DL_ORDER.map(function(k){
       return '<button type="button" class="dl-game' + (DL.game === k ? ' sel' : '') + '" data-cas="dlgame:' + k + '"' + (vip ? '' : ' disabled') + '><span>' + DL_GAMES[k][0] + '</span><b>' + DL_GAMES[k][1] + '</b><small>' + DL_GAMES[k][2] + '</small></button>';
     }).join('') + '</div>';
     if (DL.game === 'coin') side += '<div class="cas-stakes" role="group" aria-label="Ton côté"><span>Tu prends</span><button type="button" class="cas-chip' + (DL.side === 'pile' ? ' sel' : '') + '" data-cas="dlside:pile"' + (vip ? '' : ' disabled') + '>🪙 Pile</button><button type="button" class="cas-chip' + (DL.side === 'face' ? ' sel' : '') + '" data-cas="dlside:face"' + (vip ? '' : ' disabled') + '>🪙 Face</button></div>';
+    if (DL.game === 'race') side += '<div class="cas-stakes" role="group" aria-label="Ton poulet"><span>Ton poulet</span>' + Object.keys(DL_CHICK).map(function(c){ return '<button type="button" class="cas-chip' + (DL.chick === c ? ' sel' : '') + '" data-cas="dlchick:' + c + '"' + (vip ? '' : ' disabled') + ' style="color:' + DL_CHICK[c][0] + '">🐔 ' + DL_CHICK[c][1] + '</button>'; }).join('') + '</div>';
     side += gStakeHTML('dl', vip, false);
     side += '<button type="button" class="btn primary lg cas-go" id="dl-create" data-cas="dlcreate"' + (!vip || DL.busy || !(st >= 0.1) || a < st ? ' disabled' : '') + '>🎭 LANCER LE DUEL · ' + ccn(st) + '</button>';
     side += a < st ? '<p class="help cas-warn">Pas assez de V-Coins pour cette mise.</p>' : '';
   }
-  side += '<details class="bj-howto"' + (m ? '' : ' open') + '><summary>❓ Comment ça marche ?</summary><ul class="cas-rules"><li>Tu choisis un <b>mini-jeu</b> et une <b>mise</b>. Un autre joueur te défie avec la même mise.</li><li>Le gagnant ramasse <b>les deux mises</b>. Aucune commission.</li><li>Les choix sont secrets jusqu\'à ce que les deux aient joué.</li><li>60 s sans jouer : un choix au hasard est fait pour toi. Pas de réponse en 15 min : duel annulé, mise rendue.</li></ul></details>';
+  side += '<details class="bj-howto"' + (m ? '' : ' open') + '><summary>❓ Comment ça marche ?</summary><ul class="cas-rules"><li>Tu choisis un <b>mini-jeu</b> et une <b>mise</b>. Un autre joueur te défie avec la même mise.</li><li>Le gagnant ramasse <b>les deux mises</b>. Aucune commission.</li><li>Les choix et le hasard sont gérés par le serveur : personne ne peut tricher.</li><li>60 s sans jouer : un choix au hasard est fait pour toi. Pas de réponse en 15 min : duel annulé, mise rendue.</li></ul></details>';
   return casinoGameShell(vip, stage, side);
 }
 

@@ -1,4 +1,4 @@
-﻿<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1795049091">
+﻿<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="stylesheet" href="banners.css?v=1795046421">
 </head><body>
 <title>Legacy Â· DÃ©fis Fortnite gratuits (bÃªta)</title><link rel="icon" type="image/svg+xml" href="logo.svg"><meta name="description" content="Legacy : dÃ©fis Fortnite entre joueurs, 100 % gratuits. Lance un 1v1, 2v2 ou 3v3, mise des coins sans valeur rÃ©elle et grimpe au classement."><meta property="og:title" content="Legacy Â· DÃ©fis Fortnite gratuits"><meta property="og:description" content="DÃ©fis Fortnite entre joueurs, 100 % gratuits. Coins sans valeur rÃ©elle, classement, chat de match."><meta property="og:image" content="https://nyro098.github.io/legacy-beta/logo.svg"><link rel="canonical" href="https://nyro098.github.io/legacy-beta/">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -1156,6 +1156,76 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 .dl-game{display:grid;grid-template-columns:54px 1fr;grid-template-areas:"i t" "i d";align-items:center;column-gap:10px;text-align:left;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);border-radius:12px;padding:10px 12px;cursor:pointer}
 .dl-game span{grid-area:i;font-size:30px;text-align:center}.dl-game b{grid-area:t}.dl-game small{grid-area:d;color:var(--fg-2)}
 .dl-game.sel{border-color:#8b5cff;background:rgba(139,92,255,.2)}.dl-game:disabled{opacity:.5}
+/* ---- duels animés ---- */
+.dl-dice{display:inline-block}
+.dl-dice.tumble{animation:dlTumble 1s cubic-bezier(.3,.7,.4,1) both}
+@keyframes dlTumble{0%{transform:translateY(-90px) rotate(0) scale(.6);opacity:0}35%{transform:translateY(0) rotate(360deg) scale(1.15);opacity:1}55%{transform:translateY(-34px) rotate(560deg)}75%{transform:translateY(0) rotate(700deg)}88%{transform:translateY(-8px) rotate(720deg)}100%{transform:translateY(0) rotate(720deg) scale(1);opacity:1}}
+@keyframes dlIn{from{opacity:0;transform:translateY(8px) scale(.7)}to{opacity:1;transform:none}}
+.dl-sum.late{animation:dlIn .4s 1.05s both}
+.dl-coinface.done{animation:dlCoin 1.5s cubic-bezier(.3,.6,.4,1) both}
+@keyframes dlCoin{0%{transform:translateY(0) rotateY(0)}45%{transform:translateY(-120px) rotateY(1260deg) scale(1.3)}100%{transform:translateY(0) rotateY(2520deg) scale(1)}}
+.dl-coinres.late{animation:dlIn .4s 1.4s both}
+.dl-flip.go{animation:dlFlip .7s both}.dl-flip.go2{animation:dlFlip .7s .45s both}
+@keyframes dlFlip{from{transform:perspective(500px) rotateY(90deg) scale(.7);opacity:0}to{transform:perspective(500px) rotateY(0);opacity:1}}
+.dl-clash{display:flex;align-items:center;gap:18px;justify-content:center;min-height:90px}
+.dl-clash span{font-size:64px;display:inline-block}
+.dl-clash.go .l{animation:dlSlideL .7s ease-out both}.dl-clash.go .r{animation:dlSlideR .7s ease-out both}
+@keyframes dlSlideL{0%{transform:translateX(-160px) rotate(-40deg);opacity:0}70%{transform:translateX(14px) rotate(8deg);opacity:1}85%{transform:translateX(-6px)}100%{transform:none;opacity:1}}
+@keyframes dlSlideR{0%{transform:translateX(160px) rotate(40deg);opacity:0}70%{transform:translateX(-14px) rotate(-8deg);opacity:1}85%{transform:translateX(6px)}100%{transform:none;opacity:1}}
+.dl-clash b{font-size:15px}.dl-clash.go b{animation:dlIn .4s .65s both}
+/* course */
+.dl-race{display:grid;gap:8px;width:100%;max-width:560px}
+.dl-lane{display:grid;grid-template-columns:58px 1fr 28px;align-items:center;gap:8px}
+.dl-lbl{font:800 12px system-ui;display:grid}.dl-lbl small{font-size:10px;color:#fff;opacity:.8}
+.dl-track{position:relative;height:42px;border-radius:10px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 14px,rgba(255,255,255,.02) 14px 28px);border:1px solid rgba(255,255,255,.12);overflow:hidden}
+.dl-track::after{content:'🏁';position:absolute;right:4px;top:8px;opacity:.55}
+.dl-track.me{border-color:#35d6a1;box-shadow:0 0 12px rgba(53,214,161,.35)}.dl-track.opp{border-color:#ff4d7a;box-shadow:0 0 12px rgba(255,77,122,.3)}
+.dl-chick{position:absolute;top:3px;left:calc(100% - 52px);font-size:30px;filter:drop-shadow(0 0 6px var(--c))}
+.dl-chick.start{left:4px}
+.dl-chick.go{animation:dlRun var(--d) cubic-bezier(.35,.1,.45,1) both}
+@keyframes dlRun{from{left:4px}to{left:calc(100% - 52px)}}
+.dl-hop{display:inline-block;font-style:normal}.dl-chick.go .dl-hop{animation:dlHop .22s ease-in-out var(--n) alternate}
+@keyframes dlHop{to{transform:translateY(-9px) rotate(-8deg)}}
+.dl-place{font-style:normal;font-size:22px}.dl-place.late{animation:dlIn .4s both}
+/* fléchettes */
+.dl-board{width:min(280px,70vw);height:auto;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5))}
+.dl-dart{transform-box:fill-box;transform-origin:center}
+.dl-dart.go{animation:dlDart .35s cubic-bezier(.2,.8,.3,1) both}
+@keyframes dlDart{from{transform:scale(5);opacity:0}to{transform:scale(1);opacity:1}}
+.dl-legend{display:flex;gap:18px;justify-content:center;font-size:14px;flex-wrap:wrap}.dl-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+/* roue */
+.dl-wheel{width:min(210px,42vw);height:auto;display:block;margin:0 auto}
+.dl-wg.go{animation:dlWheel 3s cubic-bezier(.12,.6,.15,1) both}
+@keyframes dlWheel{from{transform:rotate(0)}to{transform:rotate(var(--to))}}
+/* far west */
+.dl-west{display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;width:100%;max-width:560px;text-align:center}
+.dl-cow{font-size:72px;display:inline-block;position:relative}
+.dl-cow.lose.go{animation:dlFall .8s .25s both}.dl-cow.lose:not(.go){transform:rotate(90deg) translateY(30px);opacity:.55}
+@keyframes dlFall{to{transform:rotate(90deg) translateY(30px);opacity:.55}}
+.dl-boom{position:absolute;left:10%;top:-8px;font-size:52px;font-style:normal}.dl-boom.go{animation:dlIn .3s .1s both}
+.dl-wmid{font:900 24px system-ui;min-height:70px;display:grid;place-items:center}
+.dl-wmid.fire{color:#ff4d7a;font-size:42px;animation:dlFire .25s infinite alternate}
+@keyframes dlFire{to{transform:scale(1.15) rotate(-3deg)}}
+.dl-shoot{border-color:#ff4d7a}.dl-shoot span{font-size:56px}
+/* pistolet à eau */
+.dl-cyl{width:min(190px,48vw);height:auto}
+.dl-cg.go{animation:dlCyl .6s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes dlCyl{from{transform:rotate(var(--from))}to{transform:rotate(var(--to))}}
+.dl-faces{display:flex;gap:70px;font-size:56px}.dl-face.wet{display:inline-block;animation:dlShake .5s 3}
+@keyframes dlShake{25%{transform:translateX(-8px) rotate(-6deg)}75%{transform:translateX(8px) rotate(6deg)}}
+.dl-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}.dl-chip{padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.09);font-size:13px}.dl-chip.ko{background:rgba(255,77,122,.35)}
+/* ballon */
+.dl-bwrap{height:250px;width:100%;display:grid;place-items:end center;overflow:hidden;position:relative;padding-bottom:14px}
+.dl-bal{width:60px;height:72px;border-radius:50% 50% 50% 50%/58% 58% 42% 42%;position:relative;transform-origin:50% 100%;box-shadow:inset -8px -10px 16px rgba(0,0,0,.25);margin-bottom:12px}
+.dl-bal::after{content:'';position:absolute;left:50%;bottom:-9px;margin-left:-6px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid var(--bc)}
+.dl-bal.go{animation:dlGrow .5s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes dlGrow{from{transform:scale(var(--f))}to{transform:scale(var(--t))}}
+.dl-bal.tense{animation:dlTense .16s infinite alternate}
+@keyframes dlTense{from{transform:scale(var(--t)) rotate(-1.5deg)}to{transform:scale(calc(var(--t) * 1.025)) rotate(1.5deg)}}
+.dl-boomb{position:absolute;left:50%;top:50%;margin:-60px 0 0 -60px;font-size:120px;font-style:normal;opacity:0}
+.dl-boomb.go{animation:dlPop .8s both}
+@keyframes dlPop{0%{transform:scale(.2);opacity:1}55%{transform:scale(1.6);opacity:1}100%{transform:scale(2.4);opacity:0}}
+.dl-popped{font:900 34px system-ui;color:#ffc93c;align-self:center}.dl-popped.late{animation:dlIn .4s .7s both}
 .cas-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:28px;align-items:start}
 @media (max-width:900px){.cas-wrap{grid-template-columns:1fr}}
 .cas-stage{position:relative;display:grid;place-items:center}
@@ -1266,6 +1336,6 @@ p.ptitle.big.esport{display:inline-block;padding:3px 14px;border-radius:999px;ma
 <div id="layer"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js" integrity="sha384-WmjsOVSSw3JNqIKfmDU35+uddOzBdP9PlYIWCg7xdnVOesjWVGpRcooOVheFFwH4" crossorigin="anonymous"></script>
-<script src="config.js?v=1795049091"></script>
-<script src="app.js?v=1795049091"></script>
+<script src="config.js?v=1795046421"></script>
+<script src="app.js?v=1795046421"></script>
 </body></html>
