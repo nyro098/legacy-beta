@@ -917,7 +917,7 @@ function casinoShopHTML(){
     '<div class="cc-wallet"><div class="cc-bal">' + CC_ICON + '<div><small>Ton solde</small><b>' + ccn(cc) + '</b></div></div><small class="cc-next">Échangé aujourd\'hui : ' + fmt(done) + ' / 160 VC</small><a class="btn sm" href="#casino">Aller au casino</a></div>' +
     '<div class="shop-grid cc-packs">' + packs.map(function(p){ var off = cc < p[0] || p[0] > left; return '<div class="shop-item cc-pack"><b class="cc-in">' + ccn(p[0]) + '</b><span aria-hidden="true">→</span><b class="cc-out">' + cn(p[1]) + '</b><button type="button" class="btn sm primary" data-cas="exch:' + p[0] + '"' + (off ? ' disabled' : '') + '>Échanger</button></div>'; }).join('') + '</div></section>' + casinoBuyHTML() + casinoTitlesHTML();
 }
-var CASINO_TITLES = {casino_rookie: ['🎲 Joueur du Casino', 50], casino_pro: ['🎰 Pro du Casino', 100], casino_high_roller: ['💎 High Roller', 200], casino_lucky: ['🍀 Lucky Seven', 300], casino_allin: ['🔥 All-In Legend', 500], casino_baron: ['👑 Baron du Casino', 800]};
+var CASINO_TITLES = {casino_rookie: ['🎲 Joueur du Casino', 150], casino_pro: ['🎰 Pro du Casino', 300], casino_high_roller: ['💎 High Roller', 600], casino_lucky: ['🍀 Lucky Seven', 900], casino_allin: ['🔥 All-In Legend', 1500], casino_baron: ['👑 Baron du Casino', 2400]};
 function casinoTitlesHTML(){
   var p = me(), cc = ccBal();
   return '<section><h2 class="sec shop-h">Titres exclusifs du casino</h2><p class="help" style="margin-bottom:12px">Impossibles à avoir autrement : ils s\'achètent uniquement en V-Coins, et s\'équipent comme les autres titres.</p><div class="title-grid">' + Object.keys(CASINO_TITLES).map(function(k){
@@ -3220,7 +3220,7 @@ function pickDialog(){
 }
 
 /* ---------- boutique ---------- */
-var ITEM_PRICE = 6;
+var ITEM_PRICE = 3;
 var TITLES = {best_fighter: 'Best Fighter', roi_box: 'Roi du Box Fight', edit_machine: 'Edit Machine', build_god: 'Build God', clutch: 'Clutch Master', zone_wars: 'Pro des Zone Wars',
   piece_control: 'Piece Control', invaincu: 'Invaincu', sniper: 'Sniper d\'élite', sang_froid: 'Sang-froid', tryhard: 'Tryhard assumé', legende: 'Légende de l\'arène',
   cracked: 'Cracked', sweaty: 'Sweaty', aim_god: 'Aim God', pioche: 'Maître de la pioche', speedrunner: 'Speedrunner', no_scope: 'No-Scope',
@@ -3262,7 +3262,7 @@ var RESERVED = {'banner:tera_warrior': ['tera x6', 'Tera'], 'banner:new_polska':
 var SCENES = ['oriong', 'new_polska', 'tera_warrior', 'shxwn', 'sig_ice', 'sig_fire', 'sig_toxic', 'sig_void', 'sig_gold', 'tera', 'peaks', 'night_sea', 'forest', 'cyber_city', 'volcano', 'storm_eye', 'saturn', 'synthwave', 'arena', 'phoenix', 'throne'];
 var WIN_ICON = {confetti: '🎉', lightning: '⚡', fireworks: '🎆', money: '💸', crown: '👑'};
 function ownersOf(i){ var n = 0; for (var k in S.players) { var p = S.players[k]; if ((p.owned || []).indexOf(i) >= 0) n++; } return n; }
-function itemPrice(i){ if (i.indexOf('title:') === 0) { var k = i.slice(6); return RARE_TITLES[k] ? RARE_TITLES[k][1] * 2 : ITEM_PRICE; } return CATALOG[i] ? CATALOG[i][1] * 2 : ITEM_PRICE; }
+function itemPrice(i){ if (i.indexOf('title:') === 0) { var k = i.slice(6); return RARE_TITLES[k] ? RARE_TITLES[k][1] : ITEM_PRICE; } return CATALOG[i] ? CATALOG[i][1] : ITEM_PRICE; }
 function isVipItem(i){ return i === 'neon' || i === 'gif' || (i.indexOf('title:') === 0 && !RARE_TITLES[i.slice(6)]); }
 function hasItem(i){ var p = me(); return !!(p && ((p.owned || []).indexOf(i) >= 0 || (p.vip && isVipItem(i)))); }
 function itemName(i){ return i === 'neon' ? 'Pseudo néon' : i === 'gif' ? 'Photo de profil animée' : i.indexOf('title:') === 0 ? 'Titre « ' + (TITLES[i.slice(6)] || i) + ' »' : (CATALOG[i] ? (i.indexOf('emoji:') === 0 ? 'Emoji ' : '') + CATALOG[i][0] : i); }
