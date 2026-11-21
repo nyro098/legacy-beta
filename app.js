@@ -10,6 +10,8 @@ function boLabel(m){ return esc(BO_LABEL[m.bo] || m.bo) + ' · Kill lead ' + (m.
 var COIN = '<svg class="coin" viewBox="0 0 20 20" aria-hidden="true"><circle class="c1" cx="10" cy="10" r="9"/><circle class="c2" cx="10" cy="10" r="6.5"/><path class="c3" d="M8.2 6.2v7.4h4"/></svg>';
 var EMAIL_DOMAIN = 'legacy-beta.app';
 var DISCORD_URL = 'https://discord.gg/EpNWaAscD';
+// appli Discord du bot Legacy (identifiant public) : sert à la vérification « Vérifier / Lier mon Discord »
+var DC_CLIENT_ID = (window.LEGACY_CONFIG && window.LEGACY_CONFIG.discordClientId) || '';
 var DC_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M20.3 4.4A19.6 19.6 0 0 0 15.4 3l-.6 1.3a18 18 0 0 0-5.6 0L8.6 3a19.6 19.6 0 0 0-4.9 1.5C.6 9.1-.3 13.6.1 18a19.8 19.8 0 0 0 6 3l1.3-2.1a12.7 12.7 0 0 1-2-1l.5-.4a14 14 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.7 19.7 0 0 0 6-3c.5-5.1-.8-9.6-3.6-13.6zM8 15.3c-1.2 0-2.1-1.1-2.1-2.4S6.8 10.5 8 10.5s2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4zm8 0c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4z"/></svg>';
 function dcBtn(label){ return '<a class="btn sm discord-btn dc-top" href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer" title="Rejoindre le serveur Discord GRIND">' + DC_ICON + '<span>' + label + '</span></a>'; }
 
@@ -41,7 +43,7 @@ var S = {players: {}, matches: {}, bets: {}, me: null, lastMatch: null};
 var txCache = {};
 var loaded = false, loadErr = '';
 
-function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, cc: Number(p.casino_coins) || 0, ccClaim: p.casino_claim_at ? Date.parse(p.casino_claim_at) : 0, lfm: p.lfm_until ? Date.parse(p.lfm_until) : 0, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || (CASINO_TITLES[p.title] ? CASINO_TITLES[p.title][0] : '')), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, esport: !!p.is_esport, joined: p.discord_joined, avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
+function mapPlayer(p){ return {id: p.id, pseudo: p.pseudo, cc: Number(p.casino_coins) || 0, ccClaim: p.casino_claim_at ? Date.parse(p.casino_claim_at) : 0, lfm: p.lfm_until ? Date.parse(p.lfm_until) : 0, anon: !!p.anon_join, twitch: p.twitch || '', fortnite: p.fortnite || '', epic: !!p.epic_id, vip: !!p.vip && !!p.vip_until && Date.parse(p.vip_until) > Date.now(), vipUntil: p.vip_until ? Date.parse(p.vip_until) : 0, statsResetAt: p.stats_reset_at ? Date.parse(p.stats_reset_at) : 0, nameStyle: p.name_style || '', titleKey: p.title || '', title: (TITLES[p.title] || WHEEL_TITLES[p.title] || (CASINO_TITLES[p.title] ? CASINO_TITLES[p.title][0] : '')), owned: p.owned_items || [], eq: p.equipped || {}, vipSince: p.vip_since ? Date.parse(p.vip_since) : 0, discord: p.discord, twitter: p.twitter, bio: p.bio, balance: Number(p.balance), admin: p.is_admin, owner: p.is_owner, esport: !!p.is_esport, joined: p.discord_joined, dcOk: !!p.discord_verified_at,avatar: p.avatar_url || '', rulesAt: p.rules_accepted_at ? Date.parse(p.rules_accepted_at) : 0, status: (p.status === 'restricted' && p.restricted_until && Date.parse(p.restricted_until) <= Date.now()) ? 'ok' : (p.status || 'ok'), statusReason: p.status_reason || '', restrictedUntil: p.restricted_until ? Date.parse(p.restricted_until) : 0, createdAt: Date.parse(p.created_at)}; }
 function mapMatch(m){
   return {id: m.id, creator: m.creator, teamA: m.team_a || [], teamB: m.team_b || [], size: m.size, format: m.size + 'v' + m.size, mode: m.mode, bo: m.bo,
     stake: Number(m.stake), pingpong: !!m.pingpong, noBreak: !!m.no_break, killLead: m.kill_lead != null ? Number(m.kill_lead) : 1, rules: m.rules, target: m.target, status: m.status, declA: m.decl_a, declB: m.decl_b, winner: m.winner, adminWinner: m.admin_resolved,
@@ -53,7 +55,7 @@ function mapMatch(m){
 }
 function refresh(){
   return Promise.all([
-    sb.from('profiles').select('id,pseudo,' + (S.me ? 'discord,' : '') + 'twitter,bio,balance,is_admin,is_owner,is_esport,discord_joined,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,lfm_until,casino_coins,casino_claim_at,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
+    sb.from('profiles').select('id,pseudo,' + (S.me ? 'discord,' : '') + 'twitter,bio,balance,is_admin,is_owner,is_esport,discord_joined,discord_verified_at,avatar_url,rules_accepted_at,status,status_reason,restricted_until,last_seen,lfm_until,casino_coins,casino_claim_at,vip,vip_since,name_style,title,owned_items,equipped,stats_reset_at,vip_until,anon_join,twitch,fortnite,epic_id,created_at'),
     sb.from('matches').select('*').order('created_at', {ascending: false}).limit(400),
     S.me ? sb.from('friendships').select('requester,addressee,status,created_at') : Promise.resolve({data: []}),
     S.me ? sb.from('teams').select('id,name,owner,size,created_at') : Promise.resolve({data: []}),
@@ -117,16 +119,19 @@ function rpc(fn, args){
 
 /* ---------- comptes : 1 Discord = 1 compte ---------- */
 function normDiscord(v){ return String(v || '').trim().toLowerCase(); }
-function emailFor(discord){
-  return crypto.subtle.digest('SHA-256', new TextEncoder().encode('legacy|' + normDiscord(discord))).then(function(b){
-    var hex = Array.prototype.map.call(new Uint8Array(b), function(x){ return ('0' + x.toString(16)).slice(-2); }).join('');
-    return 'd' + hex.slice(0, 40) + '@' + EMAIL_DOMAIN;
+function sha40(s){
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function(b){
+    return Array.prototype.map.call(new Uint8Array(b), function(x){ return ('0' + x.toString(16)).slice(-2); }).join('').slice(0, 40);
   });
 }
+// anciens comptes : e-mail technique tiré du pseudo Discord tapé à l'inscription
+function emailFor(discord){ return sha40('legacy|' + normDiscord(discord)).then(function(h){ return 'd' + h + '@' + EMAIL_DOMAIN; }); }
+// nouveaux comptes : e-mail technique tiré de l'identifiant Discord vérifié (la base le contrôle)
+function emailForId(id){ return sha40('legacy|id:' + String(id)).then(function(h){ return 'd' + h + '@' + EMAIL_DOMAIN; }); }
 function signup(d){
-  var pseudo = String(d.pseudo || '').trim(), discord = String(d.discord || '').trim(), pw = String(d.password || '');
-  if (!discord) return Promise.resolve({ok: false, msg: 'Entre ton Discord.'});
-  if (discord.length > 64) return Promise.resolve({ok: false, msg: 'Discord trop long (64 caractères max).'});
+  var t = dcTicket();
+  if (!t) return Promise.resolve({ok: false, msg: 'Vérifie d\'abord ton Discord avec le bouton bleu.'});
+  var pseudo = String(d.pseudo || '').trim(), discord = t.name, pw = String(d.password || '');
   if (pseudo.length < 2 || pseudo.length > 24 || /[\u0000-\u001f\u007f]/.test(pseudo)) return Promise.resolve({ok: false, msg: 'Le pseudo fait 2 à 24 caractères (espaces et caractères spéciaux autorisés).'});
   if (pw.length < 8) return Promise.resolve({ok: false, msg: 'Le mot de passe fait au moins 8 caractères.'});
   if (/^(.)\1+$|^(12345678|123456789|azertyui|azertyuiop|password|motdepasse|fortnite)/i.test(pw)) return Promise.resolve({ok: false, msg: 'Mot de passe trop facile à deviner, choisis-en un autre.'});
@@ -135,19 +140,32 @@ function signup(d){
     if (c.error) return {ok: false, msg: cleanErr(c.error.message)};
     if (c.data === 'discord') return {ok: false, msg: 'Ce Discord a déjà un compte. Connecte-toi avec ton mot de passe.'};
     if (c.data === 'pseudo') return {ok: false, msg: 'Ce pseudo est déjà pris.'};
-    return emailFor(discord).then(function(email){
-      return sb.auth.signUp({email: email, password: pw, options: {data: {pseudo: pseudo, discord: discord, twitter: String(d.twitter || '').trim().replace(/^@/, '')}}});
+    return emailForId(t.id).then(function(email){
+      return sb.auth.signUp({email: email, password: pw, options: {data: {pseudo: pseudo, discord: discord, discord_ticket: t.ticket, twitter: String(d.twitter || '').trim().replace(/^@/, '')}}});
     }).then(function(r){
-      if (r.error) return {ok: false, msg: /registered|exists/i.test(r.error.message) ? 'Ce Discord a déjà un compte.' : cleanErr(r.error.message)};
+      if (r.error) {
+        if (/registered|exists/i.test(r.error.message)) return {ok: false, msg: 'Ce Discord a déjà un compte. Connecte-toi avec ton mot de passe.'};
+        if (/database error/i.test(r.error.message)) return {ok: false, msg: 'Inscription refusée : ta vérification Discord a peut-être expiré. Clique sur « Changer » pour revérifier ton Discord, puis réessaie.'};
+        return {ok: false, msg: cleanErr(r.error.message)};
+      }
       if (!r.data.session) return {ok: false, msg: 'Compte créé mais la confirmation par e-mail est activée sur Supabase : désactive « Confirm email ».'};
+      try { sessionStorage.removeItem(DC_TICKET_KEY); } catch (e) {}
       return {ok: true};
     });
   });
 }
 function login(d){
-  var discord = String(d.discord || '').trim();
-  if (!discord || !d.password) return Promise.resolve({ok: false, msg: 'Entre ton Discord et ton mot de passe.'});
-  return emailFor(discord).then(function(email){ return sb.auth.signInWithPassword({email: email, password: String(d.password)}); }).then(function(r){
+  var discord = String(d.discord || '').trim(), pw = String(d.password || '');
+  if (!discord || !pw) return Promise.resolve({ok: false, msg: 'Entre ton Discord et ton mot de passe.'});
+  var first = '';
+  function attempt(email){ return sb.auth.signInWithPassword({email: email, password: pw}); }
+  return emailFor(discord).then(function(email){ first = email; return attempt(email); }).then(function(r){
+    if (!r.error || !/invalid/i.test(r.error.message)) return r;
+    // compte vérifié : on accepte aussi son vrai nom d'utilisateur Discord
+    return sb.rpc('login_email_for', {p_discord: discord}).then(function(x){
+      return x.data && x.data !== first ? attempt(x.data) : r;
+    });
+  }).then(function(r){
     if (r.error) return {ok: false, msg: /invalid/i.test(r.error.message) ? 'Discord ou mot de passe incorrect.' : cleanErr(r.error.message)};
     return {ok: true};
   });
@@ -641,7 +659,7 @@ function profileHTML(){
   if (own && editing) {
     html += '<section class="card" style="max-width:560px"><h2 class="sec">Modifier mon profil</h2><form data-form="edit" novalidate>' +
       '<label for="e-pseudo">Pseudo</label><input id="e-pseudo" name="pseudo" required maxlength="24" autocomplete="off" value="' + esc(p.pseudo) + '">' +
-      '<label>Discord (identifiant de connexion)</label><input value="' + esc(p.discord) + '" disabled>' +
+      '<label>Discord ' + (p.dcOk ? 'vérifié ✅' : '(identifiant de connexion)') + '</label><input value="' + esc(p.discord) + '" disabled>' +
       '<label for="e-twitch">Ta chaîne Twitch (facultatif)</label><input id="e-twitch" name="twitch" maxlength="60" autocomplete="off" value="' + esc(p.twitch) + '" placeholder="Ton pseudo Twitch ou le lien de ta chaîne"><p class="hint">Si tu es en live pendant un match, ton stream s’affichera automatiquement sur la page du match.</p>' +
       '<label for="e-fortnite">Ton pseudo Fortnite</label><input id="e-fortnite" name="fortnite" maxlength="32" autocomplete="off" value="' + esc(p.fortnite) + '" placeholder="Ton nom dans Fortnite"' + (p.epic ? ' disabled' : '') + '><p class="hint">' + (p.epic ? '✅ Synchronisé avec ton compte Epic Games : il se met à jour tout seul.' : 'Tes adversaires s’en servent pour t’ajouter en jeu. Pense à le changer ici si tu changes de pseudo dans Fortnite.') + '</p>' +
       '<label for="e-twitter">X / Twitter (facultatif)</label><input id="e-twitter" name="twitter" maxlength="33" autocomplete="off" value="' + esc(p.twitter) + '" placeholder="@pseudo">' +
@@ -651,7 +669,7 @@ function profileHTML(){
     html += '<section class="phead' + (p.eq && p.eq.banner ? ' bn bn-' + p.eq.banner.split(':')[1] + (SCENES.indexOf(p.eq.banner.split(':')[1]) >= 0 ? ' scene' : '') : '') + '">' + (p.eq && p.eq.banner ? sigHTML(p.eq.banner.split(':')[1], p.pseudo) : '') + av(p, 'xl') + '<div style="min-width:0"><p class="eyebrow">' + (own ? 'Ton profil' : 'Profil joueur') + (p.owner ? ' · fondateur' : p.admin ? ' · admin' : '') + ' · Saison 1</p><h1>' + nm(p) + ' ' + rankBadge(pid, true) + '</h1>' + (p.esport ? '<p class="ptitle big esport">⭐ ' + ESPORT_TITLE + '</p>' : '') + (p.title ? '<p class="ptitle big' + titleTier(p.titleKey) + '">' + esc(p.title) + '</p>' : '') + '<div class="links">' +
       (p.fortnite ? '<span class="fn-link">🎮 Fortnite : <b>' + esc(p.fortnite) + '</b>' + (p.epic ? ' <i class="fn-ok" title="Vérifié avec Epic Games">✅</i>' : '') + ' <button class="btn sm ghost" data-act="copy-fn" data-pid="' + esc(pid) + '" title="Copier le pseudo Fortnite">Copier</button></span>' : (own ? '<span><button class="btn sm" data-act="edit-on">🎮 Ajouter mon pseudo Fortnite</button></span>' : '')) +
       (own && EPIC_ID && (p.epic || EPIC_PUBLIC || isOwner()) ? (p.epic ? '<span class="fn-link">✅ Compte Epic lié <button class="btn sm ghost" data-act="epic-unlink">Délier</button></span>' : '<span><button class="btn sm epic-btn" data-act="epic-link">Lier mon compte Epic Games</button></span>') : '') +
-      (p.discord ? '<span>Discord : ' + esc(p.discord) + '</span>' : '') +
+      (p.discord ? '<span>Discord : ' + esc(p.discord) + (p.dcOk ? ' <i class="fn-ok" title="Compte Discord vérifié">✅</i>' : '') + '</span>' : '') +
       (p.twitch ? '<a href="https://www.twitch.tv/' + encodeURIComponent(p.twitch) + '" target="_blank" rel="noopener noreferrer">Twitch : ' + esc(p.twitch) + (isLive(p.twitch) ? ' <b class="live-dot">🔴 LIVE</b>' : '') + '</a>' : '') + (p.twitter ? '<a href="https://x.com/' + encodeURIComponent(p.twitter) + '" target="_blank" rel="noopener noreferrer">X : @' + esc(p.twitter) + '</a>' : '') +
       '<span>Inscrit ' + ago(p.createdAt) + '</span></div>' + (p.bio ? '<p style="margin-top:10px;max-width:56ch;color:var(--fg-2)">' + esc(p.bio) + '</p>' : '') + '</div>' +
       '<div class="actions">' + (own && isOwner() ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Me retirer des coins</button>' : '') + (own ? '<button class="btn anon-toggle' + (p.anon ? ' on' : '') + '" data-act="toggle-anon" title="Ton pseudo est caché quand tu rejoins un défi, jusqu’au début du match">🕶️ Mode anonyme : ' + (p.anon ? 'activé' : 'désactivé') + '</button>' : '') + (own ? '<button class="btn ghost" data-act="reset-stats"' + (avail(S.me) < 5 ? ' disabled title="Il te faut 5 coins"' : '') + '>🔄 Remettre mes stats à zéro · ' + cn(5) + '</button>' : '') + (own ? '<label class="btn primary" style="margin:0;cursor:pointer;color:#fff;letter-spacing:.08em">' + (p.avatar ? 'Changer la photo' : 'Ajouter une photo') + '<input type="file" id="avatar-file" accept="image/*" hidden></label>' + (p.avatar ? '<button class="btn ghost" data-act="avatar-remove">Retirer la photo</button>' : '') + '<button class="btn" data-act="edit-on">Modifier le profil</button>' : friendBtn(pid) + '<button class="btn" data-act="tip-dialog" data-pid="' + esc(pid) + '">Donner des coins</button>' + (isAdmin() && (isOwner() || !p.owner) ? '<button class="btn admin" data-act="admin-dialog" data-pid="' + esc(pid) + '">Admin : donner des coins</button>' : '') + (isOwner() && pid !== S.me ? '<button class="btn danger" data-act="admin-dialog" data-mode="remove" data-pid="' + esc(pid) + '">Retirer des coins</button>' : '')) + '</div></section>';
@@ -3810,21 +3828,30 @@ function oldRulesHTML(){
     '<li><div><b>À zéro coin ?</b><p>Tu gardes ton profil et n\'importe quel joueur peut t\'envoyer des coins avec un pourboire.</p></div></li></ol>';
 }
 
+// inscription en 2 étapes : 1) vérifier son vrai compte Discord, 2) pseudo + mot de passe
+function signupFormHTML(){
+  var t = dcTicket();
+  if (!t) return '<div class="dc-verify"><p class="eyebrow">Étape 1 sur 2</p><p style="margin-top:6px;font-weight:700">Vérifie ton compte Discord</p>' +
+    '<p class="hint" style="margin-top:10px">Discord te demande d\'autoriser Legacy, puis tu reviens ici. Le site ne reçoit que ton nom d\'utilisateur Discord : ni ton e-mail, ni ton mot de passe. Un Discord = un seul compte Legacy.</p>' +
+    '<button class="btn lg discord-btn" type="button" data-act="dc-verify" style="width:100%;margin-top:16px">' + DC_ICON + '<span>Vérifier mon Discord</span></button></div>';
+  return '<form data-form="signup" novalidate><p class="eyebrow">Étape 2 sur 2</p>' +
+    '<div class="dc-ok-box">' + DC_ICON + '<span>Discord vérifié : <b>' + esc(t.name) + '</b> ✅</span><button class="linkbtn" type="button" data-act="dc-verify">Changer</button></div>' +
+    '<label for="w-pseudo">Pseudo Fortnite</label><input id="w-pseudo" name="pseudo" required maxlength="24" autocomplete="off" placeholder="Ton pseudo exact, espaces et symboles OK">' +
+    '<div class="row"><div><label for="w-pw">Mot de passe</label><input id="w-pw" name="password" type="password" required autocomplete="new-password"></div>' +
+    '<div><label for="w-pw2">Confirmer</label><input id="w-pw2" name="password2" type="password" required autocomplete="new-password"></div></div>' +
+    '<label for="w-twitter">X / Twitter (facultatif)</label><input id="w-twitter" name="twitter" maxlength="33" autocomplete="off" placeholder="@pseudo">' +
+    '<p class="hint">Pour te connecter ensuite : ton nom Discord <b>' + esc(t.name) + '</b> et ce mot de passe (8 caractères minimum).</p>' +
+    '<p class="err" role="alert"></p><button class="btn primary" type="submit" style="width:100%">Créer mon compte</button></form>';
+}
 function welcomeHTML(){
   return betaBar() + '<div class="wrap welcome"><div><div class="logo">' + LOGO + '<span>Legacy</span><em class="beta">BÊTA</em></div><h1>Les défis Fortnite qui comptent.</h1><p style="color:var(--fg-2);margin-top:16px;max-width:42ch">Mise des coins, gagne contre un autre joueur ou une autre équipe et grimpe au classement. ' + cn(START) + ' offerts à l\'inscription.</p><div style="margin-top:18px">' + dcBtn('Rejoindre le Discord GRIND') + '</div></div>' +
     '<div class="card auth"><div class="tabs" role="tablist" style="margin-bottom:6px"><button role="tab" aria-selected="' + (authTab === 'login') + '" data-act="auth-tab" data-tab="login">Connexion</button><button role="tab" aria-selected="' + (authTab === 'signup') + '" data-act="auth-tab" data-tab="signup">Inscription</button></div>' +
     (authTab === 'login'
-      ? '<form data-form="login" novalidate><label for="l-discord">Discord</label><input id="l-discord" name="discord" required maxlength="64" autocomplete="username" placeholder="Ton pseudo Discord">' +
+      ? '<form data-form="login" novalidate><label for="l-discord">Discord</label><input id="l-discord" name="discord" required maxlength="64" autocomplete="username" placeholder="Ton nom d\'utilisateur Discord">' +
         '<label for="l-pw">Mot de passe</label><input id="l-pw" name="password" type="password" required autocomplete="current-password">' +
         '<p class="err" role="alert"></p><button class="btn primary" type="submit" style="width:100%">Se connecter</button></form>' +
         '<p class="hint" style="margin-top:16px">Pas encore de compte ? <button class="linkbtn" data-act="auth-tab" data-tab="signup">Inscris-toi</button> et reçois ' + cn(START) + '.</p>'
-      : '<form data-form="signup" novalidate><label for="w-discord">Discord</label><input id="w-discord" name="discord" required maxlength="64" autocomplete="username" placeholder="Ton pseudo Discord">' +
-        '<label for="w-pseudo">Pseudo Fortnite</label><input id="w-pseudo" name="pseudo" required maxlength="24" autocomplete="off" placeholder="Ton pseudo exact, espaces et symboles OK">' +
-        '<div class="row"><div><label for="w-pw">Mot de passe</label><input id="w-pw" name="password" type="password" required autocomplete="new-password"></div>' +
-        '<div><label for="w-pw2">Confirmer</label><input id="w-pw2" name="password2" type="password" required autocomplete="new-password"></div></div>' +
-        '<label for="w-twitter">X / Twitter (facultatif)</label><input id="w-twitter" name="twitter" maxlength="33" autocomplete="off" placeholder="@pseudo">' +
-        '<p class="hint">Un seul compte par Discord. Tous les caractères sont acceptés. Mot de passe : 8 caractères minimum.</p>' +
-        '<p class="err" role="alert"></p><button class="btn primary" type="submit" style="width:100%">Créer mon compte</button></form>') +
+      : signupFormHTML()) +
     '</div></div>';
 }
 
@@ -4036,9 +4063,18 @@ function adminDialog(pid, mode){
 function discordGateHTML(){
   return betaBar() + '<div class="wrap welcome"><div><div class="logo">' + LOGO + '<span>Legacy</span><em class="beta">BÊTA</em></div><h1>Dernière étape.</h1><p style="color:var(--fg-2);margin-top:16px;max-width:42ch">Salut <b>' + esc(me().pseudo) + '</b> ! Pour jouer sur Legacy, rejoins le serveur Discord <b>GRIND</b>. C\'est obligatoire et ça ne se fait qu\'une seule fois.</p></div>' +
     '<div class="card"><h2 class="sec">Rejoins le Discord</h2>' +
-    '<ol class="dc-steps"><li>Clique sur le bouton bleu et rejoins le serveur.</li><li>Reviens ici et clique sur « J\'ai rejoint le serveur ».</li></ol>' +
+    '<ol class="dc-steps"><li>Clique sur le bouton bleu et rejoins le serveur' + (me().discord ? ' avec ton compte Discord <b>' + esc(me().discord) + '</b>' : '') + '.</li><li>Reviens ici et clique sur « J\'ai rejoint, vérifier » : le bot contrôle que tu es bien sur le serveur.</li></ol>' +
     '<div class="actions" style="margin-top:18px"><a class="btn lg discord-btn" href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer" data-act="discord-open">' + DC_ICON + '<span>Ouvrir le serveur Discord</span></a></div>' +
-    '<div class="actions" style="margin-top:12px"><button class="btn win lg" id="dc-ok" data-act="discord-confirm">J\'ai rejoint le serveur</button></div>' +
+    '<div class="actions" style="margin-top:12px"><button class="btn win lg" id="dc-ok" data-act="discord-confirm">J\'ai rejoint, vérifier</button></div>' +
+    '<p class="hint" style="margin-top:14px">Pas le bon compte ? <button class="linkbtn" data-act="logout">Se déconnecter</button></p></div></div>';
+}
+// anciens comptes : liaison obligatoire du vrai compte Discord avant de jouer
+function linkGateHTML(){
+  return betaBar() + '<div class="wrap welcome"><div><div class="logo">' + LOGO + '<span>Legacy</span><em class="beta">BÊTA</em></div><h1>Lie ton Discord.</h1><p style="color:var(--fg-2);margin-top:16px;max-width:44ch">Salut <b>' + esc(me().pseudo) + '</b> ! Pour bloquer les faux comptes, chaque joueur doit maintenant lier son vrai compte Discord. Tu gardes ton compte, tes coins et ton historique.</p></div>' +
+    '<div class="card"><h2 class="sec">Vérification Discord</h2>' +
+    '<ol class="dc-steps"><li>Clique sur le bouton bleu.</li><li>Discord te demande d\'autoriser Legacy : accepte.</li><li>Tu reviens ici automatiquement.</li></ol>' +
+    '<p class="hint" style="margin-top:12px">Legacy ne reçoit que ton nom d\'utilisateur Discord : ni ton e-mail, ni ton mot de passe. Un Discord ne peut être lié qu\'à un seul compte.</p>' +
+    '<div class="actions" style="margin-top:18px"><button class="btn lg discord-btn" id="dc-link" data-act="dc-link">' + DC_ICON + '<span>Lier mon Discord</span></button></div>' +
     '<p class="hint" style="margin-top:14px">Pas le bon compte ? <button class="linkbtn" data-act="logout">Se déconnecter</button></p></div></div>';
 }
 function discordDialog(){ return ''; }
@@ -4086,9 +4122,10 @@ function render(){
     return;
   }
   if (S.me && !me()) S.me = null;
-  if (!me() || me().status === 'banned' || !me().rulesAt || !me().joined) { updateStreamsHost(false); var f0 = document.getElementById('foot'); if (f0) f0.innerHTML = ''; }
+  if (!me() || me().status === 'banned' || !me().dcOk || !me().rulesAt || !me().joined) { updateStreamsHost(false); var f0 = document.getElementById('foot'); if (f0) f0.innerHTML = ''; }
   if (!me()) { app.innerHTML = welcomeHTML(); return; }
   if (me().status === 'banned') { app.innerHTML = bannedHTML(); return; }
+  if (!me().dcOk) { if (!document.getElementById('dc-link')) { app.innerHTML = linkGateHTML(); window.scrollTo(0, 0); } return; }
   if (!me().rulesAt) { if (!document.getElementById('rules-btn')) { app.innerHTML = rulesGateHTML(); window.scrollTo(0, 0); } return; }
   if (!me().joined) { if (!document.getElementById('dc-ok')) app.innerHTML = discordGateHTML(); return; }
   var v = viewName();
@@ -4220,8 +4257,13 @@ function act(name, el){
       break;
     case 'discord-confirm':
       if (busy) break; busy = true;
-      rpc('confirm_discord_join', {}).then(function(r){ busy = false; if (!r.ok) { toast(r.msg); return; } closeDialog(); toast('Bienvenue dans la commu ! Tu peux jouer.'); document.getElementById('app').innerHTML = ''; location.hash = '#arene'; render(); });
+      dcCall({action: 'check_guild'}).then(function(r){
+        if (!r.in_guild) { busy = false; toast('Le bot ne te trouve pas encore sur le serveur. Rejoins-le avec le bouton bleu' + (me().discord ? ' (compte ' + me().discord + ')' : '') + ', puis réessaie.'); return; }
+        return refresh().then(function(){ busy = false; closeDialog(); toast('Bienvenue dans la commu ! Tu peux jouer.'); document.getElementById('app').innerHTML = ''; location.hash = '#arene'; render(); });
+      }, function(e){ busy = false; toast(e.message); });
       break;
+    case 'dc-verify': dcStart('signup'); break;
+    case 'dc-link': dcStart('link'); break;
     case 'tip-dialog': openDialog({kind: 'tip', pid: d.pid || null}); break;
     case 'gift-dialog': openDialog({kind: 'gift', item: d.item || 'fx:galaxy', locked: !!d.item}); break;
     case 'gift-reveal-open':
@@ -4583,6 +4625,60 @@ function ownerPanelHTML(pid){
   return html;
 }
 
+/* ---------- vérification Discord (OAuth2, fonction Supabase « discord-auth ») ---------- */
+var DC_STATE_KEY = 'legacy-dc-state', DC_TICKET_KEY = 'legacy-dc-ticket';
+function dcRedirect(){ return location.origin + location.pathname.replace(/index\.html$/, ''); }
+function b64url(bytes){ var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+// PKCE : un code temporaire créé ici remplace la clé secrète de l'appli Discord (client public)
+function dcStart(mode){
+  if (!DC_CLIENT_ID) { toast('La vérification Discord n\'est pas encore configurée.'); return; }
+  var st = b64url(crypto.getRandomValues(new Uint8Array(16))), verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
+  crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(function(h){
+    try { sessionStorage.setItem(DC_STATE_KEY, JSON.stringify({s: st, v: verifier, mode: mode})); } catch (e) {}
+    location.href = 'https://discord.com/oauth2/authorize?client_id=' + encodeURIComponent(DC_CLIENT_ID) + '&response_type=code&scope=identify&redirect_uri=' + encodeURIComponent(dcRedirect()) + '&state=' + encodeURIComponent(st) + '&code_challenge=' + b64url(new Uint8Array(h)) + '&code_challenge_method=S256';
+  });
+}
+function dcCall(body){
+  return sb.functions.invoke('discord-auth', {body: body}).then(function(r){
+    if (!r.error) return r.data || {};
+    var ctx = r.error.context;
+    return (ctx && ctx.json ? ctx.json().catch(function(){ return {}; }) : Promise.resolve({})).then(function(j){
+      var e = new Error((j && j.error) || 'La vérification Discord a échoué. Réessaie.'); e.taken = !!(j && j.taken); throw e;
+    });
+  });
+}
+// ticket de vérification gardé le temps de finir l'inscription (le serveur le refuse après 30 min)
+function dcTicket(){
+  try { var t = JSON.parse(sessionStorage.getItem(DC_TICKET_KEY) || 'null'); if (t && t.ticket && t.id && Date.now() - t.at < 25 * 60000) return t; } catch (e) {}
+  return null;
+}
+// retour de Discord (?code=…&state=…) : renvoie false si ce n'est pas pour nous (liaison Epic)
+function dcReturn(){
+  var q = new URLSearchParams(location.search), code = q.get('code'), st = q.get('state'), saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem(DC_STATE_KEY) || 'null'); } catch (e) {}
+  if (!saved || !st || saved.s !== st) return false;
+  try { sessionStorage.removeItem(DC_STATE_KEY); } catch (e) {}
+  history.replaceState(null, '', location.pathname);
+  if (!code) { toast('Vérification Discord annulée.'); render(); return true; }
+  busy = true;
+  if (saved.mode === 'signup') {
+    authTab = 'signup'; render();
+    dcCall({action: 'verify', code: code, code_verifier: saved.v || '', redirect_uri: dcRedirect()}).then(function(d){
+      busy = false;
+      try { sessionStorage.setItem(DC_TICKET_KEY, JSON.stringify({ticket: d.ticket, id: d.discord_id, name: d.username, guild: !!d.in_guild, at: Date.now()})); } catch (e) {}
+      toast('Discord vérifié : ' + d.username + '. Termine ton inscription.');
+      render();
+    }, function(e){ busy = false; if (e.taken) authTab = 'login'; toast(e.message); render(); });
+  } else {
+    dcCall({action: 'link', code: code, code_verifier: saved.v || '', redirect_uri: dcRedirect()}).then(function(d){
+      busy = false;
+      toast('Discord lié : ' + d.username + (d.in_guild ? '. Le bot te voit bien sur le serveur !' : '. Rejoins maintenant le serveur.'));
+      return refresh();
+    }, function(e){ busy = false; toast(e.message); }).then(function(){ document.getElementById('app').innerHTML = ''; render(); });
+  }
+  return true;
+}
+
 /* ---------- connexion Epic Games ---------- */
 var EPIC_ID = (window.LEGACY_CONFIG && window.LEGACY_CONFIG.epicClientId) || '';
 // tant qu'Epic n'a pas validé la marque (Brand Review), seul le fondateur peut lier son compte
@@ -4627,7 +4723,7 @@ if (sb) {
     S.me = s.data.session ? s.data.session.user.id : null;
     if (S.me) beat();
     return refresh();
-  }).then(function(){ render(); epicReturn(); beat(); });
+  }).then(function(){ render(); if (!dcReturn()) epicReturn(); beat(); });
   sb.auth.onAuthStateChange(function(ev, session){
     S.me = session ? session.user.id : null;
     if (S.me) beat();
